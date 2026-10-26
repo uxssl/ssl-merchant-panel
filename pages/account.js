@@ -103,11 +103,12 @@ function storeDrawer(st) {
 // ----- Store List ------------------------------------------------------
 function renderStoreList() {
   const s = pageState();
-  const q = s.search.trim().toLowerCase();
+  const f = applied(s);
+  const q = f.search.trim().toLowerCase();
   const rows = ACCOUNT_STORES.filter(st =>
     (!q || st.id.includes(q) || st.name.toLowerCase().includes(q) || st.baseUrl.includes(q)) &&
-    (s.currency === 'all' || st.currency === s.currency) && (s.emi === 'all' || st.emi === s.emi) &&
-    (s.stype === 'all' || st.type === s.stype) && (s.status === 'all' || st.status === s.status));
+    (f.currency === 'all' || st.currency === f.currency) && (f.emi === 'all' || st.emi === f.emi) &&
+    (f.stype === 'all' || st.type === f.stype) && (f.status === 'all' || st.status === f.status));
   const opts = (list, all) => [{ label: all, value: 'all' }, ...list.map(v => ({ label: v, value: v }))];
   const cols = [
     { label: 'Store', cell: st => `<div class="font-medium text-slate-800">${esc(st.name)}</div><div class="text-[11px] font-mono text-slate-500">${st.id}</div>` },
@@ -125,10 +126,10 @@ function renderStoreList() {
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Store ID, name or Base URL',
-          selectPill('list', 'currency', 'Currency', opts(['BDT', 'USD', 'EUR'], 'All Currencies'), s.currency, 'banknote') +
-          selectPill('list', 'emi', 'EMI Status', opts(['EMI Enabled', 'No EMI'], 'All'), s.emi, 'percent') +
-          selectPill('list', 'stype', 'Type', opts(['Only Online', 'Only QR', 'Online & QR'], 'All Types'), s.stype, 'layers') +
-          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status, 'circle-dot'),
+          selectPill('list', 'currency', 'Currency', opts(['BDT', 'USD', 'EUR'], 'All Currencies'), s.currency) +
+          selectPill('list', 'emi', 'EMI Status', opts(['EMI Enabled', 'No EMI'], 'All'), s.emi) +
+          selectPill('list', 'stype', 'Type', opts(['Only Online', 'Only QR', 'Online & QR'], 'All Types'), s.stype) +
+          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status),
           { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
@@ -214,10 +215,11 @@ const ROLE_PERMISSIONS = [
 
 function renderUsers() {
   const s = pageState();
-  const q = s.search.trim().toLowerCase();
+  const f = applied(s);
+  const q = f.search.trim().toLowerCase();
   const rows = USERS.filter(u =>
     (!q || u.login.includes(q) || u.name.toLowerCase().includes(q)) &&
-    (s.status === 'all' || u.status === s.status) && (s.role === 'all' || u.role === s.role));
+    (f.status === 'all' || u.status === f.status) && (f.role === 'all' || u.role === f.role));
   const cols = [
     { label: 'User', cell: u => `<div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-full bg-slate-700 text-white text-xs font-semibold flex items-center justify-center shrink-0">${esc(u.name[0])}</span><span><span class="block font-medium text-slate-800">${esc(u.name)}</span><span class="block text-[11px] font-mono text-slate-500">${u.login}</span></span></div>` },
     { label: 'Role', cell: u => `<span class="text-xs text-slate-700">${u.role}</span>` },
@@ -237,15 +239,15 @@ function renderUsers() {
         <button data-action="new-user" class="${BTN_PRIMARY} shrink-0">${ic('user-plus', 'w-4 h-4')}Add User</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        ${metricCard({ title: 'Total Users', value: USERS.length, status: 'all', selected: s.status === 'all' })}
-        ${metricCard({ title: 'Active', value: USERS.filter(u => u.status === 'Active').length, status: 'Active', selected: s.status === 'Active' })}
-        ${metricCard({ title: 'Inactive', value: USERS.filter(u => u.status === 'Inactive').length, status: 'Inactive', selected: s.status === 'Inactive' })}
+        ${metricCard({ title: 'Total Users', value: USERS.length, status: 'all', selected: s.applied.status === 'all' })}
+        ${metricCard({ title: 'Active', value: USERS.filter(u => u.status === 'Active').length, status: 'Active', selected: s.applied.status === 'Active' })}
+        ${metricCard({ title: 'Inactive', value: USERS.filter(u => u.status === 'Inactive').length, status: 'Inactive', selected: s.applied.status === 'Inactive' })}
         ${metricCard({ title: 'Admins', value: USERS.filter(u => u.role === 'Merchant Admin').length, sub: 'can manage users & stores' })}
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Login ID or User Name',
-          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status, 'circle-dot') +
-          selectPill('list', 'role', 'Role', opts(USER_ROLES, 'All Roles'), s.role, 'shield'), { noDate: true, noStore: true })}
+          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status) +
+          selectPill('list', 'role', 'Role', opts(USER_ROLES, 'All Roles'), s.role), { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           ${dataTable({ cols, rows, rowAttrs: u => `data-action="open-user" data-value="${u.login}"`, emptyTitle: 'No users match these filters', emptyHint: 'Try clearing some filters.' })}
         </div>

@@ -1,10 +1,49 @@
 // =====================================================================
 // Render & events
 // =====================================================================
-// The header switcher and each page's Store filter all set the same store, on every page at once.
-function setStore(value) {
-  storeFilter = dash.store = an.store = value;
-  Object.values(listStates).forEach(s => { s.store = value; s.page = 1; });
+// Opens (or with null closes) the header search / notifications dropdown.
+function openHeaderMenu(menu) {
+  headerMenu = menu;
+  if (menu) { userMenuOpen = false; openDD = null; dtDraft = null; }
+  renderHeader();
+  lucide.createIcons();
+  if (menu === 'search') {
+    const input = $('#global-search');
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+// Arrow keys move through the search results without re-rendering the input.
+function moveSearchActive(step) {
+  const items = [...document.querySelectorAll('[data-search-item]')];
+  if (!items.length) return;
+  search.active = (search.active + step + items.length) % items.length;
+  items.forEach((b, i) => b.classList.toggle('bg-slate-100', i === search.active));
+  items[search.active].scrollIntoView({ block: 'nearest' });
+}
+
+// The header switcher and each page's Store pill all edit the same stores, on every page at once.
+const allStoresIfEvery = (ids) => ids.length >= STORE_OPTS.length - 1 ? [] : ids; // every store ticked = All Stores
+function setStores(ids) {
+  storeFilter = allStoresIfEvery(ids);
+  Object.values(listStates).forEach(s => { s.page = 1; s.storeDraft = null; });
+}
+
+// Commits a list page's draft filters (and its Store draft) so the table shows them.
+function commitFilters(s) {
+  if (s.storeDraft) setStores(s.storeDraft);
+  s.applied = snapshotFilters(s);
+  s.page = 1;
+}
+
+// Keeps "Apply Filters" in step while typing, without re-rendering the input.
+function syncApplyButton() {
+  const btn = $('#page [data-action="apply-filters"]');
+  if (!btn) return;
+  const holder = document.createElement('div');
+  holder.innerHTML = filterActions(pageState());
+  btn.replaceWith(holder.firstElementChild);
 }
 
 function renderPage() {
@@ -132,7 +171,30 @@ const actions = {
     else expanded = expanded === key ? null : key;
     render();
   },
-  'user-menu': () => { userMenuOpen = !userMenuOpen; renderHeader(); lucide.createIcons(); },
+  'user-menu': () => { userMenuOpen = !userMenuOpen; headerMenu = null; renderHeader(); lucide.createIcons(); },
+  'header-menu': (el) => {
+    const menu = el.dataset.value;
+    if (menu === 'search' && headerMenu === 'search') return; // clicks inside the open search box keep it open
+    openHeaderMenu(headerMenu === menu ? null : menu);
+  },
+  'search-clear': () => { search.q = ''; search.active = 0; openHeaderMenu('search'); },
+  'search-go': (el) => {
+    const { kind, value } = el.dataset;
+    search.q = ''; search.active = 0;
+    openHeaderMenu(null);
+    if (kind === 'page') { location.hash = '#' + value; return; }
+    const item = { txn: () => TXNS.find(t => t.id === value), invoice: () => INVOICES.find(i => i.no === value), link: () => PAYMENT_LINKS.find(l => l.ref === value), store: () => accStore(value) }[kind]();
+    drawer = { kind, item }; renderDrawer();
+  },
+  'notif-open': (el) => {
+    const n = NOTIFICATIONS[Number(el.dataset.value)];
+    n.read = true;
+    openHeaderMenu(null);
+    const item = { cb: () => CHARGEBACKS.find(c => c.ref === n.value), settlement: () => SETTLEMENTS.find(x => x.ref === n.value), refund: () => REFUNDS.find(r => r.ref === n.value), invoice: () => INVOICES.find(i => i.no === n.value), tt: () => TXN_TICKETS.find(t => t.no === n.value) }[n.kind]();
+    formErrors = {};
+    drawer = { kind: n.kind, item }; renderDrawer();
+  },
+  'notif-read-all': () => { NOTIFICATIONS.forEach(n => { n.read = true; }); openHeaderMenu('notifications'); },
   'toast': (el) => toast(el.dataset.msg),
   'go': (el) => { location.hash = '#' + el.dataset.value; },
   'dd-toggle': (el) => {
@@ -143,14 +205,24 @@ const actions = {
   },
   'dd-select': (el) => {
     const { scope, key, value } = el.dataset;
-    if (key === 'store') setStore(value);
-    else if (scope === 'dash') dash[key] = value;
+    if (scope === 'dash') dash[key] = value;
     else if (scope === 'an') an[key] = value;
     else if (scope === 'learn') learn[key] = value;
     else { const s = pageState(); s[key] = value; s.page = 1; }
     openDD = null;
     render();
   },
+  // Multi-select: the store list stays open so several stores can be ticked in a row.
+  'store-toggle': (el) => {
+    const { scope, value: id } = el.dataset;
+    const draft = DRAFT_SCOPES.includes(scope);
+    const ids = draft ? pageState().storeDraft ?? storeFilter : storeFilter;
+    const next = id === 'all' ? [] : ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id];
+    if (draft) pageState().storeDraft = allStoresIfEvery(next);
+    else setStores(next);
+    render();
+  },
+  'apply-filters': () => { commitFilters(pageState()); render(); },
   'dt-preset': (el) => {
     const preset = el.dataset.value;
     if (preset === 'custom') dtDraft.preset = 'custom';
@@ -193,16 +265,17 @@ const actions = {
   'clear-search': () => { pageState().search = ''; render(); },
   'clear-filters': () => {
     const s = pageState();
-    const hadStore = s.store !== 'all';
     Object.assign(s, { search: '', range: makeRange(s.defaultPreset), method: 'all', page: 1 });
     LIST_FILTER_KEYS.forEach(k => { s[k] = 'all'; });
-    if (hadStore) setStore('all');
+    if ($('#page [data-store-pill]')) s.storeDraft = [];
+    commitFilters(s); // as on the KAM reports page, Clear resets and applies at once
     render();
   },
   'overview-status': (el) => {
     const s = pageState();
-    if (el.dataset.value === 'all') { s.status = 'all'; s.bstatus = 'all'; }
-    else s[el.dataset.key || 'status'] = el.dataset.value;
+    // Overview cards are quick filters: they apply at once, leaving other pending edits as drafts.
+    const keys = el.dataset.value === 'all' ? ['status', 'bstatus'] : [el.dataset.key || 'status'];
+    keys.forEach(k => { s[k] = s.applied[k] = el.dataset.value; });
     s.page = 1;
     render();
   },
@@ -225,29 +298,29 @@ const actions = {
     if (path === REFUND_PATH) {
       return downloadCsv('refund-requests',
         ['Refund Ref. ID', 'Requested On', 'Transaction ID', 'Store', 'Refund Type', 'Refund Amount (BDT)', 'Transaction Amount (BDT)', 'Status'],
-        refundRows(pageState()).map(r => [r.ref, `${fmtDate(r.date)} ${fmtTime(r.date, true)}`, r.txn.id, r.storeName, r.type, r.amount.toFixed(2), r.txn.amount.toFixed(2), r.status]));
+        refundRows(applied(pageState())).map(r => [r.ref, `${fmtDate(r.date)} ${fmtTime(r.date, true)}`, r.txn.id, r.storeName, r.type, r.amount.toFixed(2), r.txn.amount.toFixed(2), r.status]));
     }
     if (path === LINKS_PATH) {
       return downloadCsv('payment-links', ['Payment Name', 'Refer Id', 'Store', 'Amount Type', 'Amount', 'Payment Type', 'Payments', 'Collected (BDT)', 'Created On', 'Status', 'Payment URL'],
-        linkRows(pageState()).map(l => [l.name, l.ref, l.storeName, l.amountType, l.amount ?? '', l.paymentType, l.payments.length, linkCollected(l).toFixed(2), fmtDate(l.date), l.active ? 'Active' : 'Inactive', linkUrl(l.ref)]));
+        linkRows(applied(pageState())).map(l => [l.name, l.ref, l.storeName, l.amountType, l.amount ?? '', l.paymentType, l.payments.length, linkCollected(l).toFixed(2), fmtDate(l.date), l.active ? 'Active' : 'Inactive', linkUrl(l.ref)]));
     }
     if (path === INVOICES_PATH) {
       return downloadCsv('invoices', ['Invoice No', 'Customer', 'Store', 'Issue Date', 'Due Date', 'Subtotal', 'VAT', 'Total (BDT)', 'Status'],
-        invoiceRows(pageState()).map(inv => { const t = invoiceTotals(inv); return [inv.no, inv.customer, inv.storeName, fmtDate(inv.date), fmtDate(inv.due), t.subtotal.toFixed(2), t.vat.toFixed(2), t.total.toFixed(2), inv.status]; }));
+        invoiceRows(applied(pageState())).map(inv => { const t = invoiceTotals(inv); return [inv.no, inv.customer, inv.storeName, fmtDate(inv.date), fmtDate(inv.due), t.subtotal.toFixed(2), t.vat.toFixed(2), t.total.toFixed(2), inv.status]; }));
     }
     if (path === EMI_PATH) {
       return downloadCsv('emi-requests', ['EMI Ref. Id', 'Requested On', 'Store', 'Transaction ID', 'TXN Amount', 'EMI Amount', 'Tenure', 'EMI Issuer Bank', 'Status', 'Bank Status'],
-        emiRows(pageState()).map(e => [e.ref, `${fmtDate(e.date)} ${fmtTime(e.date, true)}`, e.storeName, e.txn.id, e.txn.amount.toFixed(2), e.charge.toFixed(2), `${e.tenure} Months`, e.bank, e.status, e.bankStatus]));
+        emiRows(applied(pageState())).map(e => [e.ref, `${fmtDate(e.date)} ${fmtTime(e.date, true)}`, e.storeName, e.txn.id, e.txn.amount.toFixed(2), e.charge.toFixed(2), `${e.tenure} Months`, e.bank, e.status, e.bankStatus]));
     }
     if (path === SETTLEMENT_PATH) {
       return downloadCsv('settlement-report',
         ['Settlement Date', 'Reference No', 'Batch No', 'Store', 'Settlement Type', 'Opening Amt', 'Payable Amt', 'Settle Amt', 'Paid Amt', 'Fwd Amt', 'Status', 'Bank', 'Account (masked)'],
-        settlementRows(pageState()).map(x => [`${fmtDate(x.date)} ${fmtTime(x.date)}`, x.ref, x.batch, x.storeName, x.type, x.opening.toFixed(2), x.payable.toFixed(2), x.settle.toFixed(2), x.paid.toFixed(2), x.fwd.toFixed(2), x.status, `${x.bank.bank} - ${x.bank.branch}`, x.bank.account]));
+        settlementRows(applied(pageState())).map(x => [`${fmtDate(x.date)} ${fmtTime(x.date)}`, x.ref, x.batch, x.storeName, x.type, x.opening.toFixed(2), x.payable.toFixed(2), x.settle.toFixed(2), x.paid.toFixed(2), x.fwd.toFixed(2), x.status, `${x.bank.bank} - ${x.bank.branch}`, x.bank.account]));
     }
     if (path === CB_PATH) {
       return downloadCsv('chargeback-requests',
         ['Chargeback Ref. ID', 'Requested On', 'Transaction ID', 'Store', 'Stage', 'Reason', 'Amount (BDT)', 'Respond By', 'Status'],
-        cbRows(pageState()).map(c => [c.ref, `${fmtDate(c.date)} ${fmtTime(c.date, true)}`, c.txn.id, c.storeName, c.stage, c.reason, c.amount.toFixed(2), CB_OPEN.has(c.status) ? fmtDate(c.respondBy) : '', c.status]));
+        cbRows(applied(pageState())).map(c => [c.ref, `${fmtDate(c.date)} ${fmtTime(c.date, true)}`, c.txn.id, c.storeName, c.stage, c.reason, c.amount.toFixed(2), CB_OPEN.has(c.status) ? fmtDate(c.respondBy) : '', c.status]));
     }
   },
   'copy': async (el) => {
@@ -275,7 +348,10 @@ const actions = {
   'settlement-txns': (el) => {
     // Opens All Transactions on the settlement's business day for that store.
     const x = SETTLEMENTS.find(st => st.ref === el.dataset.value);
-    Object.assign(txnState('all'), { search: '', status: 'all', method: 'all', store: x.store, range: { preset: 'custom', from: x.day, to: endOfDay(x.day) }, page: 1 });
+    setStores([x.store]);
+    const s = txnState('all');
+    Object.assign(s, { search: '', status: 'all', method: 'all', range: { preset: 'custom', from: x.day, to: endOfDay(x.day) } });
+    commitFilters(s);
     drawer = null; renderDrawer();
     location.hash = '#/transactions/all';
   },
@@ -619,7 +695,8 @@ const actions = {
   'dash-preset': (el) => { dash.preset = el.dataset.value; render(); },
   'goto-txn': (el) => {
     const s = txnState('all');
-    Object.assign(s, { search: '', range: makeRange(dash.preset), status: el.dataset.status, method: 'all', store: dash.store, page: 1 });
+    Object.assign(s, { search: '', range: makeRange(dash.preset), status: el.dataset.status, method: 'all' });
+    commitFilters(s);
     location.hash = '#/transactions/all';
   },
 };
@@ -632,10 +709,16 @@ document.addEventListener('click', (e) => {
 document.addEventListener('mousedown', (e) => {
   if (openDD && !e.target.closest('[data-dd-root]')) { openDD = null; dtDraft = null; render(); }
   if (userMenuOpen && !e.target.closest('[data-user-root]')) { userMenuOpen = false; renderHeader(); lucide.createIcons(); }
+  if (headerMenu && !e.target.closest('[data-header-menu]')) openHeaderMenu(null);
 });
 
 document.addEventListener('input', (e) => {
   const t = e.target;
+  if (t.id === 'global-search') {
+    search.q = t.value; search.active = 0;
+    if (headerMenu !== 'search') { openHeaderMenu('search'); return; }
+    $('#search-results').innerHTML = searchResults(); lucide.createIcons();
+  }
   if (t.id === 'track-input') tracking.query = t.value;
   if (t.id === 'qr-amount') qrGen.amount = t.value;
   if (t.id === 'emi-calc-amount') { emiCalc.amount = t.value; $('#emi-calc-result').innerHTML = emiCalcResult(); }
@@ -664,9 +747,8 @@ document.addEventListener('input', (e) => {
     syncInvoiceTotals();
   }
   if (e.target.id === 'txn-search' || e.target.id === 'list-search') {
-    const s = pageState();
-    s.search = e.target.value; s.page = 1;
-    render();
+    pageState().search = e.target.value;
+    syncApplyButton();
   }
 });
 
@@ -716,6 +798,12 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const t = e.target;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!drawer) openHeaderMenu('search'); return; }
+  if (t.id === 'global-search' && headerMenu === 'search') {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveSearchActive(e.key === 'ArrowDown' ? 1 : -1); return; }
+    if (e.key === 'Enter') { e.preventDefault(); document.querySelector(`[data-search-item="${search.active}"]`)?.click(); return; }
+  }
+  if (e.key === 'Enter' && (t.id === 'txn-search' || t.id === 'list-search')) { commitFilters(pageState()); render(); return; }
   if (e.key === 'Enter' && t.id === 'track-input') { tracking.query = t.value; runTracking(); render(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute?.('role') === 'button' && t.dataset.action) { e.preventDefault(); t.click(); return; }
   if (e.key === 'Tab' && drawer) {
@@ -730,13 +818,14 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key !== 'Escape') return;
   if (drawer) closeDrawer();
+  else if (headerMenu) { const menu = headerMenu; openHeaderMenu(null); (menu === 'search' ? $('#global-search') : $('[data-action="header-menu"][data-value="notifications"]'))?.focus(); }
   else if (openDD) { const key = openDD; openDD = null; dtDraft = null; render(); document.querySelector(`[data-key="${key}"]`)?.focus(); }
   else if (userMenuOpen) { userMenuOpen = false; renderHeader(); lucide.createIcons(); }
   else if (mobileNav) { mobileNav = false; renderSidebar(); }
 });
 
 window.addEventListener('hashchange', () => {
-  openDD = null; dtDraft = null; userMenuOpen = false; mobileNav = false;
+  openDD = null; dtDraft = null; userMenuOpen = false; headerMenu = null; mobileNav = false;
   if (drawer) { drawerReturnFocus = null; closeDrawer(); }
   expanded = activeParent(currentPath());
   render();

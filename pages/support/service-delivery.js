@@ -13,15 +13,15 @@ const srDots = (r) => `<div class="flex items-center gap-1" title="${r.stage}">$
 function srRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return SERVICE_REQUESTS.filter(r =>
-    (s.store === 'all' || r.store === s.store) && (s.stype === 'all' || r.type === s.stype) && inRange(r, s.range) &&
+    inStores(r.store) && (s.stype === 'all' || r.type === s.stype) && inRange(r, s.range) &&
     (!q || r.no.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)) &&
     (!withStatus || s.status === 'all' || (s.status === 'open' ? ['Requested', 'Approved', 'In Progress'].includes(r.stage) : r.stage === s.status)));
 }
 
 function renderServiceDelivery() {
   const s = pageState();
-  const base = srRows(s, false);
-  const rows = srRows(s);
+  const base = srRows(applied(s), false);
+  const rows = srRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const delivered = base.filter(r => r.stage === 'Delivered');
   const avgDays = delivered.length ? delivered.reduce((n, r) => n + (r.stageAt[3] - r.date) / 864e5, 0) / delivered.length : 0;
@@ -46,19 +46,19 @@ function renderServiceDelivery() {
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Request No or Service',
-          selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot') +
-          selectPill('list', 'stype', 'Service', typeOpts, s.stype, 'package'))}
+          selectPill('list', 'status', 'Status', statusOpts, s.status) +
+          selectPill('list', 'stype', 'Service', typeOpts, s.stype))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Open Requests', value: base.filter(r => ['Requested', 'Approved', 'In Progress'].includes(r.stage)).length, status: 'open', selected: s.status === 'open' })}
-            ${metricCard({ title: 'Delivered', value: delivered.length, status: 'Delivered', selected: s.status === 'Delivered' })}
+            ${metricCard({ title: 'Open Requests', value: base.filter(r => ['Requested', 'Approved', 'In Progress'].includes(r.stage)).length, status: 'open', selected: s.applied.status === 'open' })}
+            ${metricCard({ title: 'Delivered', value: delivered.length, status: 'Delivered', selected: s.applied.status === 'Delivered' })}
             ${metricCard({ title: 'On-time Delivery', value: delivered.length ? fmtPct(pct(delivered.filter(srOnTime).length, delivered.length)) : '—', sub: 'within the promised time' })}
             ${metricCard({ title: 'Avg. Delivery Time', value: delivered.length ? `${avgDays.toFixed(1)} days` : '—' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'requests', s)}
+          ${listToolbar(rows.length, 'requests', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: r => `data-action="open-sr" data-value="${r.no}"`, emptyTitle: 'No service requests found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

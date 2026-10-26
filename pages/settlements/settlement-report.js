@@ -24,7 +24,7 @@ function miniTable(headers, rows, { right = [], total } = {}) {
 function settlementRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return SETTLEMENTS.filter(x =>
-    (s.store === 'all' || x.store === s.store) &&
+    inStores(x.store) &&
     (s.stype === 'all' || x.type === s.stype) &&
     // Scheduled payouts are dated in the future, so match them on their business day instead.
     (inRange(x, s.range) || (x.status === 'Pending' && inRange({ date: x.day }, s.range))) &&
@@ -35,8 +35,8 @@ function settlementRows(s, withStatus = true) {
 
 function renderSettlements() {
   const s = pageState();
-  const base = settlementRows(s, false);
-  const rows = settlementRows(s);
+  const base = settlementRows(applied(s), false);
+  const rows = settlementRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const sum = (list, key) => list.reduce((t, x) => t + x[key], 0);
   const paid = base.filter(x => x.status === 'Paid');
@@ -78,21 +78,21 @@ function renderSettlements() {
 
       <div class="flex flex-col">
         ${listFilterBar(s, 'Reference No or Batch No',
-          selectPill('list', 'status', 'Settlement Status', statusOpts, s.status, 'circle-dot') +
-          selectPill('list', 'stype', 'Settlement Type', typeOpts, s.stype, 'layers'))}
+          selectPill('list', 'status', 'Settlement Status', statusOpts, s.status) +
+          selectPill('list', 'stype', 'Settlement Type', typeOpts, s.stype))}
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Settled Amount', value: fmtBDTShort(sum(paid, 'paid')), sub: `${paid.length} paid settlements`, status: 'Paid', selected: s.status === 'Paid' })}
-            ${metricCard({ title: 'Pending Settlement', value: fmtBDTShort(sum(pending, 'settle')), sub: `${pending.length} scheduled`, status: 'Pending', selected: s.status === 'Pending' })}
-            ${metricCard({ title: 'On Hold', value: fmtBDTShort(sum(held, 'fwd')), sub: `${held.length} held`, status: 'On Hold', selected: s.status === 'On Hold' })}
-            ${metricCard({ title: 'Bounce Count', value: bounced.length.toLocaleString(), sub: `Bounce amount ${fmtBDT(sum(bounced, 'fwd'))}`, status: 'bounce', selected: s.status === 'bounce' })}
+            ${metricCard({ title: 'Settled Amount', value: fmtBDTShort(sum(paid, 'paid')), sub: `${paid.length} paid settlements`, status: 'Paid', selected: s.applied.status === 'Paid' })}
+            ${metricCard({ title: 'Pending Settlement', value: fmtBDTShort(sum(pending, 'settle')), sub: `${pending.length} scheduled`, status: 'Pending', selected: s.applied.status === 'Pending' })}
+            ${metricCard({ title: 'On Hold', value: fmtBDTShort(sum(held, 'fwd')), sub: `${held.length} held`, status: 'On Hold', selected: s.applied.status === 'On Hold' })}
+            ${metricCard({ title: 'Bounce Count', value: bounced.length.toLocaleString(), sub: `Bounce amount ${fmtBDT(sum(bounced, 'fwd'))}`, status: 'bounce', selected: s.applied.status === 'bounce' })}
           </div>
         </div>
 
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'settlements', s)}
+          ${listToolbar(rows.length, 'settlements', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: x => `data-action="open-settlement" data-value="${x.ref}"`, emptyTitle: 'No settlements found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

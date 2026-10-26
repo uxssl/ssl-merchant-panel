@@ -7,7 +7,7 @@ const linkCollected = (l) => l.payments.reduce((s, p) => s + p.amount, 0);
 function linkRows(s) {
   const q = s.search.trim().toLowerCase();
   return PAYMENT_LINKS.filter(l =>
-    (s.store === 'all' || l.store === s.store) &&
+    inStores(l.store) &&
     inRange(l, s.range) &&
     (!q || l.name.toLowerCase().includes(q) || l.ref.toLowerCase().includes(q)) &&
     (s.status === 'all' || (s.status === 'active') === l.active)
@@ -16,7 +16,7 @@ function linkRows(s) {
 
 function renderPaymentLinks() {
   const s = pageState();
-  const rows = linkRows(s);
+  const rows = linkRows(applied(s));
   const base = linkRows({ ...s, status: 'all' });
   const { totalPages, start, pageRows } = paginate(s, rows);
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }];
@@ -39,18 +39,18 @@ function renderPaymentLinks() {
         <button data-action="new-link" class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}Create Payment Link</button>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Payment Name or Refer Id', selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot'))}
+        ${listFilterBar(s, 'Payment Name or Refer Id', selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Links', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Active Links', value: base.filter(l => l.active).length.toLocaleString(), status: 'active', selected: s.status === 'active' })}
+            ${metricCard({ title: 'Total Links', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Active Links', value: base.filter(l => l.active).length.toLocaleString(), status: 'active', selected: s.applied.status === 'active' })}
             ${metricCard({ title: 'Payments Received', value: base.reduce((n, l) => n + l.payments.length, 0).toLocaleString() })}
             ${metricCard({ title: 'Amount Collected', value: fmtBDTShort(base.reduce((n, l) => n + linkCollected(l), 0)) })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'payment links', s)}
+          ${listToolbar(rows.length, 'payment links', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: l => `data-action="open-link" data-value="${l.ref}"`, emptyTitle: 'No payment links found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

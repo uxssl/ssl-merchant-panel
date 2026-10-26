@@ -4,7 +4,7 @@
 function refundRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return REFUNDS.filter(r =>
-    (s.store === 'all' || r.store === s.store) &&
+    inStores(r.store) &&
     inRange(r, s.range) &&
     (!q || r.ref.toLowerCase().includes(q) || r.txn.id.toLowerCase().includes(q)) &&
     (!withStatus || s.status === 'all' || (s.status === 'pending' ? REFUND_OPEN.has(r.status) : r.status === s.status))
@@ -13,8 +13,8 @@ function refundRows(s, withStatus = true) {
 
 function renderRefunds() {
   const s = pageState();
-  const base = refundRows(s, false);
-  const rows = refundRows(s);
+  const base = refundRows(applied(s), false);
+  const rows = refundRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const success = base.filter(r => r.status === 'Success');
   const refunded = success.reduce((sum, r) => sum + r.amount, 0);
@@ -40,20 +40,20 @@ function renderRefunds() {
       </div>
 
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Ref. ID or Transaction ID', selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot'))}
+        ${listFilterBar(s, 'Ref. ID or Transaction ID', selectPill('list', 'status', 'Status', statusOpts, s.status))}
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Pending Requests', value: base.filter(r => REFUND_OPEN.has(r.status)).length.toLocaleString(), status: 'pending', selected: s.status === 'pending' })}
-            ${metricCard({ title: 'Successful Refunds', value: success.length.toLocaleString(), status: 'Success', selected: s.status === 'Success' })}
+            ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Pending Requests', value: base.filter(r => REFUND_OPEN.has(r.status)).length.toLocaleString(), status: 'pending', selected: s.applied.status === 'pending' })}
+            ${metricCard({ title: 'Successful Refunds', value: success.length.toLocaleString(), status: 'Success', selected: s.applied.status === 'Success' })}
             ${metricCard({ title: 'Refunded Amount', value: fmtBDTShort(refunded), sub: fmtBDT(refunded) })}
           </div>
         </div>
 
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'refund requests', s)}
+          ${listToolbar(rows.length, 'refund requests', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: r => `data-action="open-refund" data-value="${r.ref}"`, emptyTitle: 'No refund requests found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

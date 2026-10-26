@@ -7,7 +7,7 @@ const methodSummary = (c) => [c.banks.length && `${c.banks.length} bank${c.banks
 function mcRows(s) {
   const q = s.search.trim().toLowerCase();
   return MERCHANT_CAMPAIGNS.filter(c =>
-    (s.store === 'all' || c.stores.includes(s.store)) &&
+    (!storeFilter.length || c.stores.some(id => storeFilter.includes(id))) &&
     (s.status === 'all' || c.status === s.status) &&
     (!q || c.name.toLowerCase().includes(q) || c.tracking.toLowerCase().includes(q)) &&
     (s.range.preset === 'all' || (c.end >= s.range.from && c.start <= s.range.to)) // 'All Time' keeps upcoming campaigns
@@ -16,7 +16,7 @@ function mcRows(s) {
 
 function renderMerchantCampaigns() {
   const s = pageState();
-  const rows = mcRows(s);
+  const rows = mcRows(applied(s));
   const all = MERCHANT_CAMPAIGNS.map(c => ({ c, perf: merchantPerf(c) }));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const statusOpts = [{ label: 'All Status', value: 'all' }, ...MC_STATUSES.map(v => ({ label: v === 'Created' ? 'Created (draft)' : v, value: v }))];
@@ -39,18 +39,18 @@ function renderMerchantCampaigns() {
         <button data-action="new-mc" class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}Create Campaign</button>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Campaign name or Tracking Id', selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot'))}
+        ${listFilterBar(s, 'Campaign name or Tracking Id', selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Running', value: MERCHANT_CAMPAIGNS.filter(c => c.status === 'Running').length, status: 'Running', selected: s.status === 'Running' })}
-            ${metricCard({ title: 'Pending Approval', value: MERCHANT_CAMPAIGNS.filter(c => c.status === 'Pending').length, status: 'Pending', selected: s.status === 'Pending' })}
+            ${metricCard({ title: 'Running', value: MERCHANT_CAMPAIGNS.filter(c => c.status === 'Running').length, status: 'Running', selected: s.applied.status === 'Running' })}
+            ${metricCard({ title: 'Pending Approval', value: MERCHANT_CAMPAIGNS.filter(c => c.status === 'Pending').length, status: 'Pending', selected: s.applied.status === 'Pending' })}
             ${metricCard({ title: 'Discount Given', value: fmtBDTShort(all.reduce((n, x) => n + x.perf.discount, 0)), sub: `${all.reduce((n, x) => n + x.perf.txns.length, 0)} payments` })}
             ${metricCard({ title: 'Sales via Campaigns', value: fmtBDTShort(all.reduce((n, x) => n + x.perf.sales, 0)) })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'campaigns', s)}
+          ${listToolbar(rows.length, 'campaigns', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: c => `data-action="open-mc" data-value="${c.id}"`, emptyTitle: 'No campaigns found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

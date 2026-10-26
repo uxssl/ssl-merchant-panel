@@ -14,7 +14,7 @@ const titleCase = (s) => s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 function emiRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return EMI_REQUESTS.filter(e =>
-    (s.store === 'all' || e.store === s.store) &&
+    inStores(e.store) &&
     (s.bank === 'all' || e.bank === s.bank) &&
     (s.bstatus === 'all' || e.bankStatus === s.bstatus) &&
     inRange(e, s.range) &&
@@ -24,8 +24,8 @@ function emiRows(s, withStatus = true) {
 }
 
 function emiRequestsTab(s) {
-  const base = emiRows(s, false);
-  const rows = emiRows(s);
+  const base = emiRows(applied(s), false);
+  const rows = emiRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const statusOpts = [{ label: 'All Status', value: 'all' }, ...EMI_REQ_STATUSES.map(v => ({ label: v, value: v }))];
   const bankStatusOpts = [{ label: 'All', value: 'all' }, ...EMI_BANK_STATUSES.map(v => ({ label: v, value: v }))];
@@ -43,20 +43,20 @@ function emiRequestsTab(s) {
   return `
     <div class="flex flex-col">
       ${listFilterBar(s, 'EMI Ref ID or Transaction ID',
-        selectPill('list', 'status', 'Request Status', statusOpts, s.status, 'circle-dot') +
-        selectPill('list', 'bstatus', 'Bank Status', bankStatusOpts, s.bstatus, 'landmark') +
-        selectPill('list', 'bank', 'EMI Issuer Bank', bankOpts, s.bank, 'building-2'))}
+        selectPill('list', 'status', 'Request Status', statusOpts, s.status) +
+        selectPill('list', 'bstatus', 'Bank Status', bankStatusOpts, s.bstatus) +
+        selectPill('list', 'bank', 'EMI Issuer Bank', bankOpts, s.bank))}
       <div class="flex flex-col gap-4 pt-4">
         <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' && s.bstatus === 'all' })}
-          ${metricCard({ title: 'Approved', value: base.filter(e => e.bankStatus === 'Approved').length.toLocaleString(), status: 'Approved', key: 'bstatus', selected: s.bstatus === 'Approved' })}
-          ${metricCard({ title: 'Declined', value: base.filter(e => e.status === 'Declined').length.toLocaleString(), status: 'Declined', selected: s.status === 'Declined' })}
+          ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' && s.applied.bstatus === 'all' })}
+          ${metricCard({ title: 'Approved', value: base.filter(e => e.bankStatus === 'Approved').length.toLocaleString(), status: 'Approved', key: 'bstatus', selected: s.applied.bstatus === 'Approved' })}
+          ${metricCard({ title: 'Declined', value: base.filter(e => e.status === 'Declined').length.toLocaleString(), status: 'Declined', selected: s.applied.status === 'Declined' })}
           ${metricCard({ title: 'EMI Amount (BDT)', value: fmtBDTShort(base.reduce((n, e) => n + e.charge, 0)) })}
         </div>
       </div>
       <div class="space-y-4 pt-6">
-        ${listToolbar(rows.length, 'EMI requests', s)}
+        ${listToolbar(rows.length, 'EMI requests', applied(s))}
         ${dataTable({ cols, rows: pageRows, rowAttrs: e => `data-action="open-emi" data-value="${e.ref}"`, emptyTitle: 'No EMI requests found' })}
         ${pager(s, rows.length, start, pageRows.length, totalPages)}
       </div>

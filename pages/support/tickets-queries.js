@@ -11,8 +11,8 @@ function gtRows(s, withStatus = true) {
 
 function renderGeneralTickets() {
   const s = pageState();
-  const base = gtRows(s, false);
-  const rows = gtRows(s);
+  const base = gtRows(applied(s), false);
+  const rows = gtRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const firstReply = base.filter(t => t.messages.length > 1).map(t => (t.messages[1].at - t.date) / 3600e3);
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Open (Pending + Processing)', value: 'open' }, ...Object.keys(GT_CLS).map(v => ({ label: v, value: v }))];
@@ -37,19 +37,19 @@ function renderGeneralTickets() {
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Ticket No or Title',
-          selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot') +
-          selectPill('list', 'stype', 'Issue Type', typeOpts, s.stype, 'tag'))}
+          selectPill('list', 'status', 'Status', statusOpts, s.status) +
+          selectPill('list', 'stype', 'Issue Type', typeOpts, s.stype))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Open', value: base.filter(t => ['Pending', 'Processing'].includes(t.status)).length, status: 'open', selected: s.status === 'open' })}
-            ${metricCard({ title: 'Completed', value: base.filter(t => t.status === 'Completed').length, status: 'Completed', selected: s.status === 'Completed' })}
-            ${metricCard({ title: 'Declined', value: base.filter(t => t.status === 'Declined').length, status: 'Declined', selected: s.status === 'Declined' })}
+            ${metricCard({ title: 'Open', value: base.filter(t => ['Pending', 'Processing'].includes(t.status)).length, status: 'open', selected: s.applied.status === 'open' })}
+            ${metricCard({ title: 'Completed', value: base.filter(t => t.status === 'Completed').length, status: 'Completed', selected: s.applied.status === 'Completed' })}
+            ${metricCard({ title: 'Declined', value: base.filter(t => t.status === 'Declined').length, status: 'Declined', selected: s.applied.status === 'Declined' })}
             ${metricCard({ title: 'Avg. First Reply', value: firstReply.length ? hoursText(firstReply.reduce((a, b) => a + b, 0) / firstReply.length) : '—' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'tickets', s)}
+          ${listToolbar(rows.length, 'tickets', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: t => `data-action="open-gt" data-value="${t.no}"`, emptyTitle: 'No tickets found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

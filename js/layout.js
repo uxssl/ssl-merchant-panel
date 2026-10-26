@@ -45,27 +45,103 @@ function renderSidebar() {
       ${navCollapsed ? toggleBtn('panel-left-open', 'Expand sidebar') : `<img src="${LOGO}" alt="SSLCOMMERZ" class="h-8">${phone ? `<button data-action="mobile-nav" aria-label="Close menu" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">${ic('x', 'w-5 h-5')}</button>` : toggleBtn('panel-left-close', 'Collapse sidebar')}`}
     </div>
     <nav class="flex-1 py-4 space-y-1 scrollbar-hide ${navCollapsed ? 'px-2 overflow-visible' : 'px-3 overflow-y-auto'}">
-      ${NAV.map(item => navItem(item, path)).join('')}
+      ${NAV.filter(item => !item.bottom).map(item => navItem(item, path)).join('')}
+    </nav>
+    <nav aria-label="More and help" class="shrink-0 border-t border-slate-200 py-3 space-y-1 ${navCollapsed ? 'px-2 overflow-visible' : 'px-3 max-h-[50vh] overflow-y-auto scrollbar-hide'}">
+      ${NAV.filter(item => item.bottom).map(item => navItem(item, path)).join('')}
     </nav>`;
   $('#main-wrap').classList.toggle('pl-64', !phone && !navCollapsed);
   $('#main-wrap').classList.toggle('pl-20', !phone && navCollapsed);
 }
 
-// Global store switcher — the same choice drives every page's Store filter.
-function storeSwitcher() {
-  const open = openDD === 'global:store';
-  const selected = STORE_OPTS.find(o => o.value === storeFilter);
+// ---------------------------------------------------------------------
+// Header search & notifications. Both drop down under their trigger on
+// tablet / desktop and span the screen under the header on phones.
+// ---------------------------------------------------------------------
+const HEADER_PANEL = 'fixed sm:absolute left-4 right-4 top-16 sm:top-full mt-0 sm:mt-2 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden anim-pop';
+const PAGE_LINKS = NAV.flatMap(n => n.children ? n.children.map(c => ({ ...c, parent: n.label, icon: n.icon })) : [{ label: n.label, to: n.to, icon: n.icon }]);
+const QUICK_PAGES = ['/transactions/all', '/transactions/refund-requests', '/settlements/settlement-report', '/products/payment-links', '/products/digital-invoices', '/support/transaction-tickets'];
+
+const timeAgo = (d) => {
+  const mins = Math.round((NOW - d) / 60000);
+  return mins < 60 ? `${Math.max(1, mins)}m ago` : mins < 1440 ? `${Math.round(mins / 60)}h ago` : mins < 2880 ? 'Yesterday' : fmtShort(d);
+};
+
+function searchBox() {
+  const open = headerMenu === 'search';
   return `
-    <div class="relative" data-dd-root>
-      <button data-action="dd-toggle" data-key="global:store" aria-haspopup="listbox" aria-expanded="${open}" title="Store" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${storeFilter !== 'all' ? PILL_ACTIVE : PILL_IDLE}">
-        ${ic('store', 'w-4 h-4')}<span class="hidden sm:inline max-w-[160px] truncate">${esc(selected.label)}</span>${ic('chevron-down', 'w-3 h-3')}
+    <div class="relative flex-1 min-w-0 max-w-sm" data-header-menu>
+      <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 border rounded-md transition-colors ${open ? 'border-primary-500 ring-2 ring-primary-100 bg-white' : 'border-slate-200 hover:bg-slate-100 hover:border-slate-300'}">
+        ${ic('search', 'w-4 h-4 text-slate-400 shrink-0')}
+        <input id="global-search" type="text" autocomplete="off" value="${esc(search.q)}" placeholder="Search transactions, invoices, stores..."
+          data-action="header-menu" data-value="search" role="combobox" aria-expanded="${open}" aria-controls="search-results" aria-label="Search the portal"
+          class="peer flex-1 min-w-0 bg-transparent text-sm text-slate-800 placeholder-slate-500 focus:outline-none">
+        <button data-action="search-clear" aria-label="Clear search" class="peer-placeholder-shown:hidden text-slate-400 hover:text-slate-600">${ic('x', 'w-3.5 h-3.5')}</button>
+        <kbd class="hidden sm:peer-placeholder-shown:inline-block px-1.5 py-0.5 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded shadow-sm">⌘K</kbd>
+      </div>
+      ${open ? `<div class="${HEADER_PANEL} sm:left-0 sm:right-auto sm:w-[480px]"><div id="search-results" role="listbox" class="max-h-[420px] overflow-y-auto py-2">${searchResults()}</div></div>` : ''}
+    </div>`;
+}
+
+function searchResults() {
+  const q = search.q.trim().toLowerCase();
+  const has = (...fields) => fields.some(f => f && String(f).toLowerCase().includes(q));
+  const group = (title, rows) => rows.length ? `<p class="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${title}</p>${rows.join('')}` : '';
+  let i = 0;
+  const row = (kind, value, icon, title, sub, right = '') => `
+    <button data-action="search-go" data-kind="${kind}" data-value="${esc(value)}" data-search-item="${i}" role="option"
+      class="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 ${i++ === search.active ? 'bg-slate-100' : ''}">
+      <span class="w-8 h-8 shrink-0 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">${ic(icon, 'w-4 h-4')}</span>
+      <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${title}</span>${sub ? `<span class="block text-xs text-slate-500 truncate">${sub}</span>` : ''}</span>
+      ${right ? `<span class="text-xs font-medium text-slate-600 whitespace-nowrap">${right}</span>` : ''}
+    </button>`;
+
+  if (!q) {
+    return group('Jump to', PAGE_LINKS.filter(p => QUICK_PAGES.includes(p.to)).map(p => row('page', p.to, p.icon, esc(p.label), esc(p.parent || ''))))
+      + `<p class="px-4 pt-3 pb-1 text-xs text-slate-400">Search by transaction ID, Val ID, customer, invoice, payment link, store or page.</p>`;
+  }
+  const html = [
+    group('Pages', PAGE_LINKS.filter(p => has(p.label, p.parent)).slice(0, 4).map(p => row('page', p.to, p.icon, esc(p.label), esc(p.parent || '')))),
+    group('Transactions', TXNS.filter(t => has(t.id, t.valId, t.customer)).slice(0, 5).map(t => row('txn', t.id, 'credit-card', `<span class="font-mono">${t.id}</span>`, `${esc(t.customer)} · ${esc(t.storeName)} · ${fmtShort(t.date)}`, fmtBDT(t.amount)))),
+    group('Invoices', INVOICES.filter(inv => has(inv.no, inv.customer)).slice(0, 3).map(inv => row('invoice', inv.no, 'file-text', esc(inv.no), `${esc(inv.customer)} · ${inv.status}`))),
+    group('Payment Links', PAYMENT_LINKS.filter(l => has(l.name, l.ref)).slice(0, 3).map(l => row('link', l.ref, 'link', esc(l.name), `<span class="font-mono">${l.ref}</span>`))),
+    group('Stores', ACCOUNT_STORES.filter(s => has(s.name, s.id)).slice(0, 3).map(s => row('store', s.id, 'store', esc(s.name), `<span class="font-mono">${s.id}</span> · ${s.status}`))),
+  ].join('');
+  return html || `
+    <div class="px-4 py-8 text-center">
+      <p class="text-sm font-medium text-slate-700">No results for “${esc(search.q.trim())}”</p>
+      <p class="text-xs text-slate-500 mt-1">Check the ID, or look it up in <a href="#/transactions/tracking" class="text-primary-600 hover:underline">Transaction ID Tracking</a>.</p>
+    </div>`;
+}
+
+function notificationBell() {
+  const open = headerMenu === 'notifications';
+  const unread = NOTIFICATIONS.filter(n => !n.read).length;
+  const TONE = { rose: 'bg-rose-50 text-rose-600', amber: 'bg-amber-50 text-amber-600', emerald: 'bg-emerald-50 text-emerald-600', primary: 'bg-primary-50 text-primary-600' };
+  return `
+    <div class="sm:relative" data-header-menu>
+      <button data-action="header-menu" data-value="notifications" aria-label="Notifications${unread ? ` (${unread} unread)` : ''}" aria-expanded="${open}" class="p-2 rounded-full transition-colors relative ${open ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}">
+        ${ic('bell', 'w-5 h-5')}
+        ${unread ? `<span class="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 border-2 border-white text-[10px] font-bold leading-[14px] text-white text-center">${unread}</span>` : ''}
       </button>
       ${open ? `
-        <div class="absolute top-full right-0 mt-2 min-w-[220px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 max-h-72 overflow-y-auto anim-pop">
-          <p class="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Viewing store</p>
-          ${STORE_OPTS.map(o => `
-            <button data-action="dd-select" data-scope="global" data-key="store" data-value="${o.value}"
-              class="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${o.value === storeFilter ? 'text-primary-600 font-medium bg-slate-50' : 'text-slate-700'}">${esc(o.label)}</button>`).join('')}
+        <div class="${HEADER_PANEL} sm:left-auto sm:right-0 sm:w-[380px]">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+            <p class="text-sm font-semibold text-slate-900">Notifications${unread ? `<span class="ml-2 px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-600 text-[11px]">${unread} new</span>` : ''}</p>
+            ${unread ? `<button data-action="notif-read-all" class="text-xs font-medium text-primary-600 hover:underline">Mark all as read</button>` : ''}
+          </div>
+          <div class="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
+            ${NOTIFICATIONS.map((n, idx) => `
+              <button data-action="notif-open" data-value="${idx}" class="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${n.read ? '' : 'bg-primary-50/40'}">
+                <span class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center ${TONE[n.tone]}">${ic(n.icon, 'w-4 h-4')}</span>
+                <span class="flex-1 min-w-0">
+                  <span class="block text-sm ${n.read ? 'text-slate-700' : 'font-semibold text-slate-900'}">${esc(n.title)}</span>
+                  <span class="block text-xs text-slate-500 mt-0.5 line-clamp-2">${esc(n.text)}</span>
+                  <span class="block text-[11px] text-slate-400 mt-1">${timeAgo(n.date)}</span>
+                </span>
+                ${n.read ? '' : '<span class="w-2 h-2 mt-1.5 shrink-0 rounded-full bg-primary-600" aria-label="Unread"></span>'}
+              </button>`).join('')}
+          </div>
         </div>` : ''}
     </div>`;
 }
@@ -74,19 +150,11 @@ function renderHeader() {
   $('#header').innerHTML = `
     <div class="flex items-center flex-1 max-w-2xl gap-3 min-w-0">
       <button data-action="mobile-nav" aria-label="Open menu" class="md:hidden p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100">${ic('menu', 'w-5 h-5')}</button>
-      <button data-action="toast" data-msg="Global search isn't part of this prototype yet." class="flex items-center flex-1 min-w-0 max-w-sm gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 hover:border-slate-300 transition-colors text-left cursor-text">
-        ${ic('search', 'w-4 h-4 text-slate-400')}
-        <span class="text-sm text-slate-500 flex-1 truncate">Search transactions, invoices, stores...</span>
-        <kbd class="hidden sm:inline-block px-1.5 py-0.5 text-xs font-medium text-slate-500 bg-white border border-slate-200 rounded shadow-sm">⌘K</kbd>
-      </button>
-      <span class="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 whitespace-nowrap">${ic('flask-conical', 'w-3.5 h-3.5')}Prototype · Mock data</span>
+      ${searchBox()}
     </div>
     <div class="flex items-center gap-4">
-      ${storeSwitcher()}
-      <button data-action="toast" data-msg="Notifications aren't part of this prototype yet." class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-full transition-colors relative">
-        ${ic('bell', 'w-5 h-5')}
-        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-      </button>
+      ${storePill('global', 'All Stores', { right: true, compact: true, heading: 'Viewing stores' })}
+      ${notificationBell()}
       <div class="relative" data-user-root>
         <button data-action="user-menu" class="flex items-center gap-2 pl-2 pr-1 ml-1 hover:bg-slate-50 rounded-full p-1 transition-colors">
           <div class="w-8 h-8 rounded-full ring-2 ring-white shadow-sm bg-slate-700 text-white flex items-center justify-center text-xs font-semibold">D</div>

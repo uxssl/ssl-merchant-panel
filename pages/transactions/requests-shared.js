@@ -17,22 +17,16 @@ function paginate(s, rows) {
   return { totalPages, start, pageRows: rows.slice(start, start + s.pageSize) };
 }
 
-const LIST_FILTER_KEYS = ['status', 'store', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role'];
+const LIST_FILTER_KEYS = ['status', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role'];
+// Same order as the KAM report filters: text filter, date, pills, then Apply Filters / Clear.
 function listFilterBar(s, placeholder, pills, { noDate = false, noStore = false } = {}) {
-  const hasFilters = s.search || LIST_FILTER_KEYS.some(k => s[k] !== 'all') || (!noDate && (s.range.preset !== s.defaultPreset || s.range.daily));
   return `
     <div class="filter-bar-container flex items-center gap-3 flex-wrap">
-      <div class="relative flex items-center">
-        <span class="absolute left-3 text-slate-400 pointer-events-none">${ic('search', 'w-4 h-4')}</span>
-        <input id="list-search" type="text" placeholder="${placeholder}" value="${esc(s.search)}"
-          class="py-1.5 pl-9 ${s.search ? 'pr-8' : 'pr-3'} bg-white border border-slate-200 rounded-full text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all"
-          style="width:${s.search ? 270 : 250}px">
-        ${s.search ? `<button data-action="clear-search" class="absolute right-2.5 text-slate-400 hover:text-slate-600">${ic('x', 'w-3 h-3')}</button>` : ''}
-      </div>
+      ${filterSearch('list-search', placeholder, s.search)}
       ${noDate ? '' : dtPill(s.range, s.defaultPreset)}
       ${pills}
-      ${noStore ? '' : selectPill('list', 'store', 'Store', STORE_OPTS, s.store, 'store')}
-      ${hasFilters ? `<button data-action="clear-filters" class="text-xs text-slate-500 hover:text-slate-800 font-medium px-2">Clear all</button>` : ''}
+      ${noStore ? '' : storePill('list', 'Store')}
+      ${filterActions(s)}
     </div>`;
 }
 

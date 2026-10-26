@@ -15,7 +15,7 @@ function dashData() {
   const today = dash.preset === 'today';
   const prevFrom = today ? addDays(from, -1) : new Date(from.getTime() - span);
   const prevTo = today ? addDays(to, -1) : new Date(from.getTime() - 1);
-  const inStore = (t) => dash.store === 'all' || t.store === dash.store;
+  const inStore = (t) => inStores(t.store);
   const cur = TXNS.filter(t => inStore(t) && t.date >= from && t.date <= to);
   const prev = TXNS.filter(t => inStore(t) && t.date >= prevFrom && t.date <= prevTo);
 
@@ -115,7 +115,7 @@ function renderDashboard() {
           <p class="text-slate-500 text-sm">Welcome back, Demo Merchant. Here's how your stores are performing.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          ${selectPill('dash', 'store', 'All Stores', STORE_OPTS, dash.store, 'store')}
+          ${storePill('dash', 'All Stores')}
           <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
             ${DASH_PRESETS.map(p => `<button data-action="dash-preset" data-value="${p.value}" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${dash.preset === p.value ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">${p.label}</button>`).join('')}
           </div>

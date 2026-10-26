@@ -6,7 +6,7 @@ function cbRows(s, withStatus = true) {
   const statusOk = (c) => s.status === 'all'
     || (s.status === 'action' ? CB_OPEN.has(c.status) : s.status === 'pending' ? CB_PENDING.has(c.status) : c.status === s.status);
   return CHARGEBACKS.filter(c =>
-    (s.store === 'all' || c.store === s.store) &&
+    inStores(c.store) &&
     (s.stage === 'all' || c.stage === s.stage) &&
     inRange(c, s.range) &&
     (!q || c.ref.toLowerCase().includes(q) || c.txn.id.toLowerCase().includes(q)) &&
@@ -16,8 +16,8 @@ function cbRows(s, withStatus = true) {
 
 function renderChargebacks() {
   const s = pageState();
-  const base = cbRows(s, false);
-  const rows = cbRows(s);
+  const base = cbRows(applied(s), false);
+  const rows = cbRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const success = base.filter(c => c.status === 'Success');
   const cbAmount = success.reduce((sum, c) => sum + c.amount, 0);
@@ -58,21 +58,21 @@ function renderChargebacks() {
 
       <div class="flex flex-col">
         ${listFilterBar(s, 'Ref. ID or Transaction ID',
-          selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot') +
-          selectPill('list', 'stage', 'Stage', stageOpts, s.stage, 'layers'))}
+          selectPill('list', 'status', 'Status', statusOpts, s.status) +
+          selectPill('list', 'stage', 'Stage', stageOpts, s.stage))}
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Pending Requests', value: base.filter(c => CB_PENDING.has(c.status)).length.toLocaleString(), status: 'pending', selected: s.status === 'pending' })}
-            ${metricCard({ title: 'Successful Chargeback', value: success.length.toLocaleString(), status: 'Success', selected: s.status === 'Success' })}
+            ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Pending Requests', value: base.filter(c => CB_PENDING.has(c.status)).length.toLocaleString(), status: 'pending', selected: s.applied.status === 'pending' })}
+            ${metricCard({ title: 'Successful Chargeback', value: success.length.toLocaleString(), status: 'Success', selected: s.applied.status === 'Success' })}
             ${metricCard({ title: 'Chargeback Amount', value: fmtBDTShort(cbAmount), sub: fmtBDT(cbAmount) })}
           </div>
         </div>
 
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'chargebacks', s)}
+          ${listToolbar(rows.length, 'chargebacks', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: c => `data-action="open-cb" data-value="${c.ref}"`, emptyTitle: 'No chargebacks found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

@@ -4,15 +4,15 @@
 function ttRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return TXN_TICKETS.filter(t =>
-    (s.store === 'all' || t.store === s.store) && inRange(t, s.range) &&
+    inStores(t.store) && inRange(t, s.range) &&
     (!q || t.no.toLowerCase().includes(q) || t.txn.id.toLowerCase().includes(q)) &&
     (!withStatus || s.status === 'all' || t.status === s.status));
 }
 
 function renderTxnTickets() {
   const s = pageState();
-  const base = ttRows(s, false);
-  const rows = ttRows(s);
+  const base = ttRows(applied(s), false);
+  const rows = ttRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const solved = base.filter(t => t.status === 'Solved');
   const avgH = solved.length ? solved.reduce((n, t) => n + (t.feedbackOn - t.date) / 3600e3, 0) / solved.length : 0;
@@ -35,18 +35,18 @@ function renderTxnTickets() {
         <button data-action="new-tt" class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}Raise Ticket</button>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Ticket No or Transaction ID', selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot'))}
+        ${listFilterBar(s, 'Ticket No or Transaction ID', selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Tickets', value: base.length, status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Pending Tickets', value: base.filter(t => t.status === 'Requested').length, status: 'Requested', selected: s.status === 'Requested' })}
-            ${metricCard({ title: 'Solved Tickets', value: solved.length, status: 'Solved', selected: s.status === 'Solved' })}
+            ${metricCard({ title: 'Total Tickets', value: base.length, status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Pending Tickets', value: base.filter(t => t.status === 'Requested').length, status: 'Requested', selected: s.applied.status === 'Requested' })}
+            ${metricCard({ title: 'Solved Tickets', value: solved.length, status: 'Solved', selected: s.applied.status === 'Solved' })}
             ${metricCard({ title: 'Avg. Resolution Time', value: solved.length ? hoursText(avgH) : '—' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'tickets', s)}
+          ${listToolbar(rows.length, 'tickets', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: t => `data-action="open-tt" data-value="${t.no}"`, emptyTitle: 'No tickets found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

@@ -653,3 +653,31 @@ const DOCS = [
   ['Security', 'PCI-DSS Responsibilities for Merchants', 'PDF', '540 KB', 'English', -150],
   ['Reports & Settlement', 'Monthly Statement Template', 'XLSX', '45 KB', 'English', -8],
 ].map(([cat, title, type, size, lang, days], i) => ({ id: `doc${i}`, cat, title, type, size, lang, updated: addDays(TODAY, days) }));
+
+// Header notifications — built from the records above so each one opens a real drawer.
+const NOTIFICATIONS = [
+  ...CHARGEBACKS.filter(c => ['Initial', 'Waiting'].includes(c.status)).slice(0, 2).map(c => ({
+    kind: 'cb', value: c.ref, icon: 'shield-alert', tone: 'rose', date: c.date,
+    title: 'Chargeback raised', text: `${fmtBDT(c.amount)} · ${c.reason}. Respond by ${fmtDate(c.respondBy)}.`,
+  })),
+  ...[...SETTLEMENTS].sort((a, b) => b.date - a.date).filter(x => x.status === 'On Hold').slice(0, 1).map(x => ({
+    kind: 'settlement', value: x.ref, icon: 'circle-pause', tone: 'amber', date: x.date,
+    title: 'Settlement on hold', text: `${x.storeName} · ${x.holdReason}`,
+  })),
+  ...[...SETTLEMENTS].sort((a, b) => b.date - a.date).filter(x => x.status === 'Paid').slice(0, 2).map(x => ({
+    kind: 'settlement', value: x.ref, icon: 'banknote', tone: 'emerald', date: x.date,
+    title: 'Settlement paid', text: `${fmtBDT(x.paid)} sent to ${x.bank.bank} · ${x.storeName}`,
+  })),
+  ...REFUNDS.filter(r => r.status === 'Success' && NOW - r.date > 3600e3).slice(0, 2).map(r => ({
+    kind: 'refund', value: r.ref, icon: 'undo-2', tone: 'primary', date: r.date,
+    title: 'Refund completed', text: `${fmtBDT(r.amount)} refunded to ${r.txn.customer} · ${r.storeName}`,
+  })),
+  ...INVOICES.filter(i => i.status === 'Paid').sort((a, b) => b.paidAt - a.paidAt).slice(0, 2).map(i => ({
+    kind: 'invoice', value: i.no, icon: 'file-check', tone: 'emerald', date: i.paidAt,
+    title: `Invoice ${i.no} paid`, text: `${i.customer} · ${i.storeName}`,
+  })),
+  ...TXN_TICKETS.filter(t => t.status === 'Solved').sort((a, b) => b.feedbackOn - a.feedbackOn).slice(0, 2).map(t => ({
+    kind: 'tt', value: t.no, icon: 'message-square', tone: 'primary', date: t.feedbackOn,
+    title: 'Support replied to your ticket', text: `${t.no} · ${t.queries[0]}`,
+  })),
+].sort((a, b) => b.date - a.date).slice(0, 10).map((n, i) => ({ ...n, read: i >= 4 }));

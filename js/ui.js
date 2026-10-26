@@ -18,13 +18,15 @@ const METHOD_OPTS = [{ label: 'All Methods', value: 'all' }, ...METHODS.map(m =>
 // Every account store, including new / inactive ones without transactions, so filters always show a name.
 const STORE_OPTS = [{ label: 'All Stores', value: 'all' }, ...ACCOUNT_STORES.map(s => ({ label: s.name, value: s.id }))];
 
+// Same presets, labels and order as the KAM report date filter.
 const PRESETS = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: '7d', label: 'Last 7 Days' },
-  { value: '30d', label: 'Last 30 Days' },
-  { value: 'this_month', label: 'This Month' },
   { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Last Day' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: '7d', label: 'Past 7 Days' },
+  { value: '30d', label: 'Past 30 Days' },
   { value: 'custom', label: 'Custom Range' },
 ];
 const TIME_CHIPS = [
@@ -40,6 +42,7 @@ function presetRange(preset) {
     case 'yesterday': return { from: addDays(TODAY, -1), to: new Date(TODAY.getTime() - 1) };
     case '7d': return { from: addDays(TODAY, -6), to: NOW };
     case '30d': return { from: addDays(TODAY, -29), to: NOW };
+    case 'this_week': return { from: addDays(TODAY, -TODAY.getDay()), to: NOW };
     case 'this_month': return { from: new Date(NOW.getFullYear(), NOW.getMonth(), 1), to: NOW };
     default: return { from: ALL_TIME_START, to: NOW }; // 'all'
   }
@@ -77,22 +80,74 @@ function rangeLabel(r) {
   return fullDay ? `${fmtShort(r.from)} – ${fmtShort(r.to)}` : `${fmtShort(r.from)}, ${fmtHM(r.from)} – ${fmtShort(r.to)}, ${fmtHM(r.to)}`;
 }
 
-function selectPill(scope, key, label, options, value, icon) {
+// Filter pill — KAM report filter style: label + chevron, no leading icon.
+function selectPill(scope, key, label, options, value) {
   const ddKey = `${scope}:${key}`;
   const active = value && value !== 'all';
   const selected = options.find(o => o.value === value);
   return `
     <div class="relative" data-dd-root>
       <button data-action="dd-toggle" data-key="${ddKey}" aria-haspopup="listbox" aria-expanded="${openDD === ddKey}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${active ? PILL_ACTIVE : PILL_IDLE}">
-        ${icon ? ic(icon, 'w-4 h-4') : ''}${active ? esc(selected?.label ?? value) : label}${ic('chevron-down', 'w-3 h-3')}
+        ${active ? esc(selected?.label ?? value) : label}${ic('chevron-down', 'w-3 h-3')}
       </button>
       ${openDD === ddKey ? `
-        <div class="absolute top-full left-0 mt-2 min-w-[200px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 max-h-72 overflow-y-auto anim-pop">
+        <div class="absolute top-full left-0 mt-2 min-w-[200px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-2 max-h-72 overflow-y-auto anim-pop">
           ${options.map(o => `
             <button data-action="dd-select" data-scope="${scope}" data-key="${key}" data-value="${o.value}"
-              class="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${o.value === value ? 'text-primary-600 font-medium bg-slate-50' : 'text-slate-700'}">${esc(o.label)}</button>`).join('')}
+              class="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 ${o.value === value ? 'text-primary-600 font-medium' : 'text-slate-700'}">${esc(o.label)}</button>`).join('')}
         </div>` : ''}
     </div>`;
+}
+
+// List filter bars stage their changes until "Apply Filters" (as on the KAM reports page);
+// the rest of the portal (header, dashboard, analytics) applies a filter as soon as it is picked.
+const DRAFT_SCOPES = ['list', 'txn'];
+
+// Multi-select store filter. The header switcher and every page's Store pill share storeFilter;
+// a list page's pill edits a draft (s.storeDraft) that "Apply Filters" commits to every page.
+const storeLabel = (allLabel, ids = storeFilter) => !ids.length ? allLabel
+  : ids.length === 1 ? STORE_OPTS.find(o => o.value === ids[0]).label
+  : `${ids.length} stores`;
+
+function storePill(scope, allLabel, { right = false, compact = false, heading = '' } = {}) {
+  const ddKey = `${scope}:store`;
+  const open = openDD === ddKey;
+  const ids = DRAFT_SCOPES.includes(scope) ? pageState().storeDraft ?? storeFilter : storeFilter;
+  const check = (on) => `<span class="w-4 h-4 shrink-0 rounded border flex items-center justify-center ${on ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-slate-300'}">${on ? ic('check', 'w-3 h-3') : ''}</span>`;
+  return `
+    <div class="relative" data-dd-root data-store-pill>
+      <button data-action="dd-toggle" data-key="${ddKey}" aria-haspopup="listbox" aria-expanded="${open}" title="Stores" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${ids.length ? PILL_ACTIVE : PILL_IDLE}">
+        ${compact ? ic('store', 'w-4 h-4') : ''}<span class="${compact ? 'hidden sm:inline ' : ''}max-w-[160px] truncate">${esc(storeLabel(allLabel, ids))}</span>${ic('chevron-down', 'w-3 h-3')}
+      </button>
+      ${open ? `
+        <div role="listbox" aria-multiselectable="true" class="absolute top-full ${right ? 'right-0' : 'left-0'} mt-2 min-w-[240px] bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 max-h-80 overflow-y-auto anim-pop">
+          ${heading ? `<p class="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${heading}</p>` : ''}
+          ${STORE_OPTS.map(o => {
+            const on = o.value === 'all' ? !ids.length : ids.includes(o.value);
+            return `
+            <button data-action="store-toggle" data-scope="${scope}" data-value="${o.value}" role="option" aria-selected="${on}"
+              class="w-full flex items-center gap-2.5 px-4 py-2 text-left text-sm hover:bg-slate-50 ${o.value === 'all' ? 'border-b border-slate-100' : ''} ${on ? 'text-primary-600 font-medium' : 'text-slate-700'}">${check(on)}${esc(o.label)}</button>`;
+          }).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+// Text filter — KAM report text filter: rounded, widens on focus, × clears it.
+function filterSearch(id, placeholder, value) {
+  return `
+    <div class="relative flex items-center">
+      <input id="${id}" type="text" placeholder="${placeholder}" value="${esc(value)}"
+        class="pl-3 ${value ? 'pr-8' : 'pr-3'} py-1.5 bg-white border border-slate-200 hover:border-slate-300 rounded-full text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all w-52 focus:w-64">
+      ${value ? `<button data-action="clear-search" aria-label="Clear search" class="absolute right-2.5 text-slate-400 hover:text-slate-600">${ic('x', 'w-3.5 h-3.5')}</button>` : ''}
+    </div>`;
+}
+
+// "Apply Filters" (enabled once something changed) and "Clear", as on the KAM reports page.
+function filterActions(s) {
+  const dirty = filtersDirty(s);
+  return `
+    <button data-action="apply-filters" ${dirty ? '' : 'disabled'} class="flex shrink-0 items-center gap-2 px-4 py-1.5 text-sm font-semibold rounded-full transition-all shadow-sm ml-2 ${dirty ? 'bg-primary-600 hover:bg-primary-700 text-white' : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'}">Apply Filters</button>
+    <button data-action="clear-filters" class="shrink-0 px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors">Clear</button>`;
 }
 
 // ---------------------------------------------------------------------
@@ -100,10 +155,11 @@ function selectPill(scope, key, label, options, value, icon) {
 // ---------------------------------------------------------------------
 function dtPill(range, defaultPreset = '7d') {
   const active = range.preset !== defaultPreset || !!range.daily;
+  const open = openDD === 'txn:range';
   return `
-    <div class="relative" data-dd-root>
-      <button data-action="dd-toggle" data-key="txn:range" class="inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-colors ${active ? PILL_ACTIVE : PILL_IDLE}">
-        ${ic('calendar-clock', 'w-4 h-4')}<span class="truncate">${rangeLabel(range)}</span>${ic('chevron-down', 'w-3 h-3')}
+    <div class="relative shrink-0" data-dd-root>
+      <button data-action="dd-toggle" data-key="txn:range" class="flex items-center justify-between gap-2 pl-3 pr-3 py-1.5 border rounded-full text-sm transition-all min-w-[120px] ${active ? PILL_ACTIVE : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 font-medium'}">
+        <span class="truncate">${rangeLabel(range)}</span>${ic('chevron-down', `w-4 h-4 transition-transform duration-200 ${active ? 'text-primary-600' : 'text-slate-400'} ${open ? 'rotate-180' : ''}`)}
       </button>
       ${openDD === 'txn:range' ? dtPopover() : ''}
     </div>`;

@@ -15,7 +15,7 @@ const dueText = (inv) => {
 function invoiceRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return INVOICES.filter(inv =>
-    (s.store === 'all' || inv.store === s.store) &&
+    inStores(inv.store) &&
     inRange(inv, s.range) &&
     (!q || inv.no.toLowerCase().includes(q) || inv.customer.toLowerCase().includes(q)) &&
     (!withStatus || s.status === 'all' || (s.status === 'open' ? ['Sent', 'Overdue'].includes(inv.status) : inv.status === s.status))
@@ -24,8 +24,8 @@ function invoiceRows(s, withStatus = true) {
 
 function renderInvoices() {
   const s = pageState();
-  const base = invoiceRows(s, false);
-  const rows = invoiceRows(s);
+  const base = invoiceRows(applied(s), false);
+  const rows = invoiceRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const total = (list) => list.reduce((n, inv) => n + invoiceTotals(inv).total, 0);
   const open = base.filter(inv => ['Sent', 'Overdue'].includes(inv.status));
@@ -50,18 +50,18 @@ function renderInvoices() {
         <button data-action="new-invoice" class="${BTN_PRIMARY} shrink-0">${ic('file-plus', 'w-4 h-4')}Create Invoice</button>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Invoice No or Customer', selectPill('list', 'status', 'Status', statusOpts, s.status, 'circle-dot'))}
+        ${listFilterBar(s, 'Invoice No or Customer', selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Invoices', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Outstanding', value: fmtBDTShort(total(open)), sub: `${open.length} unpaid`, status: 'open', selected: s.status === 'open' })}
-            ${metricCard({ title: 'Overdue', value: fmtBDTShort(total(overdue)), sub: `${overdue.length} invoices`, status: 'Overdue', selected: s.status === 'Overdue' })}
-            ${metricCard({ title: 'Paid', value: fmtBDTShort(total(paid)), sub: `${paid.length} invoices`, status: 'Paid', selected: s.status === 'Paid' })}
+            ${metricCard({ title: 'Total Invoices', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Outstanding', value: fmtBDTShort(total(open)), sub: `${open.length} unpaid`, status: 'open', selected: s.applied.status === 'open' })}
+            ${metricCard({ title: 'Overdue', value: fmtBDTShort(total(overdue)), sub: `${overdue.length} invoices`, status: 'Overdue', selected: s.applied.status === 'Overdue' })}
+            ${metricCard({ title: 'Paid', value: fmtBDTShort(total(paid)), sub: `${paid.length} invoices`, status: 'Paid', selected: s.applied.status === 'Paid' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
-          ${listToolbar(rows.length, 'invoices', s)}
+          ${listToolbar(rows.length, 'invoices', applied(s))}
           ${dataTable({ cols, rows: pageRows, rowAttrs: inv => `data-action="open-invoice" data-value="${inv.no}"`, emptyTitle: 'No invoices found' })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>

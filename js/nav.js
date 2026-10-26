@@ -53,7 +53,7 @@ const NAV = [
     ]
   },
   {
-    key: 'account', label: 'Account & Settings', icon: 'store', children: [
+    key: 'account', label: 'Account & Settings', icon: 'settings', children: [
       { label: 'My Stores', to: '/account/my-stores' },
       { label: 'Store List', to: '/account/store-list' },
       { label: 'Store Groups', to: '/account/store-groups' },
@@ -61,17 +61,22 @@ const NAV = [
       { label: 'Change Password', to: '/account/change-password' },
     ]
   },
+  // Pinned to the bottom of the sidebar: extras, help and integration rather than daily work.
   {
-    key: 'others', label: 'Others', icon: 'ellipsis', children: [
+    key: 'others', label: 'Others', icon: 'ellipsis', bottom: true, children: [
       { label: 'Refer & Earn', to: '/others/refer-earn' },
       { label: 'Currency Conversion Rates', to: '/others/currency-conversion-rates' },
       { label: 'Value Added Services (VAS)', to: '/others/vas' },
       { label: 'SMS Purchase', to: '/others/sms-purchase' },
-      { label: 'Developer / Technical Information', to: '/others/developer-information' },
+    ]
+  },
+  {
+    key: 'help', label: 'Help & Resources', icon: 'life-buoy', bottom: true, children: [
       { label: 'Merchant FAQ', to: '/others/merchant-faq' },
       { label: 'Instructional Videos & Documents', to: '/others/instructional-videos-documents' },
     ]
   },
+  { key: 'developer', label: 'Developer', icon: 'code', to: '/others/developer-information', bottom: true },
 ];
 
 const TXN_VIEWS = {

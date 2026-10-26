@@ -6,7 +6,7 @@ function baseTxns(s, view) {
   return TXNS.filter(t =>
     (!view.lockMethod || t.method === view.lockMethod) &&
     (s.method === 'all' || t.method === s.method) &&
-    (s.store === 'all' || t.store === s.store) &&
+    inStores(t.store) &&
     inRange(t, s.range) &&
     (!q || t.id.toLowerCase().includes(q) || t.valId.toLowerCase().includes(q))
   );
@@ -55,8 +55,9 @@ function metricCard({ title, value, status, selected, sub, key = 'status' }) {
 
 function renderTransactions(view) {
   const s = txnState(view.key);
-  const base = baseTxns(s, view);
-  const rows = sortedRows(base, s);
+  const f = applied(s);
+  const base = baseTxns(f, view);
+  const rows = sortedRows(base, f);
   const totalPages = Math.max(1, Math.ceil(rows.length / s.pageSize));
   s.page = Math.min(s.page, totalPages);
   const start = (s.page - 1) * s.pageSize;
@@ -66,7 +67,6 @@ function renderTransactions(view) {
   const success = base.filter(t => t.status === 'success');
   const failed = base.filter(t => t.status === 'failed');
   const successAmount = success.reduce((sum, t) => sum + t.amount, 0);
-  const hasFilters = s.search || s.status !== 'all' || s.method !== 'all' || s.store !== 'all' || s.range.preset !== '7d';
 
   return `
     <div class="space-y-6">
@@ -77,28 +77,22 @@ function renderTransactions(view) {
 
       <div class="flex flex-col">
         <div class="filter-bar-container flex items-center gap-3 flex-wrap">
-          <div class="relative flex items-center">
-            <span class="absolute left-3 text-slate-400 pointer-events-none">${ic('search', 'w-4 h-4')}</span>
-            <input id="txn-search" type="text" placeholder="Transaction ID / Val ID" value="${esc(s.search)}"
-              class="py-1.5 pl-9 ${s.search ? 'pr-8' : 'pr-3'} bg-white border border-slate-200 rounded-full text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500 transition-all"
-              style="width:${s.search ? 240 : 210}px">
-            ${s.search ? `<button data-action="clear-search" class="absolute right-2.5 text-slate-400 hover:text-slate-600">${ic('x', 'w-3 h-3')}</button>` : ''}
-          </div>
+          ${filterSearch('txn-search', 'Transaction ID / Val ID', s.search)}
           ${dtPill(s.range)}
-          ${selectPill('txn', 'status', 'Status', STATUS_OPTS, s.status, 'circle-dot')}
+          ${selectPill('txn', 'status', 'Status', STATUS_OPTS, s.status)}
           ${view.lockMethod
             ? `<span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border border-slate-200 bg-slate-100 text-slate-600 font-medium">${ic('lock', 'w-3.5 h-3.5')}${view.lockMethod}</span>`
-            : selectPill('txn', 'method', 'Payment Method', METHOD_OPTS, s.method, 'wallet')}
-          ${selectPill('txn', 'store', 'Store', STORE_OPTS, s.store, 'store')}
-          ${hasFilters ? `<button data-action="clear-filters" class="text-xs text-slate-500 hover:text-slate-800 font-medium px-2">Clear all</button>` : ''}
+            : selectPill('txn', 'method', 'Payment Method', METHOD_OPTS, s.method)}
+          ${storePill('txn', 'Store')}
+          ${filterActions(s)}
         </div>
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Transactions', value: base.length.toLocaleString(), status: 'all', selected: s.status === 'all' })}
-            ${metricCard({ title: 'Success Transactions', value: success.length.toLocaleString(), status: 'success', selected: s.status === 'success' })}
-            ${metricCard({ title: 'Failed Transactions', value: failed.length.toLocaleString(), status: 'failed', selected: s.status === 'failed' })}
+            ${metricCard({ title: 'Total Transactions', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Success Transactions', value: success.length.toLocaleString(), status: 'success', selected: s.applied.status === 'success' })}
+            ${metricCard({ title: 'Failed Transactions', value: failed.length.toLocaleString(), status: 'failed', selected: s.applied.status === 'failed' })}
             ${metricCard({ title: 'Total Amount (Success)', value: fmtBDTShort(successAmount), sub: fmtBDT(successAmount) })}
           </div>
         </div>
@@ -166,7 +160,7 @@ function renderTransactions(view) {
 
 function exportCsv(view) {
   const s = txnState(view.key);
-  const rows = sortedRows(baseTxns(s, view), s);
+  const rows = sortedRows(baseTxns(applied(s), view), applied(s));
   if (!rows.length) { toast('Nothing to export for these filters'); return; }
   const cell = (v) => `"${String(v).replace(/"/g, '""')}"`;
   const lines = [

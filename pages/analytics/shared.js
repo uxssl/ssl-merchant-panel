@@ -6,7 +6,7 @@ const AN = {
   operators: '/analytics/mobile-operators', devices: '/analytics/browsers-devices', issuer: '/analytics/issuer-location',
   saved: '/analytics/saved-card-analytics',
 };
-const an = { preset: '30d', store: 'all' };
+const an = { preset: '30d' };
 const AN_PRESETS = [{ value: '7d', label: '7 Days' }, { value: '30d', label: '30 Days' }, { value: 'this_month', label: 'This Month' }, { value: 'all', label: 'All Time' }];
 // Categorical order checked with the dataviz palette validator (light surface): KAM primary first.
 const SERIES = ['#295cab', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#6250d6'];
@@ -28,7 +28,7 @@ const anRange = () => {
 };
 const anTxns = () => {
   const { from, to } = anRange();
-  return TXNS.filter(t => (an.store === 'all' || t.store === an.store) && t.date >= from && t.date <= to);
+  return TXNS.filter(t => inStores(t.store) && t.date >= from && t.date <= to);
 };
 const pct = (a, b) => b ? a / b * 100 : 0;
 const fmtPct = (n) => `${n.toFixed(1)}%`;
@@ -167,13 +167,13 @@ function analyticsShell(title, sub, body) {
           <p class="text-slate-500 text-sm">${sub}</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          ${selectPill('an', 'store', 'All Stores', STORE_OPTS, an.store, 'store')}
+          ${storePill('an', 'All Stores')}
           <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
             ${AN_PRESETS.map(p => `<button data-action="an-preset" data-value="${p.value}" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${an.preset === p.value ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">${p.label}</button>`).join('')}
           </div>
         </div>
       </div>
-      <p class="text-xs text-slate-500 -mt-3">${fmtDate(from)} – ${fmtDate(to)} · ${list.length.toLocaleString()} transactions${an.store !== 'all' ? ` · ${esc(STORES.find(s => s.id === an.store).name)}` : ''}</p>
+      <p class="text-xs text-slate-500 -mt-3">${fmtDate(from)} – ${fmtDate(to)} · ${list.length.toLocaleString()} transactions${storeFilter.length ? ` · ${esc(storeLabel(''))}` : ''}</p>
       ${body(list)}
     </div>`;
 }

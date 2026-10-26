@@ -329,7 +329,7 @@ function renderLearning() {
           <span class="absolute left-3 text-slate-400 pointer-events-none">${ic('search', 'w-4 h-4')}</span>
           <input id="learn-search" type="text" value="${esc(learn.q)}" placeholder="Search by title" class="py-1.5 pl-9 pr-3 w-56 bg-white border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500">
         </div>
-        ${selectPill('learn', 'cat', 'Category', [{ label: 'All Categories', value: 'all' }, ...LEARN_CATEGORIES.map(c => ({ label: c, value: c }))], learn.cat, 'tag')}
+        ${selectPill('learn', 'cat', 'Category', [{ label: 'All Categories', value: 'all' }, ...LEARN_CATEGORIES.map(c => ({ label: c, value: c }))], learn.cat)}
       </div>
       ${learn.tab === 'videos' ? (vids.length ? `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">${vids.map(v => `
         <button data-action="open-video" data-value="${v.id}" class="text-left bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
