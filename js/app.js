@@ -75,6 +75,8 @@ function renderPage() {
     page.innerHTML = renderPaymentQr();
   } else if (path === EMI_PATH) {
     page.innerHTML = renderDigitalEmi();
+  } else if (path === AN.home) {
+    page.innerHTML = renderReportsHome();
   } else if (path === AN.business) {
     page.innerHTML = renderBusinessAnalytics();
   } else if (path === AN.share) {
@@ -689,10 +691,14 @@ const actions = {
   },
   'goto-list': (el) => {
     const s = (listStates[el.dataset.path] ||= defaultListState('30d'));
-    Object.assign(s, { search: '', status: el.dataset.status, range: makeRange('all'), page: 1 });
+    Object.assign(s, { search: '', status: el.dataset.status, range: makeRange('all') });
+    commitFilters(s);
     location.hash = '#' + el.dataset.path;
   },
   'dash-preset': (el) => { dash.preset = el.dataset.value; render(); },
+  'open-contacts': () => { drawer = { kind: 'contacts', item: null }; renderDrawer(); },
+  // Dashboard quick action: open Payment QR with the generator's amount field ready.
+  'quick-qr': () => { pendingFocus = '#qr-amount'; location.hash = '#/products/payment-qr'; },
   'goto-txn': (el) => {
     const s = txnState('all');
     Object.assign(s, { search: '', range: makeRange(dash.preset), status: el.dataset.status, method: 'all' });
@@ -831,6 +837,7 @@ window.addEventListener('hashchange', () => {
   render();
   $('#page').scrollTop = 0;
   window.scrollTo(0, 0);
+  if (pendingFocus) { $(pendingFocus)?.focus(); pendingFocus = null; }
 });
 
 let lastWidthClass = innerWidth < 768 ? 'phone' : innerWidth < 1024 ? 'tablet' : 'desktop';

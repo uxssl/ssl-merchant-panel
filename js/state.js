@@ -11,6 +11,7 @@ let dtDraft = null;
 let userMenuOpen = false;
 let headerMenu = null; // 'search' | 'notifications'
 const search = { q: '', active: 0 };
+let pendingFocus = null; // selector to focus once the next route has rendered
 let drawer = null; // { kind: 'txn' | 'refund' | 'cb', item }
 let charts = [];
 

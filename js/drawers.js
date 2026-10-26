@@ -248,7 +248,7 @@ function renderDrawer() {
   const key = wasOpen ? focusKey(document.activeElement) : null;
   if (!wasOpen) drawerReturnFocus = document.activeElement;
   document.body.style.overflow = 'hidden';
-  const render = { txn: txnDrawer, refund: refundDrawer, cb: cbDrawer, settlement: settlementDrawer, fy: fyDrawer, link: linkDrawer, 'link-new': linkFormDrawer, invoice: invoiceDrawer, 'invoice-new': invoiceFormDrawer, emi: emiDrawer, partner: partnerDrawer, 'partner-join': joinDrawer, mc: mcDrawer, 'mc-new': mcFormDrawer, tt: ttDrawer, 'tt-new': ttFormDrawer, gt: gtDrawer, 'gt-new': gtFormDrawer, sr: srDrawer, 'sr-new': srFormDrawer, store: storeDrawer, group: groupDrawer, 'group-new': groupFormDrawer, user: userDrawer, 'user-new': userFormDrawer, 'referral-new': referralFormDrawer, 'sms-buy': smsBuyDrawer, video: videoDrawer }[drawer.kind];
+  const render = { txn: txnDrawer, contacts: contactsDrawer, refund: refundDrawer, cb: cbDrawer, settlement: settlementDrawer, fy: fyDrawer, link: linkDrawer, 'link-new': linkFormDrawer, invoice: invoiceDrawer, 'invoice-new': invoiceFormDrawer, emi: emiDrawer, partner: partnerDrawer, 'partner-join': joinDrawer, mc: mcDrawer, 'mc-new': mcFormDrawer, tt: ttDrawer, 'tt-new': ttFormDrawer, gt: gtDrawer, 'gt-new': gtFormDrawer, sr: srDrawer, 'sr-new': srFormDrawer, store: storeDrawer, group: groupDrawer, 'group-new': groupFormDrawer, user: userDrawer, 'user-new': userFormDrawer, 'referral-new': referralFormDrawer, 'sms-buy': smsBuyDrawer, video: videoDrawer }[drawer.kind];
   root.innerHTML = render(drawer.item);
   lucide.createIcons();
   makeKeyboardReachable(root);

@@ -29,6 +29,7 @@ const NAV = [
   },
   {
     key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', children: [
+      { label: 'All Reports', to: '/analytics' },
       { label: 'Business Analytics', to: '/analytics/business-analytics' },
       { label: 'Market Share', to: '/analytics/market-share' },
       { label: 'Geographic Analytics', to: '/analytics/geographic-analytics' },

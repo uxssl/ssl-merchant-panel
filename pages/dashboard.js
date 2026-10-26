@@ -32,7 +32,7 @@ function dashData() {
   } else {
     for (let d = startOfDay(from); d <= to; d = addDays(d, 1)) buckets.push({ label: fmtShort(d), from: d, to: endOfDay(d) });
   }
-  const series = buckets.map(b => ({ label: b.label, ...summarize(cur.filter(t => t.date >= b.from && t.date <= b.to)) }));
+  const series = buckets.map(b => ({ label: b.label, from: b.from, to: b.to, ...summarize(cur.filter(t => t.date >= b.from && t.date <= b.to)) }));
 
   const byHour = Array.from({ length: 24 }, (_, h) => cur.filter(t => t.date.getHours() === h).length);
 
@@ -56,36 +56,74 @@ function dashData() {
   return { from, to, cur, now: summarize(cur), prev: summarize(prev), prevLabel: today ? 'vs same time yesterday' : 'vs previous period', series, byHour, channels, pendingSettlement, nextPayout, lastSettled, lastSettledAt };
 }
 
-function spark(values, color) {
-  if (values.length < 2) return '';
-  const max = Math.max(...values), min = Math.min(...values);
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 100},${38 - ((v - min) / ((max - min) || 1)) * 34}`).join(' ');
-  return `<svg viewBox="0 0 100 40" preserveAspectRatio="none" class="w-full h-full"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-}
+// All dashboard cards share one surface, so radius, border and shadow stay consistent.
+const DASH_CARD = 'bg-white rounded-xl border border-slate-200 shadow-sm';
+const linkMore = (href, label) => `<a href="${href}" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 whitespace-nowrap">${label}${ic('arrow-right', 'w-3.5 h-3.5')}</a>`;
 
-function statCard({ title, value, cur, prev, series, pp, empty, prevEmpty, vs = 'vs previous period' }) {
+// `link` holds the attributes that make the card open its detail (an href or a data-action).
+function statCard({ title, value, cur, prev, pp, empty, prevEmpty, vs = 'vs previous period', link }) {
   // Rates and averages can't be compared when either period has no payments.
   let delta = null;
   if (!empty && !prevEmpty) delta = pp ? cur - prev : prev ? (cur - prev) / prev * 100 : null;
   const up = delta !== null && delta >= 0;
   const text = empty ? 'No payments in this period yet' : delta === null ? 'No data to compare with' : `${up ? '+' : ''}${delta.toFixed(1)}${pp ? ' pts' : '%'} ${vs}`;
+  const tag = link.includes('href=') ? 'a' : 'button';
+  // Compact: the change pill sits beside the value; what it compares with is said once, in the Overview heading.
+  const change = delta === null
+    ? `<span class="text-[11px] text-slate-400 truncate">${text}</span>`
+    : `<span title="${text}" class="shrink-0 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">${ic(up ? 'trending-up' : 'trending-down', 'w-3 h-3')}${up ? '+' : ''}${delta.toFixed(1)}${pp ? ' pts' : '%'}</span>`;
   return `
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col hover:shadow-md transition-shadow">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">${title}</p>
-      <div class="flex items-end justify-between gap-3">
-        <div class="min-w-0">
-          <p class="text-2xl font-bold text-slate-900 truncate">${value}</p>
-          <p class="text-xs mt-1 font-medium ${delta === null ? 'text-slate-400' : up ? 'text-emerald-600' : 'text-rose-600'}">${text}</p>
-        </div>
-        <div class="w-24 h-10 shrink-0">${spark(series, '#295cab')}</div>
+    <${tag} ${link} class="text-left ${DASH_CARD} px-4 py-3.5 flex flex-col gap-1 hover:shadow-md hover:border-primary-200 transition-all">
+      <p class="text-xs font-medium text-slate-500 truncate">${title}</p>
+      <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 min-w-0">
+        <p class="text-lg sm:text-xl font-bold tracking-tight text-slate-900 whitespace-nowrap">${value}</p>${change}
       </div>
-    </div>`;
+    </${tag}>`;
 }
 
 const cardHead = (title, sub, right = '') => `
-  <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-    <div><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500 mt-0.5">${sub}</p>` : ''}</div>${right}
+  <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+    <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500 mt-0.5">${sub}</p>` : ''}</div>${right}
   </div>`;
+
+// Merchant app download QR — a real, scannable code with the SSLCOMMERZ logo in the middle.
+// TODO: set MERCHANT_APP_URL to the merchant app's store link; until then it opens sslcommerz.com.
+const MERCHANT_APP_URL = 'https://sslcommerz.com';
+function appQr(cls) {
+  if (!window.qrcode) return '';
+  const qr = qrcode(0, 'H'); // high error correction, so the logo can cover the centre
+  qr.addData(MERCHANT_APP_URL);
+  qr.make();
+  const n = qr.getModuleCount();
+  let path = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.isDark(y, x)) path += `M${x} ${y}h1v1h-1z`;
+  const lw = n * 0.5, lh = lw * 45 / 234; // logo keeps its 234×45 shape
+  return `
+    <svg viewBox="-2 -2 ${n + 4} ${n + 4}" class="${cls}" shape-rendering="crispEdges" role="img" aria-label="QR code to download the SSLCOMMERZ Merchant App">
+      <rect x="-2" y="-2" width="${n + 4}" height="${n + 4}" fill="#fff"/>
+      <path d="${path}" fill="#000"/>
+      <rect x="${(n - lw) / 2 - 0.6}" y="${(n - lh) / 2 - 0.6}" width="${lw + 1.2}" height="${lh + 1.2}" fill="#fff"/>
+      <image href="${LOGO}" x="${(n - lw) / 2}" y="${(n - lh) / 2}" width="${lw}" height="${lh}"/>
+    </svg>`;
+}
+
+function contactsDrawer() {
+  const k = SUPPORT_CONTACTS.kam;
+  const group = (n, title, icon, text, rows) => section(`${n}. ${title}`, `
+    <p class="text-sm text-slate-500 -mt-1 mb-3 flex items-start gap-2">${ic(icon, 'w-4 h-4 mt-0.5 shrink-0 text-primary-600')}${text}</p>
+    ${kvGrid(rows.map(([label, value]) => kv(label, value)))}`);
+  return drawerShell({
+    title: 'Key Contact Details',
+    sub: '<span>Who to contact for what</span>',
+    body: [
+      group(1, 'Key Account Manager', 'user-round', 'For any query related to new or existing business, campaigns, enabling new features, products, SMS, new stores, etc.',
+        [['Name', esc(k.name)], ['Contact No', k.phone], ['Email Address', `<a href="mailto:${k.email}" class="text-primary-600 hover:underline">${k.email}</a>`]]),
+      ...SUPPORT_CONTACTS.teams.map((t, i) => group(i + 2, t.title, t.icon, t.text,
+        t.rows.map(([label, value]) => [label, value.includes('@') ? `<a href="mailto:${value}" class="text-primary-600 hover:underline">${value}</a>` : value]))),
+    ].join(''),
+    footer: `<button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>`,
+  });
+}
 
 function renderDashboard() {
   const d = dashData();
@@ -94,6 +132,8 @@ function renderDashboard() {
   const pendingCount = d.cur.filter(t => t.status === 'pending').length;
   const recent = d.cur.slice(0, 6);
   const hourLabel = (h) => `${pad(h % 12 || 12)} ${h >= 12 ? 'PM' : 'AM'}`;
+  const k = SUPPORT_CONTACTS.kam;
+  const activeStores = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
 
   const attention = [
     { icon: 'circle-x', tone: 'text-rose-600 bg-rose-50', title: 'Failed transactions', sub: 'In the selected period', value: failedCount, action: `data-action="goto-txn" data-status="failed"` },
@@ -101,18 +141,25 @@ function renderDashboard() {
     { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open — in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
     { icon: 'shield-alert', tone: 'text-slate-600 bg-slate-100', title: 'Chargebacks to respond', sub: 'Waiting for your evidence', value: CHARGEBACKS.filter(c => CB_OPEN.has(c.status)).length, action: `data-action="goto-list" data-path="${CB_PATH}" data-status="action"` },
   ];
+  const toReview = attention.reduce((s, a) => s + a.value, 0);
+  // Each action opens its create form straight away rather than the product's list.
   const quick = [
-    { icon: 'link', label: 'Create Payment Link', to: '/products/payment-links' },
-    { icon: 'qr-code', label: 'Generate Payment QR', to: '/products/payment-qr' },
-    { icon: 'file-text', label: 'Create Digital Invoice', to: '/products/digital-invoices' },
+    { icon: 'link', label: 'Create Payment Link', hint: 'Share a link and get paid', action: 'data-action="new-link"' },
+    { icon: 'qr-code', label: 'Generate Payment QR', hint: 'Bangla QR for a store and amount', action: 'data-action="quick-qr"' },
+    { icon: 'file-text', label: 'Create Digital Invoice', hint: 'Bill a customer online', action: 'data-action="new-invoice"' },
   ];
+  const contactBtn = (icon, label, value, href) => `
+    <a href="${href}" class="min-w-0 flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 hover:border-primary-300 hover:bg-primary-50/40 transition-colors">
+      <span class="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">${ic(icon, 'w-4 h-4')}</span>
+      <span class="min-w-0"><span class="block text-xs font-semibold text-slate-800">${label}</span><span class="block text-xs text-slate-500 truncate">${value}</span></span>
+    </a>`;
 
   return `
     <div class="space-y-6">
-      <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+      <div class="flex items-end justify-between gap-4 flex-wrap">
+        <div class="min-w-0">
           <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p class="text-slate-500 text-sm">Welcome back, Demo Merchant. Here's how your stores are performing.</p>
+          <p class="text-slate-500 text-sm mt-1">Welcome back, Demo Merchant. Here's how your stores are performing.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           ${storePill('dash', 'All Stores')}
@@ -122,91 +169,136 @@ function renderDashboard() {
         </div>
       </div>
 
-      <div class="flex flex-col gap-4">
-        <h2 class="text-sm font-semibold text-slate-900">Overview <span class="font-normal text-slate-500 text-xs ml-1">${fmtDate(d.from)}, ${fmtHM(d.from)} – ${fmtDate(d.to)}, ${fmtHM(d.to)}</span></h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          ${statCard({ title: 'Total Sales', value: fmtBDTShort(d.now.sales), cur: d.now.sales, prev: d.prev.sales, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, series: d.series.map(x => x.sales) })}
-          ${statCard({ title: 'Successful Transactions', value: d.now.success.toLocaleString(), cur: d.now.success, prev: d.prev.success, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, series: d.series.map(x => x.success) })}
-          ${statCard({ title: 'Success Rate', value: d.now.total ? `${d.now.rate.toFixed(1)}%` : '—', cur: d.now.rate, prev: d.prev.rate, pp: true, empty: !d.now.total, prevEmpty: !d.prev.total, vs: d.prevLabel, series: d.series.map(x => x.rate) })}
-          ${statCard({ title: 'Avg. Ticket Size', value: d.now.success ? fmtBDT(d.now.avg) : '—', cur: d.now.avg, prev: d.prev.avg, empty: !d.now.success, prevEmpty: !d.prev.success, vs: d.prevLabel, series: d.series.map(x => x.avg) })}
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm lg:col-span-2">
-          ${cardHead('Sales Trend', dash.preset === 'today' ? 'Successful sales per hour' : 'Successful sales per day')}
-          <div class="p-5 h-72"><canvas id="chart-sales"></canvas></div>
-        </div>
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-          ${cardHead('Payment Channels', 'Share of successful sales')}
-          <div class="p-5 space-y-4">
-            ${d.channels.map(c => `
-              <div>
-                <div class="flex items-center justify-between text-sm"><span class="font-medium text-slate-700">${c.type}</span><span class="font-semibold text-slate-900">${fmtBDTShort(c.amount)}</span></div>
-                <div class="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:${c.share.toFixed(1)}%"></div></div>
-                <p class="text-[11px] text-slate-500 mt-1">${c.count.toLocaleString()} transactions · ${c.share.toFixed(1)}%</p>
-              </div>`).join('')}
+      <section aria-label="Help and apps" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="${DASH_CARD} lg:col-span-2 p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold text-slate-900">Key Account Manager</h3>
+            <button data-action="open-contacts" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 whitespace-nowrap">All contacts${ic('arrow-right', 'w-3.5 h-3.5')}</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 md:items-center">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="w-11 h-11 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">${k.initials}</span>
+              <div class="min-w-0"><p class="text-sm font-semibold text-slate-900 truncate">${esc(k.name)}</p><p class="text-xs text-slate-500">Business, campaigns &amp; products</p></div>
+            </div>
+            ${contactBtn('phone', 'Call', k.phone, `tel:${k.phone.replace(/[^\d+]/g, '')}`)}
+            ${contactBtn('mail', 'Email', k.email, `mailto:${k.email}`)}
           </div>
         </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm lg:col-span-2">
-          ${cardHead('Transactions by Hour', Math.max(...d.byHour) ? `Peak hour: ${hourLabel(peak)} – ${hourLabel((peak + 1) % 24)}` : 'No payments in this period yet')}
-          <div class="p-5 h-56"><canvas id="chart-hours"></canvas></div>
-        </div>
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col">
-          ${cardHead('Settlement', 'Estimated, mock values', `<a href="#/settlements/settlement-report" class="text-xs font-medium text-primary-600 hover:text-primary-700">Report</a>`)}
-          <div class="p-5 space-y-4 flex-1">
-            <div>
-              <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Pending Settlement</p>
-              <p class="text-2xl font-bold text-slate-900 mt-1">${fmtBDT(d.pendingSettlement)}</p>
-              <p class="text-xs text-slate-500 mt-0.5">Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="p-3 rounded border bg-slate-50 border-slate-100"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Last Settled</p><p class="text-sm font-bold text-slate-900 mt-1">${fmtBDTShort(d.lastSettled)}</p><p class="text-[10px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
-              <div class="p-3 rounded border bg-slate-50 border-slate-100"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Settlement Account</p><p class="text-sm font-bold text-slate-900 mt-1 font-mono whitespace-nowrap">A/C •••• ••••</p><p class="text-[10px] text-slate-400 mt-0.5">Primary bank (masked)</p></div>
-            </div>
+        <div class="${DASH_CARD} p-5 flex items-center gap-4">
+          ${appQr('w-24 h-24 shrink-0')}
+          <div class="min-w-0">
+            <h3 class="text-sm font-semibold text-slate-900">Merchant App</h3>
+            <p class="text-xs text-slate-500 mt-1">Scan to download the app and manage your store on the go.</p>
           </div>
         </div>
-      </div>
+      </section>
 
+      <section aria-labelledby="dash-overview" class="space-y-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <h2 id="dash-overview" class="text-sm font-semibold text-slate-900">Overview <span class="ml-1 text-xs font-normal text-slate-500">Change ${d.prevLabel}</span></h2>
+          <p class="inline-flex items-center gap-1.5 text-xs text-slate-500">${ic('calendar', 'w-3.5 h-3.5')}${fmtDate(d.from)}, ${fmtHM(d.from)} – ${fmtDate(d.to)}, ${fmtHM(d.to)}</p>
+        </div>
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+          ${statCard({ title: 'Total Sales', value: fmtBDTShort(d.now.sales), cur: d.now.sales, prev: d.prev.sales, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'href="#/analytics/business-analytics"' })}
+          ${statCard({ title: 'Successful Transactions', value: d.now.success.toLocaleString(), cur: d.now.success, prev: d.prev.success, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'data-action="goto-txn" data-status="success"' })}
+          ${statCard({ title: 'Success Rate', value: d.now.total ? `${d.now.rate.toFixed(1)}%` : '—', cur: d.now.rate, prev: d.prev.rate, pp: true, empty: !d.now.total, prevEmpty: !d.prev.total, vs: d.prevLabel, link: 'data-action="goto-txn" data-status="all"' })}
+          ${statCard({ title: 'Avg. Ticket Size', value: d.now.success ? fmtBDT(d.now.avg) : '—', cur: d.now.avg, prev: d.prev.avg, empty: !d.now.success, prevEmpty: !d.prev.success, vs: d.prevLabel, link: 'href="#/analytics/business-analytics"' })}
+        </div>
+      </section>
+
+      <!-- Two independent columns; the hour chart grows so both end on the same line.
+           On phones the action column comes first: quick actions and open issues before charts. -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm lg:col-span-2 overflow-hidden">
-          ${cardHead('Recent Transactions', 'Latest payments in the selected period', `<a href="#/transactions/all" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">View all${ic('arrow-right', 'w-3.5 h-3.5')}</a>`)}
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-50 border-b border-slate-200"><tr>
-              ${['Date & Time', 'Transaction ID', 'Payment Method', 'Amount', 'Status'].map((h, i) => `<th class="h-10 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 1 ? 'hidden lg:table-cell' : i === 2 ? 'hidden sm:table-cell' : ''}">${h}</th>`).join('')}
-            </tr></thead>
-            <tbody class="divide-y divide-slate-100">
-              ${recent.length ? recent.map(t => `
-                <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
-                  <td class="px-4 py-2.5">${txnCell('date', t)}</td>
-                  <td class="px-4 py-2.5 hidden lg:table-cell"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
-                  <td class="px-4 py-2.5 hidden sm:table-cell">${txnCell('method', t)}</td>
-                  <td class="px-4 py-2.5 text-right">${txnCell('amount', t)}</td>
-                  <td class="px-4 py-2.5">${badge(t.status)}</td>
-                </tr>`).join('') : `<tr><td colspan="5" class="h-24 text-center text-slate-500">No transactions in this period yet.</td></tr>`}
-            </tbody>
-          </table>
+        <div class="lg:col-span-2 flex flex-col gap-6 min-w-0">
+          <div class="${DASH_CARD}">
+            ${cardHead('Successful Transactions &amp; Amount', `${dash.preset === 'today' ? 'Hourly' : 'Daily'} successful payment value and count · Select a ${dash.preset === 'today' ? 'bar' : 'day'} to see its transactions`)}
+            <div class="p-5 h-80"><canvas id="chart-sales"></canvas></div>
+          </div>
+
+          <div class="${DASH_CARD} overflow-hidden">
+            ${cardHead('Recent Transactions', 'Latest payments in the selected period', linkMore('#/transactions/all', 'View all'))}
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200"><tr>
+                  ${['Date & Time', 'Transaction ID', 'Payment Method', 'Amount', 'Status'].map((h, i) => `<th class="h-10 px-5 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 1 ? 'hidden lg:table-cell' : i === 2 ? 'hidden sm:table-cell' : ''}">${h}</th>`).join('')}
+                </tr></thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${recent.length ? recent.map(t => `
+                    <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
+                      <td class="px-5 py-3">${txnCell('date', t)}</td>
+                      <td class="px-5 py-3 hidden lg:table-cell"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
+                      <td class="px-5 py-3 hidden sm:table-cell">${txnCell('method', t)}</td>
+                      <td class="px-5 py-3 text-right">${txnCell('amount', t)}</td>
+                      <td class="px-5 py-3">${badge(t.status)}</td>
+                    </tr>`).join('') : `<tr><td colspan="5" class="h-24 text-center text-slate-500">No transactions in this period yet.</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="${DASH_CARD} flex-1 flex flex-col">
+            ${cardHead('Transactions by Hour', Math.max(...d.byHour) ? `Peak hour: ${hourLabel(peak)} – ${hourLabel((peak + 1) % 24)}` : 'No payments in this period yet')}
+            <div class="p-5 flex-1 min-h-64"><canvas id="chart-hours"></canvas></div>
+          </div>
         </div>
 
-        <div class="space-y-6">
-          <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-            ${cardHead('Needs Attention')}
+        <div class="order-first lg:order-none flex flex-col gap-6 min-w-0">
+          <div class="${DASH_CARD}">
+            ${cardHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
             <div class="divide-y divide-slate-100">
               ${attention.map(a => `
-                <button ${a.action} class="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-slate-50 transition-colors">
-                  <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-4 h-4')}</span>
-                  <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800">${a.title}</span><span class="block text-xs text-slate-500">${a.sub}</span></span>
-                  <span class="text-sm font-bold text-slate-900">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-400')}
+                <button ${a.action} class="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 last:rounded-b-xl transition-colors">
+                  <span class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-4 h-4')}</span>
+                  <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800">${a.title}</span><span class="block text-xs text-slate-500 truncate">${a.sub}</span></span>
+                  <span class="min-w-[2rem] text-right text-sm font-bold ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
                 </button>`).join('')}
             </div>
           </div>
-          <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-            ${cardHead('Quick Actions')}
-            <div class="p-3 grid gap-1">
-              ${quick.map(q => `<a href="#${q.to}" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors"><span class="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center">${ic(q.icon, 'w-4 h-4')}</span>${q.label}</a>`).join('')}
+
+          <div class="${DASH_CARD}">
+            ${cardHead('Quick Actions', 'Start a payment in a few clicks')}
+            <div class="p-3 flex flex-col gap-1">
+              ${quick.map(q => `
+                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-primary-50/60 transition-colors">
+                  <span class="w-9 h-9 rounded-lg bg-primary-50 text-primary-600 group-hover:bg-primary-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">${ic(q.icon, 'w-4 h-4')}</span>
+                  <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-slate-800 truncate">${q.label}</span><span class="block text-xs text-slate-500 truncate">${q.hint}</span></span>
+                  ${ic('chevron-right', 'w-4 h-4 text-slate-300 group-hover:text-primary-600 shrink-0 transition-colors')}
+                </button>`).join('')}
+            </div>
+          </div>
+
+          <div class="${DASH_CARD}">
+            ${cardHead('Settlement', 'Estimated, mock values', linkMore('#/settlements/settlement-report', 'Report'))}
+            <div class="p-5 space-y-4">
+              <div class="rounded-lg bg-primary-50/60 border border-primary-100 p-4">
+                <p class="text-xs font-semibold text-primary-700">Pending Settlement</p>
+                <p class="text-2xl font-bold tracking-tight text-slate-900 mt-1">${fmtBDT(d.pendingSettlement)}</p>
+                <p class="text-xs text-slate-500 mt-1 inline-flex items-center gap-1.5">${ic('calendar-clock', 'w-3.5 h-3.5')}Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Last Settled</p><p class="text-sm font-bold text-slate-900 mt-1">${fmtBDTShort(d.lastSettled)}</p><p class="text-[11px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
+                <div class="p-3 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Settlement Account</p><p class="text-sm font-bold text-slate-900 mt-1 font-mono whitespace-nowrap">A/C •••• ••••</p><p class="text-[11px] text-slate-400 mt-0.5">Primary bank (masked)</p></div>
+              </div>
+            </div>
+            <a href="#/account/store-list" class="flex items-center gap-3 px-5 py-3.5 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
+              <span class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">${ic('store', 'w-4 h-4')}</span>
+              <span class="flex-1 min-w-0">
+                <span class="block text-sm font-semibold text-slate-900">Stores</span>
+                <span class="block text-xs text-slate-500">${ACCOUNT_STORES.length} total · <span class="text-emerald-600 font-medium">${activeStores} active</span> · ${ACCOUNT_STORES.length - activeStores} inactive</span>
+              </span>
+              ${ic('chevron-right', 'w-4 h-4 text-slate-300')}
+            </a>
+          </div>
+
+          <div class="${DASH_CARD}">
+            ${cardHead('Payment Channels', 'Share of successful sales', linkMore('#/analytics/market-share', 'Details'))}
+            <div class="p-5 space-y-4">
+              ${d.channels.map(c => `
+                <div>
+                  <div class="flex items-center justify-between gap-3 text-sm"><span class="font-medium text-slate-700">${c.type}</span><span class="font-semibold text-slate-900">${fmtBDTShort(c.amount)}</span></div>
+                  <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:${c.share.toFixed(1)}%"></div></div>
+                  <p class="text-[11px] text-slate-500 mt-1.5">${c.count.toLocaleString()} transactions · ${c.share.toFixed(1)}%</p>
+                </div>`).join('')}
             </div>
           </div>
         </div>
@@ -222,20 +314,33 @@ function mountDashboardCharts() {
   charts.push(new Chart($('#chart-sales'), {
     data: {
       labels: d.series.map(x => x.label),
+      // Combo: successful amount as bars (left axis), successful count as a line (right axis).
       datasets: [
-        { type: 'bar', label: 'Sales', data: d.series.map(x => x.sales), backgroundColor: '#295cab', hoverBackgroundColor: '#4a75ba', borderRadius: 4, maxBarThickness: 28 },
+        { type: 'bar', label: 'Successful Amount (BDT)', data: d.series.map(x => x.sales), yAxisID: 'y', backgroundColor: '#c1d2eb', hoverBackgroundColor: '#99b5df', borderRadius: 4, maxBarThickness: 36, order: 1 },
+        { type: 'line', label: 'Successful Transactions (count)', data: d.series.map(x => x.success), yAxisID: 'y1', borderColor: '#295cab', backgroundColor: '#fff', borderWidth: 3, pointRadius: 4, pointHoverRadius: 6, pointBorderWidth: 2, tension: 0.25, order: 0 },
       ],
     },
     options: {
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      // Clicking a day (or hour) opens its successful transactions.
+      onClick: (_, els) => {
+        const b = els.length && d.series[els[0].index];
+        if (!b) return;
+        const s = txnState('all');
+        Object.assign(s, { search: '', status: 'success', method: 'all', range: { preset: 'custom', from: b.from, to: b.to } });
+        commitFilters(s);
+        location.hash = '#/transactions/all';
+      },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => ` ${fmtBDT(c.raw)} · Sales`, afterLabel: (c) => ` ${d.series[c.dataIndex].success} successful of ${d.series[c.dataIndex].total} transactions` } },
+        legend: { display: true, position: 'top', align: 'start', labels: { boxWidth: 12, boxHeight: 8, sort: (a, b) => a.datasetIndex - b.datasetIndex } },
+        tooltip: { callbacks: { label: (c) => c.dataset.yAxisID === 'y' ? ` ${fmtBDT(c.raw)} successful amount` : ` ${c.raw} successful of ${d.series[c.dataIndex].total} transactions` } },
       },
       scales: {
         x: { grid: { display: false } },
-        y: { grid, beginAtZero: true, ticks: { callback: (v) => v >= 1e5 ? `${v / 1e5}L` : v >= 1e3 ? `${v / 1e3}k` : v } },
+        y: { grid, beginAtZero: true, title: { display: true, text: 'Amount (BDT)' }, ticks: { callback: (v) => v >= 1e5 ? `${v / 1e5}L` : v >= 1e3 ? `${v / 1e3}k` : v } },
+        y1: { position: 'right', beginAtZero: true, grid: { display: false }, title: { display: true, text: 'Transactions' }, ticks: { precision: 0 } },
       },
     },
   }));

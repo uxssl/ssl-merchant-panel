@@ -681,3 +681,13 @@ const NOTIFICATIONS = [
     title: 'Support replied to your ticket', text: `${t.no} · ${t.queries[0]}`,
   })),
 ].sort((a, b) => b.date - a.date).slice(0, 10).map((n, i) => ({ ...n, read: i >= 4 }));
+
+// Dashboard support directory (mock). The KAM's real name, phone and email come from the
+// merchant's account; team addresses are the ones in the team's v3 dashboard concept.
+const SUPPORT_CONTACTS = {
+  kam: { name: 'Farzana Rahman', initials: 'FR', phone: '01•••-••••••', email: 'farzana.kam@example.com' },
+  teams: [
+    { title: 'Operations Team', icon: 'headset', text: 'For transaction, refund, chargeback, EMI and settlement queries.', rows: [['Email Address', 'operation@sslcommerz.com'], ['Telephone No', '+880 9677 725 222']] },
+    { title: 'Technical Team', icon: 'code', text: 'For SSLCOMMERZ API(s) and integration.', rows: [['Email Address', 'integration@sslcommerz.com']] },
+  ],
+};
