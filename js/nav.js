@@ -28,8 +28,8 @@ const NAV = [
     ]
   },
   {
-    key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', children: [
-      { label: 'All Reports', to: '/analytics' },
+    // A parent with its own `to` opens that page (the reports landing) as well as expanding.
+    key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', to: '/analytics', children: [
       { label: 'Business Analytics', to: '/analytics/business-analytics' },
       { label: 'Market Share', to: '/analytics/market-share' },
       { label: 'Geographic Analytics', to: '/analytics/geographic-analytics' },

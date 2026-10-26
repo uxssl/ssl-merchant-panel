@@ -169,6 +169,9 @@ const actions = {
   'mobile-nav': () => { mobileNav = !mobileNav; renderSidebar(); lucide.createIcons(); },
   'nav-parent': (el) => {
     const key = el.dataset.key;
+    const to = NAV.find(n => n.key === key).to;
+    // A parent with its own page opens it (the hashchange render expands it); clicking it again on that page toggles the list.
+    if (to && currentPath() !== to) { if (navCollapsed) collapsed = false; location.hash = '#' + to; return; }
     if (navCollapsed) { collapsed = false; expanded = key; }
     else expanded = expanded === key ? null : key;
     render();

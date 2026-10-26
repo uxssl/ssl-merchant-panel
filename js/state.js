@@ -46,4 +46,4 @@ const tracking = { query: '', results: null };
 const dash = { preset: '7d' };
 
 const currentPath = () => (location.hash || '#/dashboard').slice(1);
-const activeParent = (path) => NAV.find(n => n.children?.some(c => c.to === path))?.key || null;
+const activeParent = (path) => NAV.find(n => n.children && (n.to === path || n.children.some(c => c.to === path)))?.key || null;
