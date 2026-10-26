@@ -1,0 +1,19 @@
+body { font-size: 14px; }
+.anim-pop { animation: pop .16s ease-out; }
+.anim-fade { animation: fade .2s ease-out; }
+.anim-drawer { animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
+@keyframes pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { scrollbar-width: none; }
+[data-action]:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid #295cab; outline-offset: 2px; border-radius: 6px; }
+tr[data-action]:focus-visible { outline-offset: -2px; }
+/* First paint: no slide-in of the sidebar or padding animation */
+.no-anim, .no-anim * { transition: none !important; }
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+/* Same small-screen table sizing as the KAM panel (index.css, max-width: 1200px) */
+@media (max-width: 1200px) {
+  table th, table td, table td *, table th * { font-size: 11px !important; }
+}
