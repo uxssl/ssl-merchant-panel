@@ -116,7 +116,7 @@ function appQr(cls) {
 function contactsDrawer() {
   const k = SUPPORT_CONTACTS.kam;
   const group = (n, title, icon, text, rows) => section(`${n}. ${title}`, `
-    <p class="text-sm text-slate-500 -mt-1 mb-3 flex items-start gap-2">${ic(icon, 'w-4 h-4 mt-0.5 shrink-0 text-primary-600')}${text}</p>
+    <p class="text-sm text-slate-500 -mt-1 mb-3 flex items-start gap-2">${ic(icon, 'w-5 h-5 mt-0.5 shrink-0 portal-icon-muted')}${text}</p>
     ${kvGrid(rows.map(([label, value]) => kv(label, value)))}`);
   return drawerShell({
     title: 'Key Contact Details',
@@ -156,7 +156,7 @@ function renderDashboard() {
   ];
   const contactBtn = (icon, label, value, href, wrap = false) => `
     <a href="${href}" class="min-w-0 flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 hover:border-primary-300 hover:bg-primary-50/40 transition-colors">
-      <span class="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">${ic(icon, 'w-3.5 h-3.5')}</span>
+      <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic(icon, 'w-5 h-5 portal-icon-muted')}</span>
       <span class="min-w-0"><span class="block text-xs font-semibold text-slate-800">${label}</span><span class="block text-xs ${wrap ? 'text-slate-700 font-medium whitespace-nowrap' : 'text-slate-500 truncate'}">${value}</span></span>
     </a>`;
 
@@ -265,7 +265,7 @@ function renderDashboard() {
             <div class="p-2 flex flex-col">
               ${quick.map(q => `
                 <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-primary-50/60 transition-colors">
-                  <span class="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 group-hover:bg-primary-600 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">${ic(q.icon, 'w-4 h-4')}</span>
+                  <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic(q.icon, 'w-5 h-5 portal-icon-muted')}</span>
                   <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-slate-800 truncate">${q.label}</span><span class="block text-xs text-slate-500 truncate">${q.hint}</span></span>
                   ${ic('chevron-right', 'w-4 h-4 text-slate-300 group-hover:text-primary-600 shrink-0 transition-colors')}
                 </button>`).join('')}
@@ -286,7 +286,7 @@ function renderDashboard() {
               </div>
             </div>
             <a href="#/account/store-list" class="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
-              <span class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">${ic('store', 'w-4 h-4')}</span>
+              <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic('store', 'w-5 h-5 portal-icon-muted')}</span>
               <span class="flex-1 min-w-0">
                 <span class="block text-sm font-semibold text-slate-900">Stores</span>
                 <span class="block text-xs text-slate-500">${ACCOUNT_STORES.length} total · <span class="text-emerald-600 font-medium">${activeStores} active</span> · ${ACCOUNT_STORES.length - activeStores} inactive</span>
