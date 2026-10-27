@@ -23,7 +23,7 @@ function campaignRows(list, s) {
 }
 
 const CELL = 'w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 disabled:bg-slate-100 disabled:text-slate-400';
-const actionBtn = (action, id, icon, label, cls = 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50') => `<button data-action="${action}" data-value="${id}" title="${label}" class="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium whitespace-nowrap ${cls}">${ic(icon, 'w-3.5 h-3.5')}${label}</button>`;
+const actionBtn = (action, id, icon, label) => rowAction(action, id, icon, label, { title: `${label} campaign ${id}` });
 
 // Per-store discount table used by the Update (partnership) and Create / Edit (merchant) forms.
 // cols: [{ key, label, type: 'number' | 'text' | 'yesno', width }]
