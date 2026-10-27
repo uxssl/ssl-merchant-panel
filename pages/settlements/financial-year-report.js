@@ -30,11 +30,15 @@ function fyCard(y) {
         ${rowAction('toast', '', 'file-down', status === 'In Progress' ? 'Provisional PDF' : 'PDF', { title: `${status === 'In Progress' ? 'Provisional PDF' : 'PDF'} statement for ${storeId === 'all' ? 'all stores' : storeId}, FY ${fyLabel(y)}`, message: `Prototype: ${status === 'In Progress' ? 'provisional ' : ''}PDF statement is not wired up.` })}
         ${status === 'Generated' ? rowAction('toast', '', 'sheet', 'Excel', { title: `Excel statement for ${storeId === 'all' ? 'all stores' : storeId}, FY ${fyLabel(y)}`, message: 'Prototype: Excel statement is not wired up.' }) : ''}
       </div>`;
+  // Same outline action as rowAction(); the drawer needs both the year and the store.
+  const viewBtn = (storeId) => `<button type="button" data-action="open-fy" data-year="${y}" data-store="${storeId}" title="Details of FY ${fyLabel(y)} for ${storeId === 'all' ? 'all stores' : storeId}" aria-label="Details of FY ${fyLabel(y)} for ${storeId === 'all' ? 'all stores' : storeId}" class="row-action">
+      ${ic('eye', 'row-action-icon')}<span class="row-action-label">Details</span>
+    </button>`;
   const row = (storeId, name, sub, status) => `
     <tr class="hover:bg-slate-50/50 transition-colors">
-      <td class="px-3 sm:px-5 py-3"><div class="font-medium text-slate-900">${name}</div><div class="text-[11px] text-slate-500 font-mono">${sub}</div><div class="sm:hidden mt-1 flex items-center gap-2">${fyBadge(status)}<button data-action="open-fy" data-year="${y}" data-store="${storeId}" class="text-xs font-medium text-primary-600 hover:underline">View</button></div></td>
+      <td class="px-3 sm:px-5 py-3"><div class="font-medium text-slate-900">${name}</div><div class="text-[11px] text-slate-500 font-mono">${sub}</div><div class="sm:hidden mt-1 flex items-center gap-2">${fyBadge(status)}${viewBtn(storeId)}</div></td>
       <td class="hidden sm:table-cell px-5 py-3">${fyBadge(status)}</td>
-      <td class="hidden sm:table-cell px-5 py-3 text-center"><button data-action="open-fy" data-year="${y}" data-store="${storeId}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View</button></td>
+      <td class="hidden sm:table-cell px-5 py-3 text-center">${viewBtn(storeId)}</td>
       <td class="px-3 sm:px-5 py-3 text-right">${downloadCell(status, storeId)}</td>
     </tr>`;
   const allStatus = current ? 'In Progress' : stores.some(st => fyStatus(y, st.id) === 'Processing') ? 'Processing' : 'Generated';

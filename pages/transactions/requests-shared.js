@@ -57,7 +57,7 @@ function cardList(cols, rows, rowAttrs, cellOf) {
     <div class="md:hidden divide-y divide-slate-100">
       ${rows.map(r => `
         <div ${rowAttrs(r)} class="px-4 py-3 ${rowAttrs(r) ? 'hover:bg-slate-50 cursor-pointer' : ''}">
-          <div class="flex items-start justify-between gap-3"><div class="min-w-0 text-sm text-slate-800">${cellOf(cols[0], r)}</div>${rowAttrs(r) ? ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0 mt-0.5') : ''}</div>
+          <div class="min-w-0 text-sm text-slate-800">${cellOf(cols[0], r)}</div>
           <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             ${cols.slice(1).map(c => `<div class="min-w-0"><dt class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">${c.label}</dt><dd class="text-slate-700 break-words">${cellOf(c, r)}</dd></div>`).join('')}
           </dl>
@@ -67,25 +67,25 @@ function cardList(cols, rows, rowAttrs, cellOf) {
 
 // menus: rows hold dropdown menus, so the table must not clip them.
 // serial: the row number of the first row, to show the old panel's "#" column.
+// Clickable rows get a Details action (same handler as the row) unless the table has its own Action column.
 function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false, serial }) {
   if (serial !== undefined) cols = [{ label: '#', cls: 'hidden md:table-cell w-10 text-slate-400', num: true }, ...cols];
+  if (!cols.some(c => c.label === 'Action') && rows.some(r => rowAttrs(r))) cols = [...cols, { label: 'Action', cell: r => rowAttrs(r) ? `<button type="button" ${rowAttrs(r)} title="Details" aria-label="Details" class="row-action">${ic('eye', 'row-action-icon')}<span class="row-action-label">Details</span></button>` : '' }];
   const cellCls = (c) => `${c.right ? 'text-right' : ''} ${c.cls || ''}`;
   if (!rows.length) return `<div class="rounded-md border border-slate-200 bg-white shadow-sm">${emptyBlock(emptyTitle, emptyHint)}</div>`;
   return `
-    <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-hidden'}">
+    <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-x-auto'}">
       ${cardList(cols.filter(c => !c.num), rows, rowAttrs, (c, r) => c.cell(r))}
       <table class="hidden md:table w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
             ${cols.map(c => `<th class="h-10 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${cellCls(c)}">${c.label}</th>`).join('')}
-            <th class="h-10 px-3 w-10"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           ${rows.map(r => `
             <tr ${rowAttrs(r)} class="${rowAttrs(r) ? 'hover:bg-slate-50 cursor-pointer' : ''} transition-colors">
               ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${cellCls(c)}">${c.num ? serial + rows.indexOf(r) : c.cell(r)}</td>`).join('')}
-              <td class="px-3 py-2 text-slate-400">${rowAttrs(r) ? ic('chevron-right', 'w-4 h-4') : ''}</td>
             </tr>`).join('')}
         </tbody>
       </table>

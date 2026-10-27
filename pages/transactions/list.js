@@ -227,7 +227,6 @@ function renderTransactions(view) {
                     <th class="h-10 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${c.right ? 'text-right' : ''} ${c.cls || ''}">
                       ${c.sortable ? `<button data-action="sort" data-value="${c.key}" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-slate-800 ${s.sort.key === c.key ? 'text-slate-800' : ''}">${c.label}${ic(s.sort.key === c.key ? (s.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down', 'w-3 h-3')}</button>` : c.label}
                     </th>`).join('')}
-                  <th class="h-10 px-3 w-10"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100">
@@ -235,7 +234,6 @@ function renderTransactions(view) {
                   <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
                     <td class="px-3 py-2 align-top text-slate-400">${start + i + 1}</td>
                     ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${c.right ? 'text-right' : ''} ${c.cls || ''}">${txnCell(c.key, t)}</td>`).join('')}
-                    <td class="px-3 py-2 text-slate-400">${ic('chevron-right', 'w-4 h-4')}</td>
                   </tr>`).join('')}
               </tbody>
             </table>

@@ -14,18 +14,12 @@ const storeGroupOf = (id) => STORE_GROUPS.find(g => !g.system && g.stores.includ
 const storeCfg = (id) => STORE_SETTINGS[id];
 let storeDraft = null; // { kind: 'group' | 'ipn' | 'gw', id, ...fields }
 
-const STORE_VIEW_MENU = [['store-charge', 'Gateway Charge'], ['open-store', 'Store Details'], ['store-bank', 'Settlement Bank Details']];
-const STORE_SET_MENU = [['store-set-group', 'Set Group'], ['store-ipn', 'IPN Settings'], ['store-gw', 'GW Settings']];
-const rowMenu = (key, icon, items, id, label, title) => `
-  <div class="relative" data-dd-root>
-    <button type="button" data-action="dd-toggle" data-key="${key}" aria-haspopup="menu" aria-expanded="${openDD === key}" aria-label="${esc(title)}" title="${esc(title)}" class="row-action">
-      <span class="row-action-graphic">${ic(icon, 'row-action-icon')}${ic('chevron-down', 'row-action-chevron')}</span>
-      <span class="row-action-label">${esc(label)}</span>
-    </button>
-    ${openDD === key ? `<div role="menu" class="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 anim-pop">
-      ${items.map(([action, text]) => `<button role="menuitem" data-action="${action}" data-value="${id}" class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">${text}</button>`).join('')}
-    </div>` : ''}
-  </div>`;
+// The old panel's View and Settings menus, laid out as one row of labelled actions.
+const STORE_ACTIONS = [
+  ['open-store', 'eye', 'Details', 'Store Details'], ['store-charge', 'percent', 'Charge', 'Gateway Charge'],
+  ['store-bank', 'landmark', 'Bank', 'Settlement Bank Details'], ['store-set-group', 'folder', 'Group', 'Set Group'],
+  ['store-ipn', 'webhook', 'IPN', 'IPN Settings'], ['store-gw', 'network', 'Gateway', 'GW Settings'],
+];
 
 function storeDrawer(st) {
   const c = storeCfg(st.id).contact;
@@ -139,8 +133,7 @@ function renderStoreList() {
     { label: 'Group', cell: st => storeGroupOf(st.id) ? `<span class="text-xs text-slate-700">${esc(storeGroupOf(st.id).name)}</span>` : '<span class="text-slate-400">—</span>' },
     { label: 'Status', cell: st => activeBadge(st.status === 'Active') },
     { label: 'Action', cell: st => `<div class="flex items-center gap-1">
-      ${rowMenu(`store-view:${st.id}`, 'eye', STORE_VIEW_MENU, st.id, 'View', `View menu for ${st.id}`)}
-      ${rowMenu(`store-set:${st.id}`, 'settings', STORE_SET_MENU, st.id, 'Settings', `Settings menu for ${st.id}`)}
+      ${STORE_ACTIONS.map(([action, icon, label, title]) => rowAction(action, st.id, icon, label, { title: `${title} of ${st.id}` })).join('')}
     </div>` },
   ];
   return `
@@ -156,7 +149,7 @@ function renderStoreList() {
           { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
-          ${dataTable({ cols, rows, rowAttrs: () => '', emptyTitle: 'No stores match these filters', emptyHint: 'Try clearing some filters.', menus: true })}
+          ${dataTable({ cols, rows, rowAttrs: () => '', emptyTitle: 'No stores match these filters', emptyHint: 'Try clearing some filters.' })}
         </div>
       </div>
     </div>`;

@@ -7,7 +7,6 @@ const NAV = [
     key: 'transactions', label: 'Transactions', icon: 'credit-card', children: [
       { label: 'All Transactions', to: '/transactions/all' },
       { label: 'Transaction ID Tracking', to: '/transactions/tracking' },
-      { label: 'Currency Rate Conversion', to: '/transactions/currency-rates' },
       { label: 'Refund Requests', to: '/transactions/refund-requests' },
       { label: 'Chargeback Requests', to: '/transactions/chargeback-requests' },
     ]
@@ -63,6 +62,7 @@ const NAV = [
   {
     key: 'others', label: 'Others', icon: 'ellipsis', bottom: true, children: [
       { label: 'Refer & Earn', to: '/others/refer-earn' },
+      { label: 'Currency Rate Conversion', to: '/others/currency-conversion-rates' },
       { label: 'Value Added Services (VAS)', to: '/others/vas' },
       { label: 'SMS Purchase', to: '/others/sms-purchase' },
     ]

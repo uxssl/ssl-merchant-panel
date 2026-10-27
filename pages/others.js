@@ -2,7 +2,7 @@
 // Others
 // =====================================================================
 const OTH = {
-  refer: '/others/refer-earn', fx: '/transactions/currency-rates', vas: '/others/vas', sms: '/others/sms-purchase',
+  refer: '/others/refer-earn', fx: '/others/currency-conversion-rates', vas: '/others/vas', sms: '/others/sms-purchase',
   dev: '/others/developer-information', faq: '/others/merchant-faq', learn: '/others/instructional-videos-documents',
 };
 const pageHeader = (title, sub, right = '') => `
@@ -68,7 +68,7 @@ function referralFormDrawer() {
   });
 }
 
-// ----- Currency Rate Conversion (old panel, under Transactions) -------
+// ----- Currency Rate Conversion (old panel) ---------------------------
 let fxQuery = '';
 const fxRows = () => FX_RATES.filter(x => !fxQuery.trim() || x.code.toLowerCase().includes(fxQuery.trim().toLowerCase())).sort((a, b) => b.requests - a.requests);
 function fxTable() {
@@ -116,6 +116,8 @@ function renderVas() {
 // ----- Purchase SMS (old panel) ----------------------------------------
 const SMS_STEPS = ['Download the letter below', 'Sign the letter', 'Select one of your packages below', 'Agree to your terms and conditions', 'Go to the next page', 'Upload a signed letter', 'Submit and wait to hear back from us'];
 const pkgOf = (id) => SMS_PACKAGES.find(p => p.id === id);
+// Header colour follows each package's metal; every tone keeps white text at 4.5:1 or better.
+const SMS_TONES = { silver: 'from-slate-500 to-slate-600', gold: 'from-yellow-700 to-amber-700', platinum: 'from-zinc-700 to-zinc-800' };
 function renderSmsPurchase() {
   return `
     <div class="space-y-6">
@@ -133,7 +135,8 @@ function renderSmsPurchase() {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           ${SMS_PACKAGES.map(p => `
             <div class="rounded-xl border border-slate-200 overflow-hidden flex flex-col">
-              <div class="px-5 py-3 bg-primary-600 text-white text-sm font-semibold">${p.name}</div>
+              <div class="px-5 py-3 bg-gradient-to-r ${SMS_TONES[p.id]} text-white text-sm font-semibold">${p.name}</div>
+              <img src="assets/sms/${p.id}.jpg" alt="${p.name} package badge" loading="lazy" class="w-full aspect-[2/1] object-cover bg-slate-100">
               <div class="p-5 text-center space-y-2 flex-1">
                 <p class="text-xs text-slate-500">SMS Quantity: <strong class="text-slate-800">${p.sms.toLocaleString()}</strong></p>
                 <p class="text-2xl font-bold text-emerald-600">BDT ${p.price.toFixed(2)}</p>
