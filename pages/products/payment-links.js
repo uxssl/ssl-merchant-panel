@@ -27,7 +27,7 @@ function renderPaymentLinks() {
     { label: 'Payments', cls: 'hidden xl:table-cell', right: true, cell: l => `<div class="font-medium text-slate-800">${l.payments.length}</div><div class="text-xs text-slate-500 whitespace-nowrap">${fmtBDT(linkCollected(l))}</div>` },
     { label: 'Created On', cell: l => dateCell(l.date) },
     { label: 'Status', cell: l => activeBadge(l.active) },
-    { label: 'Link', cell: l => `<button data-action="copy" data-value="${linkUrl(l.ref)}" class="inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap">${ic('copy', 'w-3.5 h-3.5')}Copy</button>` },
+    { label: 'Link', cell: l => rowAction('copy', linkUrl(l.ref), 'copy', 'Copy', { title: `Copy payment link ${l.ref}` }) },
   ];
   return `
     <div class="space-y-6">

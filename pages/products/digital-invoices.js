@@ -29,7 +29,7 @@ function renderInvoices() {
   const of = (status) => base.filter(inv => inv.status === status);
   const statusOpts = [{ label: 'All Status', value: 'all' }, ...INVOICE_STATUSES.map(v => ({ label: v, value: v }))];
   const refOpts = [{ label: 'All References', value: 'all' }, ...PAYMENT_LINKS.filter(l => inStores(l.store)).map(l => ({ label: `${l.ref} - ${l.name}`, value: l.ref }))];
-  const action = (name, inv, icon, label, cls) => `<button data-action="${name}" data-value="${inv.no}" class="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium whitespace-nowrap ${cls}">${ic(icon, 'w-3.5 h-3.5')}${label}</button>`;
+  const action = (name, inv, icon, label) => rowAction(name, inv.no, icon, label, { title: `${label} invoice ${inv.no}` });
   const cols = [
     { label: 'Invoice Info', cell: inv => `
       <div class="font-mono text-xs font-semibold text-primary-600">${inv.no}</div>
@@ -43,10 +43,10 @@ function renderInvoices() {
     { label: 'Invoice Amount', right: true, cell: inv => `<span class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(invoiceTotal(inv))}</span>` },
     { label: 'Payment Status', cell: inv => invoiceBadge(inv.status) },
     { label: 'Action', cell: inv => `<div class="flex flex-wrap gap-1.5">
-      ${action('open-invoice', inv, 'eye', 'Detail', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
-      ${action('invoice-download', inv, 'file-down', 'Download', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
-      ${inv.status === 'Unpaid' ? action('invoice-resend', inv, 'mail', 'Resend Email', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50') : ''}
-      ${inv.status === 'Unpaid' ? action('invoice-cancel', inv, 'x', 'Cancel', 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50') : ''}
+      ${action('open-invoice', inv, 'eye', 'Detail')}
+      ${action('invoice-download', inv, 'file-down', 'Download')}
+      ${inv.status === 'Unpaid' ? action('invoice-resend', inv, 'mail', 'Resend Email') : ''}
+      ${inv.status === 'Unpaid' ? action('invoice-cancel', inv, 'x', 'Cancel') : ''}
     </div>` },
   ];
   return `
