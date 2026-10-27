@@ -793,7 +793,11 @@ const NOTIFICATIONS = [
 // Dashboard support directory (mock). The KAM's real name, phone and email come from the
 // merchant's account; team addresses are the ones in the team's v3 dashboard concept.
 const SUPPORT_CONTACTS = {
-  kam: { name: 'Farzana Rahman', initials: 'FR', phone: '01•••-••••••', email: 'farzana.kam@example.com' },
+  // Mock number and a placeholder portrait; the real KAM photo and number come from the merchant's account.
+  kam: {
+    name: 'Farzana Rahman', initials: 'FR', phone: '+880 1700-000000', email: 'farzana.kam@example.com',
+    photo: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" fill="#dde6f4"/><circle cx="40" cy="31" r="15" fill="#4a75ba"/><path d="M12 80c2-17 14-27 28-27s26 10 28 27z" fill="#4a75ba"/></svg>')}`,
+  },
   teams: [
     { title: 'Operations Team', icon: 'headset', text: 'For transaction, refund, chargeback, EMI and settlement queries.', rows: [['Email Address', 'operation@sslcommerz.com'], ['Telephone No', '+880 9677 725 222']] },
     { title: 'Technical Team', icon: 'code', text: 'For SSLCOMMERZ API(s) and integration.', rows: [['Email Address', 'integration@sslcommerz.com']] },

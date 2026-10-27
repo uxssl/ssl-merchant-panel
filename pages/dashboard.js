@@ -123,7 +123,7 @@ function contactsDrawer() {
     sub: '<span>Who to contact for what</span>',
     body: [
       group(1, 'Key Account Manager', 'user-round', 'For any query related to new or existing business, campaigns, enabling new features, products, SMS, new stores, etc.',
-        [['Name', esc(k.name)], ['Contact No', k.phone], ['Email Address', `<a href="mailto:${k.email}" class="text-primary-600 hover:underline">${k.email}</a>`]]),
+        [['Name', `<span class="inline-flex items-center gap-2.5"><img src="${k.photo}" alt="Photo of ${esc(k.name)}" class="w-9 h-9 rounded-full object-cover">${esc(k.name)}</span>`], ['Contact No', `<a href="tel:${k.phone.replace(/[^\d+]/g, '')}" class="text-primary-600 hover:underline">${k.phone}</a>`], ['Email Address', `<a href="mailto:${k.email}" class="text-primary-600 hover:underline">${k.email}</a>`]]),
       ...SUPPORT_CONTACTS.teams.map((t, i) => group(i + 2, t.title, t.icon, t.text,
         t.rows.map(([label, value]) => [label, value.includes('@') ? `<a href="mailto:${value}" class="text-primary-600 hover:underline">${value}</a>` : value]))),
     ].join(''),
@@ -154,10 +154,10 @@ function renderDashboard() {
     { icon: 'qr-code', label: 'Generate Payment QR', hint: 'Bangla QR for a store and amount', action: 'data-action="quick-qr"' },
     { icon: 'file-text', label: 'Create Digital Invoice', hint: 'Bill a customer online', action: 'data-action="new-invoice"' },
   ];
-  const contactBtn = (icon, label, value, href) => `
+  const contactBtn = (icon, label, value, href, wrap = false) => `
     <a href="${href}" class="min-w-0 flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 hover:border-primary-300 hover:bg-primary-50/40 transition-colors">
       <span class="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">${ic(icon, 'w-3.5 h-3.5')}</span>
-      <span class="min-w-0"><span class="block text-xs font-semibold text-slate-800">${label}</span><span class="block text-xs text-slate-500 truncate">${value}</span></span>
+      <span class="min-w-0"><span class="block text-xs font-semibold text-slate-800">${label}</span><span class="block text-xs ${wrap ? 'text-slate-700 font-medium whitespace-nowrap' : 'text-slate-500 truncate'}">${value}</span></span>
     </a>`;
 
   return `
@@ -168,7 +168,6 @@ function renderDashboard() {
           <p class="text-slate-500 text-sm mt-0.5">Welcome back, Demo Merchant. Here's how your stores are performing.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          ${storePill('dash', 'All Stores')}
           <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
             ${DASH_PRESETS.map(p => `<button data-action="dash-preset" data-value="${p.value}" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${dash.preset === p.value ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">${p.label}</button>`).join('')}
           </div>
@@ -183,10 +182,10 @@ function renderDashboard() {
           </div>
           <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 md:items-center">
             <div class="flex items-center gap-3 min-w-0">
-              <span class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">${k.initials}</span>
+              <img src="${k.photo}" alt="Photo of ${esc(k.name)}, your Key Account Manager" class="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow shrink-0">
               <div class="min-w-0"><p class="text-sm font-semibold text-slate-900 truncate">${esc(k.name)}</p><p class="text-xs text-slate-500">Business, campaigns &amp; products</p></div>
             </div>
-            ${contactBtn('phone', 'Call', k.phone, `tel:${k.phone.replace(/[^\d+]/g, '')}`)}
+            ${contactBtn('phone', 'Call', k.phone, `tel:${k.phone.replace(/[^\d+]/g, '')}`, true)}
             ${contactBtn('mail', 'Email', k.email, `mailto:${k.email}`)}
           </div>
         </div>
@@ -204,8 +203,8 @@ function renderDashboard() {
           <h2 id="dash-overview" class="text-sm font-semibold text-slate-900">Overview <span class="ml-1 text-xs font-normal text-slate-500">Change ${d.prevLabel}</span></h2>
           <p class="inline-flex items-center gap-1.5 text-xs text-slate-500">${ic('calendar', 'w-3.5 h-3.5')}${fmtDate(d.from)}, ${fmtHM(d.from)} – ${fmtDate(d.to)}, ${fmtHM(d.to)}</p>
         </div>
-        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-          ${statCard({ title: 'Total Sales', value: fmtBDTShort(d.now.sales), cur: d.now.sales, prev: d.prev.sales, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'href="#/analytics/business-analytics"' })}
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          ${statCard({ title: 'Successful Payment Value', value: fmtBDTShort(d.now.sales), cur: d.now.sales, prev: d.prev.sales, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'href="#/analytics/business-analytics"' })}
           ${statCard({ title: 'Successful Transactions', value: d.now.success.toLocaleString(), cur: d.now.success, prev: d.prev.success, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'data-action="goto-txn" data-status="success"' })}
           ${statCard({ title: 'Success Rate', value: d.now.total ? `${d.now.rate.toFixed(1)}%` : '—', cur: d.now.rate, prev: d.prev.rate, pp: true, empty: !d.now.total, prevEmpty: !d.prev.total, vs: d.prevLabel, link: 'data-action="goto-txn" data-status="all"' })}
           ${statCard({ title: 'Avg. Ticket Size', value: d.now.success ? fmtBDT(d.now.avg) : '—', cur: d.now.avg, prev: d.prev.avg, empty: !d.now.success, prevEmpty: !d.prev.success, vs: d.prevLabel, link: 'href="#/analytics/business-analytics"' })}
