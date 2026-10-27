@@ -1,8 +1,7 @@
 // =====================================================================
 // Digital EMI
 // =====================================================================
-let emiTab = 'requests';
-const emiCalc = { amount: '50000', bank: EMI_BANKS[2].name };
+let emiTab = 'settings';
 const EMI_REQ_STATUSES = ['Requested', 'Processing', 'Initial', 'Declined'];
 const EMI_BANK_STATUSES = ['Approved', 'Sent', 'Not Sent', 'Cancel'];
 const EMI_CLS = { Requested: 'bg-amber-50 text-amber-600', Declined: 'bg-rose-50 text-rose-600', Processing: 'bg-blue-50 text-blue-600', Initial: 'bg-slate-100 text-slate-500' };
@@ -63,56 +62,76 @@ function emiRequestsTab(s) {
     </div>`;
 }
 
-function emiCalcResult() {
-  const amount = Number(emiCalc.amount) || 0;
-  const bank = EMI_BANKS.find(b => b.name === emiCalc.bank);
-  if (amount < 5000) return `<p class="text-xs text-slate-500">Enter an amount of ৳5,000 or more (mock minimum).</p>`;
-  return miniTable(['Tenure', 'Customer pays / month', 'Your EMI charge', 'You receive'],
-    bank.tenures.map(m => [`${m} months`, fmtBDT(amount / m), `${fmtBDT(amount * bank.rates[m] / 100)} <span class="text-slate-400">(${bank.rates[m].toFixed(1)}%)</span>`, fmtBDT(amount - amount * bank.rates[m] / 100)]),
-    { right: [1, 2, 3] });
+// ---------------------------------------------------------------------
+// EMI Settings — the old panel's per-store form: bank channels, tenures, EMI model and agreement.
+// Edits stay in a draft until "Update EMI Configuration".
+// ---------------------------------------------------------------------
+const EMI_MODEL_NOTES = [
+  ['EMI with parameters', 'This is product specific EMI configuration. Here, merchant needs to configure EMI parameters at their end. SSL will receive EMI command through these parameters. This way, merchant can provide EMI facility on selective products.'],
+  ['AUTO EMI (EMI with specific amount & charges will bear by MERCHANT) - EMI with specific amount', 'This is value specific EMI configuration. Merchant will set a minimum EMI purchase amount. If the minimum purchase amount passes through SSLCOMMERZ gateway then customer will find Pay with EMI option in SSLCOMMERZ payment page.'],
+  ['Global EMI (EMI with specific amount & charges will bear by CUSTOMER/USER) - EMI with surcharge', 'In this model, merchant surcharges customer for EMI payment. Customer will find EMI payment option in SSLCOMMERZ payment page. Upon selecting the EMI tenures, EMI charge will be added to the product/service price. This is applicable on all product purchase.'],
+];
+let emiForm = null; // { store, model, banks, agree, open: Set of collapsed banks }
+const emiStoreOptions = () => STORES.filter(st => inStores(st.id));
+function loadEmiForm(storeId) {
+  const saved = EMI_CONFIG[storeId];
+  emiForm = { store: storeId, model: saved.model, banks: structuredClone(saved.banks), agree: saved.model !== 'disable', collapsed: new Set(), error: '' };
 }
 
-function emiPlansTab() {
+function emiBankCard(b) {
+  const cfg = emiForm.banks[b.name];
+  const folded = emiForm.collapsed.has(b.name);
   return `
-    <div class="space-y-6">
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-        ${cardHead('EMI Availability', 'Stores where customers can choose EMI at checkout')}
-        <div class="p-5 flex flex-wrap gap-3">
-          ${STORES.map(st => `
-            <div class="flex items-center gap-2 px-3 py-2 rounded-lg border ${EMI_STORES[st.id] ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50'}">
-              ${ic(EMI_STORES[st.id] ? 'circle-check' : 'circle-minus', `w-4 h-4 ${EMI_STORES[st.id] ? 'text-emerald-600' : 'text-slate-400'}`)}
-              <span class="text-sm font-medium text-slate-800">${esc(st.name)}</span>
-              <span class="text-xs ${EMI_STORES[st.id] ? 'text-emerald-600' : 'text-slate-500'}">${EMI_STORES[st.id] ? 'Enabled' : 'Not enabled'}</span>
-            </div>`).join('')}
-          <p class="basis-full text-xs text-slate-500">To enable EMI for another store or change rates, contact your KAM.</p>
-        </div>
+    <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between gap-2 px-4 py-2.5 bg-primary-600 text-white">
+        <h3 class="text-sm font-semibold truncate" title="${esc(b.name)}">${esc(b.name)}</h3>
+        <button data-action="emi-fold" data-value="${esc(b.name)}" aria-expanded="${!folded}" aria-label="${folded ? 'Show' : 'Hide'} ${esc(b.name)} tenures" class="p-0.5 rounded-full hover:bg-white/15">${ic(folded ? 'circle-plus' : 'circle-minus', 'w-4 h-4')}</button>
       </div>
-
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-        ${cardHead('EMI Configuration', 'Store Rate by bank and tenure — the charge deducted from your settlement for each EMI payment')}
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200"><tr>
-            <th class="h-10 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Bank</th>
-            ${EMI_TENURES.map(m => `<th class="h-10 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right whitespace-nowrap">${m}m</th>`).join('')}
-          </tr></thead>
+      ${folded ? '' : `<div class="p-3 space-y-2">
+        <label class="flex items-start gap-2 text-xs text-slate-700"><input type="checkbox" data-emi-bank="${esc(b.name)}" ${cfg.on ? 'checked' : ''} class="mt-0.5 rounded border-slate-300 text-primary-600">Want your customers to see this bank as a payment channel?</label>
+        <table class="w-full text-xs ${cfg.on ? '' : 'opacity-50'}">
+          <thead><tr class="text-left text-slate-500 border-b border-slate-200"><th class="py-1.5 font-semibold">Tenure</th><th class="py-1.5 font-semibold">EMI Charge</th><th class="py-1.5 font-semibold text-center">Status</th></tr></thead>
           <tbody class="divide-y divide-slate-100">
-            ${EMI_BANKS.map(b => `<tr class="hover:bg-slate-50">
-              <td class="px-4 py-2.5 font-medium text-slate-800">${titleCase(b.name)}</td>
-              ${EMI_TENURES.map(m => `<td class="px-2 py-2.5 text-right tabular-nums ${b.tenures.includes(m) ? 'text-slate-700' : 'text-slate-300'}">${b.tenures.includes(m) ? `${b.rates[m].toFixed(1)}%` : '—'}</td>`).join('')}
+            ${b.tenures.map(m => `<tr>
+              <td class="py-1.5 text-slate-700">${m}</td>
+              <td class="py-1.5 tabular-nums text-slate-700">${b.rates[m].toFixed(3)}%</td>
+              <td class="py-1.5 text-center"><input type="checkbox" data-emi-tenure="${esc(b.name)}|${m}" ${cfg.tenures[m] ? 'checked' : ''} ${cfg.on ? '' : 'disabled'} aria-label="${esc(b.name)} ${m} months" class="rounded border-slate-300 text-primary-600 disabled:opacity-60"></td>
             </tr>`).join('')}
           </tbody>
         </table>
-        <p class="px-4 py-3 text-[11px] text-slate-500 border-t border-slate-100">Rates follow the KAM panel's EMI configuration and are mock values. Bank rates are not shown to merchants.</p>
-      </div>
+      </div>`}
+    </div>`;
+}
 
+function emiSettingsTab() {
+  const stores = emiStoreOptions();
+  if (!emiForm || !stores.some(st => st.id === emiForm.store)) loadEmiForm(stores[0].id);
+  const f = emiForm;
+  return `
+    <div class="space-y-4">
+      <div class="max-w-sm">${field('My Store', `<select id="emi-store" class="${INPUT}">${options(stores.map(st => [st.id, `${st.name} (${st.id})`]), f.store)}</select>`)}</div>
       <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
-        ${cardHead('EMI Calculator', 'What your customer pays each month and what you receive')}
-        <div class="p-5 space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
-            ${field('Product Price (BDT)', `<input id="emi-calc-amount" type="number" min="0" value="${esc(emiCalc.amount)}" class="${INPUT}">`)}
-            ${field('Bank', `<select id="emi-calc-bank" class="${INPUT}">${options(EMI_BANKS.map(b => [b.name, titleCase(b.name)]), emiCalc.bank)}</select>`)}
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-900">EMI Settings</h2>
+            <p class="text-xs text-slate-500">EMI Charge is the % deducted from your settlement for each EMI payment.</p>
           </div>
-          <div id="emi-calc-result">${emiCalcResult()}</div>
+          <div class="flex gap-2">
+            <button data-action="emi-all" data-value="on" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700">${ic('circle-check', 'w-3.5 h-3.5')}Check All</button>
+            <button data-action="emi-all" data-value="off" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700">${ic('circle-x', 'w-3.5 h-3.5')}Uncheck All</button>
+          </div>
+        </div>
+        <div class="p-5 space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">${EMI_BANKS.map(emiBankCard).join('')}</div>
+          <div class="max-w-xl space-y-3">
+            ${field('EMI Status', `<select id="emi-model" class="${INPUT}">${options(EMI_MODELS, f.model)}</select>`, { required: true })}
+            <ul class="rounded-lg bg-primary-50 border border-primary-100 p-4 space-y-2 text-xs text-slate-700 list-disc pl-8">
+              ${EMI_MODEL_NOTES.map(([t, d]) => `<li><span class="font-semibold text-slate-900">${t}:</span> ${d}</li>`).join('')}
+            </ul>
+            <label class="flex items-start gap-2 text-sm text-slate-700"><input type="checkbox" id="emi-agree" ${f.agree ? 'checked' : ''} class="mt-0.5 rounded border-slate-300 text-primary-600"><span>I have agreed with the <button data-action="toast" data-msg="Prototype: the EMI terms and conditions are not linked yet." class="font-semibold text-primary-600 hover:underline">terms and conditions</button> to enable the EMI service with SSLCOMMERZ. <span class="text-rose-500">*</span></span></label>
+            ${f.error ? `<p class="text-[11px] font-medium text-rose-600">${f.error}</p>` : ''}
+            <button data-action="emi-save" class="${BTN_PRIMARY}">${ic('save', 'w-4 h-4')}Update EMI Configuration</button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -126,13 +145,13 @@ function renderDigitalEmi() {
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Digital EMI</h1>
-          <p class="text-slate-500 text-sm">Let card customers pay in monthly instalments through partner banks.</p>
+          <p class="text-slate-500 text-sm">Choose the banks and tenures your card customers can pay in monthly instalments with.</p>
         </div>
         <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
-          ${tab('requests', 'EMI Requests', 'list')}${tab('plans', 'EMI Plans & Rates', 'percent')}
+          ${tab('settings', 'EMI Settings', 'settings-2')}${tab('requests', 'EMI Requests', 'list')}
         </div>
       </div>
-      ${emiTab === 'requests' ? emiRequestsTab(s) : emiPlansTab()}
+      ${emiTab === 'settings' ? emiSettingsTab() : emiRequestsTab(s)}
     </div>`;
 }
 

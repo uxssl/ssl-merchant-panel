@@ -9,8 +9,8 @@ const CAL_STYLE = {
 
 function calendarItems() {
   return [
-    ...(cal.partner ? PARTNER_CAMPAIGNS.filter(c => c.participation !== 'Rejected').map(c => ({ kind: 'partner', id: c.id, name: `${c.partner} ${c.name}`, start: c.start, end: c.end, sub: pBadge(c.participation), deadline: canJoin(c) ? c.confirm : null })) : []),
-    ...(cal.merchant ? MERCHANT_CAMPAIGNS.map(c => ({ kind: 'merchant', id: c.id, name: c.name, start: c.start, end: c.end, sub: mcBadge(c.status), deadline: null })) : []),
+    ...(cal.partner ? PARTNER_CAMPAIGNS.map(c => ({ kind: 'partner', id: c.id, name: c.name, start: c.start, end: c.end, sub: campaignBadge(c.status), deadline: partnerEditable(c) ? c.last : null })) : []),
+    ...(cal.merchant ? MERCHANT_CAMPAIGNS.filter(c => c.status !== 'Canceled').map(c => ({ kind: 'merchant', id: c.id, name: c.name, start: c.start, end: c.end, sub: campaignBadge(c.status), deadline: null })) : []),
   ].sort((a, b) => a.start - b.start);
 }
 
@@ -44,7 +44,7 @@ function renderCampaignCalendar() {
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Campaign Calendar</h1>
-          <p class="text-slate-500 text-sm">Partner offers and your own campaigns on one timeline, with enrollment deadlines.</p>
+          <p class="text-slate-500 text-sm">Partner offers and your own campaigns on one timeline, with last participation dates.</p>
         </div>
         <div class="flex items-center gap-2">${toggle('partner', 'Partnership', '#295cab')}${toggle('merchant', 'My campaigns', '#eb6834')}</div>
       </div>
@@ -71,7 +71,7 @@ function renderCampaignCalendar() {
                 return `<div class="min-h-[120px] border-r border-slate-100 last:border-0 p-1.5 ${out ? 'bg-slate-50/60' : ''}">
                   <div class="flex items-center justify-between">
                     <span class="text-xs font-semibold w-6 h-6 inline-flex items-center justify-center rounded-full ${isToday ? 'bg-primary-600 text-white' : out ? 'text-slate-300' : 'text-slate-700'}">${day.getDate()}</span>
-                    ${dl.length ? `<span class="text-[10px] font-semibold text-amber-700 bg-amber-50 rounded px-1" title="${dl.map(x => `Enroll by today: ${esc(x.name)}`).join(', ')}">Enroll by</span>` : ''}
+                    ${dl.length ? `<span class="text-[10px] font-semibold text-amber-700 bg-amber-50 rounded px-1" title="${dl.map(x => `Last participation date: ${esc(x.name)}`).join(', ')}">Update by</span>` : ''}
                   </div>
                   ${more ? `<p class="absolute bottom-1 text-[10px] text-slate-500" style="left:calc(${i} * 100% / 7 + 6px)">+${more} more</p>` : ''}
                 </div>`;
@@ -89,7 +89,7 @@ function renderCampaignCalendar() {
       ${anCard('This Month', `${monthItems.length} campaign${monthItems.length === 1 ? '' : 's'}`, monthItems.length ? `<div class="divide-y divide-slate-100 -my-2">${monthItems.map(i => `
         <button data-action="${i.kind === 'partner' ? 'open-partner' : 'open-mc'}" data-value="${i.id}" class="w-full flex items-center gap-3 py-2.5 text-left hover:bg-slate-50 rounded">
           <span class="w-1 self-stretch rounded" style="background:${i.kind === 'partner' ? '#295cab' : '#eb6834'}"></span>
-          <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${esc(i.name)}</span><span class="block text-xs text-slate-500">${periodText(i)} · ${i.kind === 'partner' ? 'Partnership' : 'My campaign'}${i.deadline ? ` · <span class="text-amber-700 font-medium">enroll by ${fmtShort(i.deadline)}</span>` : ''}</span></span>
+          <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${esc(i.name)}</span><span class="block text-xs text-slate-500">${periodText(i)} · ${i.kind === 'partner' ? 'Partnership' : 'My campaign'}${i.deadline ? ` · <span class="text-amber-700 font-medium">update by ${fmtShort(i.deadline)}</span>` : ''}</span></span>
           ${i.sub}${ic('chevron-right', 'w-4 h-4 text-slate-400')}
         </button>`).join('')}</div>` : '<p class="text-sm text-slate-500">No campaigns this month.</p>')}
     </div>`;

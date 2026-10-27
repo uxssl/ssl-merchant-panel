@@ -21,7 +21,7 @@ const inStores = (id) => !storeFilter.length || storeFilter.includes(id);
 
 // List filters are edited as a draft on the list state itself; `applied` holds what the table
 // shows, and "Apply Filters" copies the draft across (KAM reports page behaviour).
-const FILTER_KEYS = ['search', 'range', 'status', 'method', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role'];
+const FILTER_KEYS = ['search', 'range', 'status', 'method', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role', 'ref', 'issuer'];
 const snapshotFilters = (s) => Object.fromEntries(FILTER_KEYS.map(k => [k, s[k]]));
 const applied = (s) => ({ ...s, ...s.applied });
 const sameStores = (a, b) => a.length === b.length && a.every(id => b.includes(id));
@@ -29,21 +29,23 @@ const filtersDirty = (s) => JSON.stringify(snapshotFilters(s)) !== JSON.stringif
 
 const listStates = {};
 const defaultListState = (preset) => {
-  const s = { defaultPreset: preset, search: '', range: makeRange(preset), status: 'all', method: 'all', stage: 'all', stype: 'all', bstatus: 'all', bank: 'all', currency: 'all', emi: 'all', role: 'all', page: 1, pageSize: 20, sort: { key: 'date', dir: 'desc' }, hidden: new Set(), storeDraft: null };
+  const s = { defaultPreset: preset, search: '', range: makeRange(preset), status: 'all', method: 'all', stage: 'all', stype: 'all', bstatus: 'all', bank: 'all', currency: 'all', emi: 'all', role: 'all', ref: 'all', issuer: 'all', page: 1, pageSize: 20, sort: { key: 'date', dir: 'desc' }, hidden: new Set(), storeDraft: null };
   s.applied = snapshotFilters(s);
   return s;
 };
 const txnState = (key) => (listStates[key] ||= defaultListState('7d'));
 // Links and invoices live longer than a month, so their lists open on All Time.
-const LIST_DEFAULT_PRESET = { '/products/payment-links': 'all', '/products/digital-invoices': 'all', '/campaigns/merchant-campaigns': 'all', '/support/tickets-queries': 'all', '/support/service-delivery': 'all' };
+const LIST_DEFAULT_PRESET = { '/products/payment-links': 'all', '/products/digital-invoices': 'all', '/campaigns/partnership-campaigns': 'all', '/campaigns/merchant-campaigns': 'all', '/support/tickets-queries': 'all', '/support/service-delivery': 'all' };
 // Filter state of whichever list page is open (transactions, refunds or chargebacks).
 const pageState = () => {
   const path = currentPath();
   return TXN_VIEWS[path] ? txnState(TXN_VIEWS[path].key) : (listStates[path] ||= defaultListState(LIST_DEFAULT_PRESET[path] || '30d'));
 };
-const tracking = { query: '', results: null };
+const tracking = { merchant: '', bkash: '', nagad: '', results: null };
 
 const dash = { preset: '7d' };
 
-const currentPath = () => (location.hash || '#/dashboard').slice(1);
-const activeParent = (path) => NAV.find(n => n.children && (n.to === path || n.children.some(c => c.to === path)))?.key || null;
+// Pages that moved in the menu keep their old links working.
+const MOVED_PATHS = { '/account/my-stores': '/account/store-list', '/transactions/google-pay': '/analytics/google-pay-report', '/transactions/bangla-qr': '/analytics/bangla-qr-report', '/settlements/settlement-report': '/analytics/settlement-report', '/settlements/financial-year-report': '/analytics/financial-year-report' };
+const currentPath = () => { const p = (location.hash || '#/dashboard').slice(1); return MOVED_PATHS[p] || p; };
+const activeParent = (path) => NAV.find(n => n.children?.some(c => c.to === path))?.key || null;

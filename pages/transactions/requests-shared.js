@@ -62,11 +62,12 @@ function cardList(cols, rows, rowAttrs, cellOf) {
     </div>`;
 }
 
-function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint }) {
+// menus: rows hold dropdown menus, so the table must not clip them.
+function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false }) {
   const cellCls = (c) => `${c.right ? 'text-right' : ''} ${c.cls || ''}`;
   if (!rows.length) return `<div class="rounded-md border border-slate-200 bg-white shadow-sm">${emptyBlock(emptyTitle, emptyHint)}</div>`;
   return `
-    <div class="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-hidden'}">
       ${cardList(cols, rows, rowAttrs, (c, r) => c.cell(r))}
       <table class="hidden md:table w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">

@@ -92,7 +92,7 @@ function renderPaymentQr() {
           </div>
         </div>
         <div class="bg-white rounded-lg border border-slate-200 shadow-sm lg:col-span-2 overflow-hidden">
-          ${cardHead('Recent QR Payments', 'Latest Bangla QR payments across your stores', `<a href="#/transactions/bangla-qr" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">View all${ic('arrow-right', 'w-3.5 h-3.5')}</a>`)}
+          ${cardHead('Recent QR Payments', 'Latest Bangla QR payments across your stores', `<a href="#/analytics/bangla-qr-report" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">View all${ic('arrow-right', 'w-3.5 h-3.5')}</a>`)}
           <table class="w-full text-left text-sm">
             <thead class="bg-slate-50 border-b border-slate-200"><tr>
               ${['Date & Time', 'Transaction ID', 'Store', 'Amount'].map((h, i) => `<th class="h-10 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 2 ? 'hidden md:table-cell' : ''}">${h}</th>`).join('')}

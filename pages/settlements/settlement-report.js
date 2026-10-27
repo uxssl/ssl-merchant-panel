@@ -1,8 +1,9 @@
 // =====================================================================
 // Settlement Report
 // =====================================================================
-const SETTLEMENT_PATH = '/settlements/settlement-report';
-const FY_PATH = '/settlements/financial-year-report';
+// Both settlement reports sit under Analytics & Reports (old /settlements/* links still open them, see state.js).
+const SETTLEMENT_PATH = '/analytics/settlement-report';
+const FY_PATH = '/analytics/financial-year-report';
 const SETTLE_STATUSES = ['Paid', 'Pending', 'On Hold'];
 const SETTLE_TYPES = ['Online', 'Physical', 'Qr Payment', 'Both'];
 const SETTLE_CLS = { 'Paid': 'bg-emerald-50 text-emerald-600', 'Pending': 'bg-amber-50 text-amber-600', 'On Hold': 'bg-rose-50 text-rose-600' };
@@ -31,6 +32,90 @@ function settlementRows(s, withStatus = true) {
     (!q || x.ref.toLowerCase().includes(q) || String(x.batch).includes(q)) &&
     (!withStatus || s.status === 'all' || (s.status === 'bounce' ? x.bounce : x.status === s.status))
   );
+}
+
+// ---------------------------------------------------------------------
+// Store Wise Unsettled Amount Summary (old panel): what is not settled yet per store —
+// payments, refunds and chargebacks on business days whose settlement is still scheduled.
+// ---------------------------------------------------------------------
+let unsettledQ = '';
+const fmtAmt = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const storeCurrency = (id) => ACCOUNT_STORES.find(a => a.id === id)?.currency || 'BDT';
+
+function unsettledRows() {
+  return STORES.filter(st => inStores(st.id)).map(st => {
+    const days = new Set(SETTLEMENTS.filter(x => x.store === st.id && x.status === 'Pending').map(x => +x.day));
+    const open = (d) => days.has(+startOfDay(d));
+    const txns = TXNS.filter(t => t.store === st.id && ['success', 'refunded'].includes(t.status) && open(t.date));
+    const refunds = REFUNDS.filter(r => r.store === st.id && r.status === 'Success' && open(r.date));
+    const cbs = CHARGEBACKS.filter(c => c.store === st.id && c.status === 'Success' && open(c.date));
+    const sum = (list, f) => list.reduce((n, x) => n + f(x), 0);
+    const row = {
+      id: st.id, name: st.name, currency: storeCurrency(st.id),
+      txns: txns.length, txnAmt: sum(txns, t => t.amount), payable: sum(txns, t => t.amount - t.fee),
+      refunds: refunds.length, refundAmt: sum(refunds, r => r.amount),
+      cbs: cbs.length, cbAmt: sum(cbs, c => c.amount),
+    };
+    // Deductions larger than the payable carry to the next settlement, so the payable never goes below 0.
+    row.total = Math.max(0, row.payable - row.refundAmt - row.cbAmt);
+    return row;
+  }).filter(r => r.txns || r.refunds || r.cbs);
+}
+
+const UNSETTLED_COLS = [
+  { label: 'No. of Unsettled Trans', key: 'txns' },
+  { label: 'Unsettled Trans Amt', key: 'txnAmt', amt: true },
+  { label: 'Unsettled Payable', key: 'payable', amt: true, tint: 'bg-slate-100' },
+  { label: 'Currency Type', key: 'currency', text: true },
+  { label: 'No. of Unsettled Refund', key: 'refunds' },
+  { label: 'Unsettled Refund Amt', key: 'refundAmt', amt: true, tint: 'bg-amber-50' },
+  { label: 'No. of Unsettled Chargeback', key: 'cbs' },
+  { label: 'Unsettled Chargeback Amount', key: 'cbAmt', amt: true, tint: 'bg-amber-50' },
+  { label: 'Total Payable', key: 'total', amt: true, tint: 'bg-emerald-50', strong: true },
+];
+
+function unsettledTable() {
+  const q = unsettledQ.trim().toLowerCase();
+  const rows = unsettledRows().filter(r => !q || r.id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+  if (!rows.length) return `<p class="text-sm text-slate-500 px-1 py-6 text-center">${q ? 'No store matches your search.' : 'Everything is settled — no unsettled amount right now.'}</p>`;
+  const cell = (c, v) => c.text ? v : c.amt ? fmtAmt(v) : v.toLocaleString();
+  // Amounts in different currencies are never added together: one total row per currency.
+  const totals = [...new Set(rows.map(r => r.currency))].map(cur => {
+    const list = rows.filter(r => r.currency === cur);
+    return { name: `Total (${cur})`, currency: cur, ...Object.fromEntries(UNSETTLED_COLS.filter(c => !c.text).map(c => [c.key, list.reduce((n, r) => n + r[c.key], 0)])) };
+  });
+  const th = (c) => `<th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right leading-tight ${c.tint || ''} ${c.text ? '!text-left' : ''}">${c.label}</th>`;
+  const td = (c, r, foot) => `<td class="px-3 py-2 tabular-nums whitespace-nowrap ${c.text ? 'text-left' : 'text-right'} ${c.tint || ''} ${c.strong || foot ? 'font-semibold text-slate-900' : 'text-slate-700'}">${foot && c.text ? '' : cell(c, r[c.key])}</td>`;
+  return `
+    <div class="overflow-x-auto rounded-md border border-slate-200">
+      <table class="min-w-[1080px] w-full text-left text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Store ID</th>${UNSETTLED_COLS.map(th).join('')}</tr></thead>
+        <tbody class="divide-y divide-slate-100">
+          ${rows.map(r => `<tr><td class="px-3 py-2"><div class="font-mono text-xs font-medium text-slate-800">${r.id}</div><div class="text-[11px] text-slate-500">${esc(r.name)}</div></td>${UNSETTLED_COLS.map(c => td(c, r)).join('')}</tr>`).join('')}
+        </tbody>
+        <tfoot class="bg-slate-50 border-t border-slate-200">
+          ${totals.map(t => `<tr><td class="px-3 py-2 font-semibold text-slate-900">${t.name}</td>${UNSETTLED_COLS.map(c => td(c, t, true)).join('')}</tr>`).join('')}
+        </tfoot>
+      </table>
+    </div>`;
+}
+
+function unsettledSummaryCard() {
+  const n = unsettledRows().length;
+  return `
+    <section class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-900">Store Wise Unsettled Amount Summary <span class="ml-1 text-xs font-normal text-slate-500">${n} store${n === 1 ? '' : 's'}</span></h2>
+          <p class="text-xs text-slate-500">Payments, refunds and chargebacks not settled yet — they go into each store's next settlement.</p>
+        </div>
+        <label class="relative w-full sm:w-64">
+          ${ic('search', 'w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2')}
+          <input id="unsettled-search" value="${esc(unsettledQ)}" placeholder="Search store" aria-label="Search stores in the unsettled summary" class="${INPUT} pl-8">
+        </label>
+      </div>
+      <div id="unsettled-table" class="p-4">${unsettledTable()}</div>
+    </section>`;
 }
 
 function renderSettlements() {
@@ -90,6 +175,8 @@ function renderSettlements() {
             ${metricCard({ title: 'Bounce Count', value: bounced.length.toLocaleString(), sub: `Bounce amount ${fmtBDT(sum(bounced, 'fwd'))}`, status: 'bounce', selected: s.applied.status === 'bounce' })}
           </div>
         </div>
+
+        <div class="pt-6">${unsettledSummaryCard()}</div>
 
         <div class="space-y-4 pt-6">
           ${listToolbar(rows.length, 'settlements', applied(s))}

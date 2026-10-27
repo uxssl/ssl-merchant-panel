@@ -5,7 +5,7 @@ const tip = (text) => `<span class="pointer-events-none absolute left-full top-1
 
 function navItem(item, path) {
   if (!item.children) {
-    const active = item.to === path;
+    const active = item.to === path || !!item.pages?.some(p => p.to === path);
     const cls = active ? 'bg-white text-primary-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100';
     if (navCollapsed) {
       return `<div class="relative group"><a href="#${item.to}" class="w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-200 ${cls}">${ic(item.icon, 'w-5 h-5')}</a>${tip(item.label)}</div>`;
@@ -13,8 +13,7 @@ function navItem(item, path) {
     return `<a href="#${item.to}" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${cls}">${ic(item.icon, 'w-5 h-5 min-w-[20px]')}<span class="truncate">${item.label}</span></a>`;
   }
 
-  const onPage = item.to === path;
-  const parentActive = onPage || item.children.some(c => c.to === path);
+  const parentActive = item.children.some(c => c.to === path);
   const open = expanded === item.key;
   if (navCollapsed) {
     const cls = parentActive ? 'bg-white text-primary-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100';
@@ -22,7 +21,7 @@ function navItem(item, path) {
   }
   return `
     <div>
-      <button data-action="nav-parent" data-key="${item.key}" ${onPage ? 'aria-current="page"' : ''} class="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors ${onPage ? 'bg-white text-primary-600 shadow-sm ring-1 ring-slate-200' : `hover:bg-slate-100 ${open || parentActive ? 'text-slate-900' : 'text-slate-600'}`}">
+      <button data-action="nav-parent" data-key="${item.key}" class="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-slate-100 ${open || parentActive ? 'text-slate-900' : 'text-slate-600'}">
         <span class="flex items-center gap-3 min-w-0">${ic(item.icon, `w-5 h-5 min-w-[20px] ${parentActive ? 'text-primary-600' : ''}`)}<span class="text-left leading-snug">${item.label}</span></span>
         ${ic('chevron-down', `w-4 h-4 shrink-0 ${open ? 'rotate-180' : ''}`)}
       </button>
@@ -62,9 +61,9 @@ function renderSidebar() {
 const HEADER_PANEL = 'fixed sm:absolute left-4 right-4 top-16 sm:top-full mt-0 sm:mt-2 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden anim-pop';
 const PAGE_LINKS = NAV.flatMap(n => [
   ...(n.to ? [{ label: n.label, to: n.to, icon: n.icon }] : []),
-  ...(n.children || []).map(c => ({ ...c, parent: n.label, icon: n.icon })),
+  ...(n.children || n.pages || []).map(c => ({ ...c, parent: n.label, icon: n.icon })),
 ]);
-const QUICK_PAGES = ['/transactions/all', '/transactions/refund-requests', '/settlements/settlement-report', '/products/payment-links', '/products/digital-invoices', '/support/transaction-tickets'];
+const QUICK_PAGES = ['/transactions/all', '/transactions/refund-requests', '/analytics/settlement-report', '/products/payment-links', '/products/digital-invoices', '/support/transaction-tickets'];
 
 const timeAgo = (d) => {
   const mins = Math.round((NOW - d) / 60000);

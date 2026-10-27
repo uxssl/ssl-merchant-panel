@@ -255,59 +255,55 @@ function fyStatus(y, storeId) {
 // Payment products (links, invoices, QR, EMI). Kept in memory so create / activate / send work in the prototype.
 const idHash = (s) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 const LINK_NAMES = ['Eid Collection Pre-order', 'Monthly Subscription Box', 'Workshop Registration', 'Gift Card', 'Custom Order Advance', 'Delivery Charge', 'Membership Renewal', 'Course Fee — Batch 7', 'Event Ticket', 'Corporate Order Deposit'];
-const DEFAULT_LINK_COLORS = { leftBg: '#ffffff', leftText: '#0f172a', btnBg: '#295cab', btnText: '#ffffff' };
+const DEFAULT_LINK_COLORS = { leftBg: '#295cab', leftText: '#ffffff', rightBg: '#ffffff', rightText: '#0f172a' };
+// Fields a merchant can show on the customer page ("Click to add customize fields" in the old panel).
+const LINK_CUSTOM_FIELDS = ['Customer Name', 'Customer Address Line 1', 'Customer Address Line 2', 'Customer City', 'Customer State', 'Customer Postcode', 'Customer Country', 'Customer Email', 'Customer Phone', 'Customer Fax', 'Shipment Name', 'Shipment Address 1', 'Shipment Address 2', 'Shipment City', 'Shipment State', 'Shipment Postcode', 'Shipment Country', 'Product Amount', 'VAT', 'TDS', 'Discount Amount', 'Convenience Fee', 'Additional Field A', 'Additional Field B', 'Additional Field C', 'Additional Field D'];
+const LINK_FIELD_TYPES = ['Text Field', 'Select Field', 'Date Field'];
 const linkUrl = (ref) => `https://uat-invoice.sslcommerz.com/invoice/pay?refer=${ref}`;
 const PAYMENT_LINKS = LINK_NAMES.map((name, i) => {
   const store = wpick(STORES);
   const fixed = rng() < 0.6;
   const amount = fixed ? Math.round((500 + rng() * 9500) / 50) * 50 : null;
-  const paymentType = rng() < 0.75 ? 'Reusable' : 'One-time';
   const date = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - 2 - Math.floor(rng() * 110), 9 + Math.floor(rng() * 9), Math.floor(rng() * 60));
-  let payments = TXNS.filter(t => t.store === store.id && t.status === 'success' && t.date > date && idHash(t.id) % LINK_NAMES.length === i)
+  const payments = TXNS.filter(t => t.store === store.id && t.status === 'success' && t.date > date && idHash(t.id) % LINK_NAMES.length === i)
     .map(t => ({ txn: t, date: t.date, amount: fixed ? amount : t.amount, customer: t.customer }));
-  if (paymentType === 'One-time') payments = payments.slice(-1);
   return {
     ref: alnum(13), name, store: store.id, storeName: store.name, date,
-    payType: 'Payment Link', paymentType,
-    amountType: fixed ? 'Fixed' : 'Any', amount,
-    amountText: fixed ? '' : 'Enter the amount you want to pay',
-    convFee: rng() < 0.3 ? 1.5 : 0,
-    buttonName: 'Pay Now', productDetails: '', topMessage: '', buttonMessage: '',
-    domainUrl: store.id === 'demo_online' ? 'https://shop.example.com' : '',
+    alias: rng() < 0.4 ? 'Mobile Number' : '', buttonName: 'Pay Now',
+    amountType: fixed ? 'Fixed' : 'Dynamic', amount, amountList: '', productList: '', category: '', cart: 'No',
+    preQrApi: '', billApi: '', ipnUrl: store.id === 'demo_online' ? 'https://shop.example.com/ipn' : '', smsMobile: '',
+    termsUrl: '', showTerms: 'No', validity: '0', topMessage: '', footerMessage: '', banner: '',
+    customOn: false, custom: {},
     colors: { ...DEFAULT_LINK_COLORS },
-    active: paymentType === 'One-time' ? payments.length === 0 : rng() > 0.15,
+    active: rng() > 0.15,
     payments,
   };
 }).sort((a, b) => b.date - a.date);
 
+// Digital invoices are billed against a payment link configuration ("Choose a Invoice Configuration").
 const INVOICE_ITEMS = [['Website maintenance (monthly)', 15000], ['Logo design', 8000], ['Catering — per guest', 450], ['Bulk order — T-shirts', 650], ['Consultation hour', 2500], ['Annual service contract', 36000], ['Delivery charge', 120], ['Installation fee', 3000]];
-const invoiceTotals = (inv) => {
-  const subtotal = inv.items.reduce((s, it) => s + it.qty * it.price, 0);
-  const vat = Math.round(subtotal * inv.vatRate) / 100;
-  return { subtotal, vat, total: subtotal + vat };
-};
-const INVOICES = Array.from({ length: 30 }, (_, i) => {
-  const store = wpick(STORES);
+const INVOICE_STATUSES = ['Unpaid', 'Paid', 'Canceled'];
+const invoiceTotal = (inv) => inv.items.reduce((s, it) => s + it.qty * it.price, 0);
+// "0" validity means the invoice stays payable for at most one month.
+const invoiceExpiry = (date, validity) => endOfDay(addDays(date, Number(validity) > 0 ? Number(validity) : 30));
+const INVOICES = Array.from({ length: 30 }, () => {
+  const link = pick(PAYMENT_LINKS);
   const issued = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - Math.floor(rng() * 75), 10 + Math.floor(rng() * 8), Math.floor(rng() * 60));
   const date = issued > NOW ? new Date(NOW.getTime() - 30 * 60e3) : issued;
-  const due = endOfDay(addDays(date, pick([7, 15, 30])));
   const items = Array.from({ length: 1 + Math.floor(rng() * 3) }, () => {
     const [desc, price] = pick(INVOICE_ITEMS);
     return { desc, qty: price > 5000 ? 1 : 1 + Math.floor(rng() * 20), price };
   });
   const name = pick(CUSTOMERS);
   const inv = {
-    no: `INV-${date.getFullYear()}-${1040 + i}`, ref: alnum(13), store: store.id, storeName: store.name,
-    customer: name, phone: `01•••••${digits(3)}`, email: `${name[0].toLowerCase()}•••••@example.com`,
-    date, due, items, vatRate: pick([0, 0, 15]), notes: rng() < 0.4 ? 'Thank you for your business.' : '',
-    viewed: rng() < 0.7,
+    no: `INV${alnum(13)}`, orderRef: `ORD-${digits(6)}`, config: link.ref, configName: link.name, store: link.store, storeName: link.storeName,
+    customer: name, phone: `01•••••${digits(3)}`, email: `${name[0].toLowerCase()}•••••@example.com`, customerId: rng() < 0.3 ? `•••••${digits(4)}` : '',
+    date, expires: invoiceExpiry(date, link.validity), items, createdBy: pick(['demo_merchant', 'accounts_team', 'manager_dhanmondi']),
   };
   const r = rng();
-  const ageD = (NOW - date) / 864e5;
-  if (ageD < 3 && r < 0.3) inv.status = 'Draft';
-  else if (r < 0.05) inv.status = 'Cancelled';
-  else if (r < 0.6 && ageD > 1) { inv.status = 'Paid'; inv.paidAt = new Date(Math.min(NOW.getTime(), date.getTime() + rng() * (due - date))); }
-  else inv.status = NOW > due ? 'Overdue' : 'Sent';
+  if (r < 0.08) inv.status = 'Canceled';
+  else if (r < 0.6 && (NOW - date) / 864e5 > 1) { inv.status = 'Paid'; inv.paidAt = new Date(Math.min(NOW.getTime(), date.getTime() + rng() * 5 * 864e5)); }
+  else inv.status = 'Unpaid';
   return inv;
 }).sort((a, b) => b.date - a.date);
 
@@ -318,22 +314,61 @@ const QR_CODES = [
   { id: 'QR-ONL-01', store: 'demo_online', label: 'Delivery rider', terminal: `TID ••••${digits(4)}` },
 ];
 
-// EMI banks, tenures and store rates (% charged to the store) as configured in the KAM panel.
+// EMI banks, tenures and store rates (% charged to the store), as listed on the old panel's EMI Settings.
 const EMI_DEFAULT_RATE = { 3: 3.0, 6: 4.5, 9: 6.5, 12: 8.5, 18: 11.5, 24: 15.5, 30: 16.5, 36: 19.5 };
-const EMI_TENURES = [3, 6, 9, 12, 18, 24, 30, 36];
+const [EMI_T8, EMI_T36, EMI_T24, EMI_T12] = [[3, 6, 9, 12, 18, 24, 30, 36], [3, 6, 9, 12, 18, 24, 36], [3, 6, 9, 12, 18, 24], [3, 6, 9, 12]];
 const EMI_BANKS = [
-  { name: 'BRAC BANK LIMITED', tenures: [3, 6, 9, 12, 18, 24] },
-  { name: 'BANK ASIA LIMITED', tenures: [3, 6, 9, 12] },
-  { name: 'CITY BANK LIMITED', tenures: [3, 6, 9, 12, 18, 24, 30, 36] },
-  { name: 'DUTCH BANGLA BANK', tenures: [3, 6, 9, 12, 18, 24, 36] },
-  { name: 'EASTERN BANK', tenures: [3, 6, 9, 12, 18, 24, 36] },
-  { name: 'LANKABANGLA FINANCE', tenures: [3, 6, 9, 12, 18, 24, 36], rates: { 3: 3.5, 6: 4.5, 9: 6.5, 12: 8.5, 18: 11.5, 24: 15.5, 36: 19.5 } },
-  { name: 'MUTUAL TRUST BANK', tenures: [3, 6, 9, 12, 18, 24, 36] },
-  { name: 'PRIME BANK', tenures: [3, 6, 9, 12, 18, 24, 36] },
-  { name: 'STANDARD CHARTERED BANK', tenures: [3, 6, 9, 12, 18, 24, 36], rates: { 3: 3.5, 6: 5.5, 9: 8.0, 12: 10.5, 18: 13.5, 24: 17.5, 36: 22.5 } },
+  { name: 'AB BANK LIMITED', tenures: EMI_T8 },
+  { name: 'AL-ARAFAH ISLAMI BANK LIMITED', tenures: EMI_T36 },
+  { name: 'BANK ASIA LIMITED', tenures: EMI_T24 },
+  { name: 'BRAC BANK LIMITED', tenures: EMI_T36 },
+  { name: 'CITY BANK LIMITED', tenures: EMI_T8 },
+  { name: 'DHAKA BANK LIMITED', tenures: EMI_T12 },
+  { name: 'DUTCH BANGLA BANK', tenures: EMI_T36 },
+  { name: 'EASTERN BANK', tenures: EMI_T36 },
+  { name: 'EXIM BANK', tenures: EMI_T12 },
+  { name: 'IFIC BANK', tenures: EMI_T8 },
+  { name: 'ISLAMI BANK BANGLADESH', tenures: EMI_T36 },
+  { name: 'JAMUNA BANK', tenures: EMI_T36 },
+  { name: 'LANKABANGLA FINANCE', tenures: EMI_T24, rates: { ...EMI_DEFAULT_RATE, 3: 3.5 } },
+  { name: 'MERCANTILE BANK', tenures: EMI_T8 },
+  { name: 'MUTUAL TRUST BANK', tenures: EMI_T36 },
+  { name: 'NATIONAL BANK', tenures: EMI_T24 },
+  { name: 'NCC BANK', tenures: EMI_T36 },
+  { name: 'ONE BANK', tenures: EMI_T12 },
+  { name: 'PREMIER BANK', tenures: EMI_T12 },
+  { name: 'PRIME BANK', tenures: EMI_T36 },
+  { name: 'PUBALI BANK', tenures: EMI_T24 },
+  { name: 'SHAHJALAL ISLAMI BANK', tenures: EMI_T12 },
+  { name: 'SOUTHEAST BANK', tenures: EMI_T8 },
+  { name: 'STANDARD BANK', tenures: EMI_T24 },
+  { name: 'STANDARD CHARTERED BANK', tenures: EMI_T36, rates: { 3: 3.5, 6: 5.5, 9: 8.0, 12: 10.5, 18: 13.5, 24: 17.5, 36: 22.5 } },
   { name: 'UNITED COMMERCIAL BANK', tenures: [3, 6, 9, 12, 24] },
+  { name: 'Trust Bank Limited', tenures: EMI_T36 },
+  { name: 'Modhumoti Bank Limited', tenures: EMI_T24 },
+  { name: 'NRB COMMERCIAL BANK LTD', tenures: EMI_T24 },
+  { name: 'NRB Bank Limited', tenures: EMI_T36 },
+  { name: 'Meghna Bank Limited', tenures: EMI_T36 },
+  { name: 'SBAC Bank', tenures: EMI_T24 },
+  { name: 'Midland Bank Ltd', tenures: EMI_T8 },
+  { name: 'Uttara Bank Ltd', tenures: EMI_T24 },
+  { name: 'Shimanto Bank', tenures: EMI_T24 },
+  { name: 'Community Bank Bangladesh Limited', tenures: EMI_T36 },
+  { name: 'Bengal Commercial Bank Ltd', tenures: [3, 6, 9, 12, 24, 36] },
+  { name: 'CITIZENS BANK PLC', tenures: EMI_T12 },
 ].map(b => ({ ...b, rates: b.rates || EMI_DEFAULT_RATE }));
 const EMI_STORES = { demo_dhanmondi: true, demo_gulshan: false, demo_online: true };
+// Saved EMI Settings per store: model, which banks show as a channel and which tenures are on.
+const EMI_MODELS = [
+  ['disable', 'Disable'],
+  ['params', 'Enable (EMI with parameters)'],
+  ['auto', 'AUTO EMI (EMI with specific amount & charges will bear by MERCHANT)'],
+  ['global', 'Global EMI (EMI with specific amount & charges will bear by CUSTOMER/USER)'],
+];
+const EMI_CONFIG = Object.fromEntries(STORES.map(st => [st.id, {
+  model: EMI_STORES[st.id] ? 'params' : 'disable',
+  banks: Object.fromEntries(EMI_BANKS.map(b => [b.name, { on: true, tenures: Object.fromEntries(b.tenures.map(m => [m, true])) }])),
+}]));
 const EMI_REQUESTS = [];
 for (const t of TXNS) {
   if (t.type !== 'Card' || t.status !== 'success' || t.amount < 5000 || !EMI_STORES[t.store] || rng() > 0.3) continue;
@@ -410,28 +445,102 @@ const OPERATORS = ['Grameenphone', 'Robi', 'Banglalink', 'Teletalk'];
   }
 }
 
-// Campaigns (mock). Partnership campaigns are run by banks / MFS partners and stores opt in;
-// merchant campaigns are the merchant's own discounts. Both are kept in memory so join / create work.
-const dayAt = (offset) => startOfDay(addDays(TODAY, offset));
-const PARTNER_CAMPAIGNS = [
-  { name: 'Eid Card Offer', partner: 'BRAC Bank', kind: 'Bank', match: 'BRAC Bank', cards: 'BRAC Bank Visa & Mastercard credit cards', sectors: 'E-commerce, Lifestyle', start: -10, end: 20, confirm: -12, canOnboard: 'Yes', pct: 15, max: 500, minOrder: 1000, perUser: 2, merchantShare: 50, participation: 'Bank Approved', stores: ['demo_dhanmondi', 'demo_online'] },
-  { name: 'Weekend Dining Offer', partner: 'City Bank', kind: 'Bank', match: 'City Bank', cards: 'City Bank American Express cards', sectors: 'Food & Beverage, Lifestyle', start: -3, end: 25, confirm: 4, canOnboard: 'Yes', pct: 20, max: 750, minOrder: 1500, perUser: 4, merchantShare: 40, participation: 'Not joined', stores: [] },
-  { name: 'Cashback Fest', partner: 'bKash', kind: 'MFS', match: 'bKash', cards: 'bKash wallet payments', sectors: 'All sectors', start: 6, end: 36, confirm: 3, canOnboard: 'Yes', pct: 10, max: 200, minOrder: 500, perUser: 3, merchantShare: 30, participation: 'Created', stores: ['demo_online'] },
-  { name: 'Pay Day Offer', partner: 'Nagad', kind: 'MFS', match: 'Nagad', cards: 'Nagad wallet payments', sectors: 'All sectors', start: 12, end: 19, confirm: 8, canOnboard: 'Yes', pct: 8, max: 150, minOrder: 300, perUser: 2, merchantShare: 50, participation: 'Not joined', stores: [] },
-  { name: 'Winter Sale', partner: 'Eastern Bank', kind: 'Bank', match: 'Eastern Bank', cards: 'EBL credit & debit cards', sectors: 'Travel, Hospitality', start: 20, end: 50, confirm: 15, canOnboard: 'No', pct: 12, max: 1000, minOrder: 3000, perUser: 1, merchantShare: 50, participation: 'Not joined', stores: [] },
-  { name: 'Card Festival', partner: 'Prime Bank', kind: 'Bank', match: 'Prime Bank', cards: 'Prime Bank Visa cards', sectors: 'E-commerce, Retail', start: 2, end: 30, confirm: 1, canOnboard: 'Yes', pct: 10, max: 400, minOrder: 1000, perUser: 2, merchantShare: 50, participation: 'KAM Approved', stores: ['demo_dhanmondi', 'demo_gulshan'] },
-  { name: 'Nexus Shopping Week', partner: 'Dutch-Bangla Bank', kind: 'Bank', match: 'Dutch-Bangla Bank', cards: 'DBBL Nexus debit cards', sectors: 'Retail', start: -40, end: -25, confirm: -45, canOnboard: 'Yes', pct: 10, max: 300, minOrder: 800, perUser: 2, merchantShare: 50, participation: 'Bank Approved', stores: ['demo_dhanmondi', 'demo_gulshan', 'demo_online'] },
-  { name: 'Online Shopping Offer', partner: 'Standard Chartered', kind: 'Bank', match: 'Standard Chartered', cards: 'Standard Chartered credit cards', sectors: 'E-commerce', start: -60, end: -30, confirm: -62, canOnboard: 'Yes', pct: 15, max: 600, minOrder: 2000, perUser: 1, merchantShare: 50, participation: 'Rejected', rejectReason: 'Store category was not eligible for this offer', stores: ['demo_online'] },
-].map(c => ({ ...c, id: `PC${alnum(6)}`, tracking: alnum(20), start: dayAt(c.start), end: endOfDay(dayAt(c.end)), confirm: endOfDay(dayAt(c.confirm)) }));
+// Old merchant panel fields for each transaction: SSL / bank ids, the bank gateway, risk flag,
+// bank round trip, merchant API validation, discount, EMI, escrow and the customer's IP.
+// Own random stream, so the data above stays unchanged. IPs use documentation ranges only.
+const BANK_GATEWAY = { 'Mobile Banking': (t) => `${t.method} Limited`, QR: () => 'Bangla QR (NPSB)', Wallet: () => 'Google Pay', 'Internet Banking': () => 'City Bank PLC' };
+const DISCOUNT_REMARKS = ['Puja Special campaign', 'Card Holder Weekend', 'Bank partner offer'];
+{
+  const r = mulberry32(4242);
+  const ra = (n) => Array.from({ length: n }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'[Math.floor(r() * 57)]).join('');
+  const rd = (n) => Array.from({ length: n }, () => Math.floor(r() * 10)).join('');
+  const paidDays = new Set(SETTLEMENTS.filter(x => x.status === 'Paid').map(x => `${x.store}|${+x.day}`));
+  for (const t of TXNS) {
+    const ok = t.status === 'success' || t.status === 'refunded';
+    const stamp = `${String(t.date.getFullYear()).slice(2)}${pad(t.date.getMonth() + 1)}${pad(t.date.getDate())}${pad(t.date.getHours())}${pad(t.date.getMinutes())}${pad(t.date.getSeconds())}`;
+    t.sslId = `${stamp}${rd(4)}${ra(13)}`;
+    t.tid = rd(9);
+    t.gateway = t.type === 'Card' ? (t.issuerBank || t.issuer) : BANK_GATEWAY[t.type](t);
+    t.cardType = `${t.method.toUpperCase()}-${t.gateway}`;
+    if (['bKash', 'Nagad'].includes(t.method)) t.mfsTrxId = ra(10).toUpperCase();
+    t.ip = r() < 0.5 ? `203.0.113.${1 + Math.floor(r() * 254)}` : `198.51.100.${1 + Math.floor(r() * 254)}`;
+    t.risk = t.type === 'Card' && ok && r() < 0.03;
+    t.directedAt = new Date(t.date.getTime() + 3e3);
+    t.returnedAt = t.status === 'pending' ? null : new Date(t.date.getTime() + t.auth * 1e3);
+    t.apiValidated = ok && r() < 0.93;
+    t.settled = ok && paidDays.has(`${t.store}|${+startOfDay(t.date)}`);
+    t.viewed = !ok || NOW - t.date > 3 * 864e5 || r() < 0.6; // unviewed success payments get the "read" mark
+    t.onHold = ok && !t.settled && r() < 0.015;
+    if (ok && r() < 0.06) { t.discountPct = r() < 0.5 ? 5 : 10; t.discountRemarks = DISCOUNT_REMARKS[Math.floor(r() * DISCOUNT_REMARKS.length)]; }
+    if (t.type === 'Card' && ok && t.amount >= 5000 && r() < 0.12) t.emiTenure = [3, 6, 9, 12][Math.floor(r() * 4)];
+    if (t.store === 'demo_online' && ok && r() < 0.06) { t.escrow = true; t.shipment = r() < 0.5; t.invoiceId = `ORD-${rd(6)}`; }
+  }
+}
 
+// Old panel refund / chargeback fields: request vs approval status, merchant reference code,
+// approval remarks, who approved and when. Chargebacks get the merchant's own decision ("My Status").
+const MERCHANT_NAME = 'Demo Merchant Ltd.';
+{
+  const r = mulberry32(5151);
+  const rd = (n) => Array.from({ length: n }, () => Math.floor(r() * 10)).join('');
+  const later = (d, h) => new Date(Math.min(NOW.getTime(), d.getTime() + h * 3600e3));
+  for (const x of REFUNDS) {
+    x.requestStatus = x.status === 'Initiate' ? 'Processing' : x.status === 'Cancelled' && r() < 0.5 ? 'Cancel' : 'Success';
+    x.merchantRef = r() < 0.4 ? `MR-${rd(6)}` : '';
+    if (['Submit To Bank', 'Success', 'Cancelled'].includes(x.status)) {
+      x.approvedOn = later(x.date, 2 + r() * 20);
+      x.approvedBy = 'SSL Operations';
+      x.approvalRemarks = x.status === 'Success' ? `Refund Trans ID- R${rd(10)}` : x.status === 'Cancelled' ? (x.requestStatus === 'Cancel' ? 'Cancelled at merchant request' : 'Refund window expired for this channel') : 'Submitted to the issuing bank';
+    }
+  }
+  for (const c of CHARGEBACKS) {
+    c.myStatus = c.status === 'Initial' ? 'Initial' : c.status === 'Waiting' ? 'Waiting'
+      : c.status === 'Success' ? 'Approve' : c.status === 'Cancel' ? (r() < 0.8 ? 'Deny' : 'Cancel') : r() < 0.5 ? 'Approve' : 'Deny';
+    c.merchantRef = r() < 0.3 ? `MR-${rd(6)}` : '';
+    c.requestedBy = 'SSL Dispute Desk';
+    if (!['Initial', 'Waiting'].includes(c.myStatus)) {
+      c.approvedOn = later(c.date, 6 + r() * 60);
+      c.approvedBy = REQUESTERS[Math.floor(r() * REQUESTERS.length)];
+      c.approvalRemarks = c.myStatus === 'Approve' ? 'Full refund' : c.myStatus === 'Deny' ? 'Delivery proof shared with the bank' : 'Withdrawn by the bank';
+    }
+  }
+}
+
+// Campaigns (mock), following the old panel. Partnership-initiated campaigns are set up by SSL / the bank;
+// stores take part by filling in their discount before the last participation date. Merchant-initiated
+// campaigns are the merchant's own, with a per-store discount table. Kept in memory so update / create work.
+const dayAt = (offset) => startOfDay(addDays(TODAY, offset));
+// Old panel tracking ids: 6 random characters + ddMMyyyy + HHmmss of creation.
+const trackingId = (d) => `${alnum(6)}${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+const CAMPAIGN_BANKS = ['AB BANK LIMITED', 'AL-ARAFAH ISLAMI BANK LIMITED', 'BANK ASIA LIMITED', 'BRAC BANK LIMITED', 'CITY BANK LIMITED', 'DHAKA BANK LIMITED', 'DUTCH BANGLA BANK', 'EASTERN BANK', 'EXIM BANK', 'FIRST SECURITY ISLAMI BANK', 'IFIC BANK', 'ISLAMI BANK BANGLADESH', 'JAMUNA BANK', 'MERCANTILE BANK', 'MUTUAL TRUST BANK', 'NCC BANK', 'ONE BANK', 'PRIME BANK', 'PUBALI BANK', 'SOUTHEAST BANK', 'STANDARD CHARTERED BANK', 'UNITED COMMERCIAL BANK'];
+const CAMPAIGN_MFS = ['Bkash', 'Upay', 'Nagad', 'Islamic Wallet', 'Pocket', 'Pathao Pay', 'STPay'];
+const CAMPAIGN_IB = ['AB Direct'];
+const PARTNER_STATUSES = ['Pending', 'Sent to Bank (Closed)'];
+const MC_STATUSES = ['Created', 'Approved', 'Canceled'];
+const pDiscount = (pct, burned, minOrder, maxPerTxn, perUser, remarks = '') => ({ pct, burned, minOrder, maxPerTxn, perUser, remarks });
+const PARTNER_CAMPAIGNS = [
+  { name: 'Winter Shopping Campaign 2026', bank: '', start: 14, end: 45, last: 8, created: -6, status: 'Pending', discounts: {} },
+  { name: 'Victory Day Campaign 2026', bank: 'CITY BANK LIMITED', start: 40, end: 50, last: 30, created: -2, status: 'Pending', discounts: {} },
+  { name: 'Black Friday Campaign 2026', bank: '', start: 31, end: 36, last: 20, created: -9, status: 'Pending', discounts: { demo_online: pDiscount(15, 'No', 1500, 500, 2, 'Online store only') } },
+  { name: 'Durga Puja Campaign 2026', bank: 'BRAC BANK LIMITED', start: -20, end: 2, last: -25, created: -40, status: 'Sent to Bank (Closed)', discounts: { demo_dhanmondi: pDiscount(10, 'No', 1000, 300, 2), demo_gulshan: pDiscount(10, 'No', 1000, 300, 2) } },
+  { name: 'Eid Ul Adha Campaign 2026', bank: '', start: -150, end: -125, last: -155, created: -170, status: 'Sent to Bank (Closed)', discounts: { demo_dhanmondi: pDiscount(12, 'Yes', 2000, 400, 1, 'Festive offer'), demo_online: pDiscount(12, 'Yes', 2000, 400, 1) } },
+  { name: 'Ramadan Campaign 2026', bank: '', start: -240, end: -210, last: -245, created: -260, status: 'Pending', discounts: {} },
+  { name: 'Pohela Boishakh Campaign 2026', bank: 'EASTERN BANK', start: -195, end: -190, last: -200, created: -215, status: 'Sent to Bank (Closed)', discounts: { demo_gulshan: pDiscount(8, 'No', 800, 200, 3) } },
+].map(c => {
+  const created = new Date(dayAt(c.created).getTime() + (9 + Math.floor(rng() * 9)) * 3600e3 + Math.floor(rng() * 3600) * 1e3);
+  return { ...c, id: `PC${alnum(6)}`, tracking: trackingId(created), created, start: dayAt(c.start), end: endOfDay(dayAt(c.end)), last: endOfDay(dayAt(c.last)) };
+});
+
+const mDiscount = (pct, observed, minOrder, maxPerTxn, maxPerCard, perUser, remarks = '') => ({ pct, observed, minOrder, maxPerTxn, maxPerCard, perUser, remarks });
 const MERCHANT_CAMPAIGNS = [
-  { name: 'Puja Special — 10% off', description: 'Festive discount on selected bank cards and bKash.', start: -18, end: 5, stores: ['demo_dhanmondi', 'demo_gulshan'], banks: ['BRAC Bank', 'City Bank', 'Eastern Bank'], mfs: ['bKash'], ib: [], type: 'Percentage', value: 10, max: 300, minOrder: 1500, perUser: 1, status: 'Running' },
-  { name: 'Free Delivery Weekend', description: 'Flat discount equal to the delivery charge.', start: -2, end: 12, stores: ['demo_online'], banks: [], mfs: ['bKash', 'Nagad'], ib: [], type: 'Flat', value: 120, max: 120, minOrder: 2000, perUser: 2, status: 'Running' },
-  { name: 'Winter Collection Launch', description: 'Launch offer for the new winter collection.', start: 10, end: 40, stores: ['demo_dhanmondi', 'demo_gulshan', 'demo_online'], banks: ['BRAC Bank', 'City Bank', 'Dutch-Bangla Bank', 'Eastern Bank', 'Standard Chartered', 'Prime Bank'], mfs: [], ib: ['City Touch'], type: 'Percentage', value: 12, max: 600, minOrder: 2500, perUser: 1, status: 'Pending' },
-  { name: 'Black Friday Preview', description: 'Early-access discount for returning customers.', start: 25, end: 31, stores: ['demo_online'], banks: ['City Bank'], mfs: ['bKash'], ib: [], type: 'Percentage', value: 20, max: 1000, minOrder: 3000, perUser: 1, status: 'Created' },
-  { name: 'Back to School', description: 'Discount on stationery and bags.', start: -45, end: -30, stores: ['demo_gulshan'], banks: ['Prime Bank'], mfs: ['bKash', 'Nagad', 'Rocket'], ib: [], type: 'Percentage', value: 8, max: 200, minOrder: 1000, perUser: 2, status: 'Closed' },
-  { name: 'Independence Day Offer', description: 'Flat discount across all stores.', start: -64, end: -58, stores: ['demo_dhanmondi', 'demo_online'], banks: ['Dutch-Bangla Bank'], mfs: ['bKash'], ib: [], type: 'Flat', value: 200, max: 200, minOrder: 1500, perUser: 1, status: 'Closed' },
-].map(c => ({ ...c, id: `MC${alnum(6)}`, tracking: alnum(20), start: dayAt(c.start), end: endOfDay(dayAt(c.end)) }));
+  { name: 'Year End Sale', start: 20, end: 35, created: -1, communicator: 'SSL', bins: [], banks: ['BRAC BANK LIMITED', 'CITY BANK LIMITED', 'EASTERN BANK'], mfs: ['Bkash'], ib: [], status: 'Created', discounts: { demo_dhanmondi: mDiscount(10, 'Yes', 1500, 300, 600, 2), demo_online: mDiscount(10, 'Yes', 1500, 300, 600, 2) } },
+  { name: 'Card Holder Weekend', start: -3, end: 10, created: -12, communicator: 'Merchant', bins: ['412345', '523456'], banks: [], mfs: [], ib: [], status: 'Approved', discounts: { demo_online: mDiscount(15, 'Yes', 2000, 500, 1000, 1, 'Selected BINs only') } },
+  { name: 'Puja Special', start: -30, end: -14, created: -45, communicator: 'SSL', bins: [], banks: ['DUTCH BANGLA BANK', 'PRIME BANK'], mfs: ['Bkash', 'Nagad'], ib: ['AB Direct'], status: 'Approved', discounts: { demo_dhanmondi: mDiscount(8, 'No', 1000, 200, 400, 2), demo_gulshan: mDiscount(8, 'No', 1000, 200, 400, 2) } },
+  { name: 'Back to School', start: -70, end: -60, created: -80, communicator: 'Merchant', bins: ['434567'], banks: [], mfs: [], ib: [], status: 'Canceled', discounts: { demo_gulshan: mDiscount(5, 'Yes', 800, 100, 200, 1) } },
+].map(c => {
+  const created = new Date(dayAt(c.created).getTime() + (10 + Math.floor(rng() * 8)) * 3600e3 + Math.floor(rng() * 3600) * 1e3);
+  return { ...c, id: `MC${alnum(6)}`, tracking: trackingId(created), created, start: dayAt(c.start), end: endOfDay(dayAt(c.end)) };
+});
 
 // Support (mock): transaction tickets, general tickets & queries, and service delivery requests.
 const AGENTS = ['Support Desk — Rafiq', 'Support Desk — Nabila', 'Your KAM — Farzana'];
@@ -517,31 +626,19 @@ const GEN_TICKETS = GEN_TOPICS.map(([type, title, description, attachment], i) =
   };
 }).sort((a, b) => b.date - a.date);
 
-const SERVICE_TYPES = [
-  { v: 'QR Standee Delivery', sla: 5 }, { v: 'POS Terminal Installation', sla: 7 }, { v: 'Branding Materials', sla: 10 },
-  { v: 'Store Activation', sla: 3 }, { v: 'Integration Support', sla: 2 }, { v: 'Staff Training', sla: 5 },
-];
-const SERVICE_STAGES = ['Requested', 'Approved', 'In Progress', 'Delivered'];
-const SERVICE_REQUESTS = Array.from({ length: 15 }, (_, i) => {
-  const type = SERVICE_TYPES[i % SERVICE_TYPES.length];
-  const store = wpick(STORES);
-  const date = new Date(NOW.getTime() - (4 + rng() * 20 * 24) * 3600e3);
-  const due = endOfDay(addDays(date, type.sla));
-  const ageD = (NOW - date) / 864e5;
-  const late = rng() < 0.3;
-  const stageIndex = ageD < 1 ? 0 : ageD < 2 ? 1 : ageD < type.sla + (late ? 4 : 0) ? 2 : 3;
-  const cancelled = stageIndex < 3 && rng() < 0.08;
-  const stageAt = [date, capAt(new Date(date.getTime() + 20 * 3600e3)), capAt(new Date(date.getTime() + 44 * 3600e3)),
-    capAt(new Date(date.getTime() + (late ? type.sla + 2 : Math.max(1, type.sla - 1)) * 864e5))];
-  return {
-    no: `SR${ymd(date)}${digits(4)}`, date, type: type.v, sla: type.sla, due, store: store.id, storeName: store.name,
-    qty: type.v === 'QR Standee Delivery' ? 1 + Math.floor(rng() * 3) : type.v === 'Branding Materials' ? 5 + Math.floor(rng() * 20) : 1,
-    stage: cancelled ? 'Cancelled' : SERVICE_STAGES[stageIndex], stageIndex: cancelled ? -1 : stageIndex, stageAt,
-    assignee: type.v.includes('Support') || type.v.includes('Training') ? 'Integration team' : type.v === 'Store Activation' ? 'Onboarding team' : 'Field operations',
-    notes: rng() < 0.5 ? 'Please call the store manager before visiting.' : '',
-    rating: stageIndex === 3 && rng() < 0.6 ? 3 + Math.floor(rng() * 3) : null,
-  };
-}).sort((a, b) => b.date - a.date);
+// Service delivery (old panel): escrow payments wait for the merchant's delivery file
+// (SSL Bank ID, Store ID, Delivery Company Code, Delivery Date, Delivered to Phone) before they settle.
+const DELIVERY_FILES = [
+  { days: 1, rows: 1, found: 0, amount: 0 },
+  { days: 3, rows: 19, found: 12, amount: 21140 },
+  { days: 9, rows: 50, found: 3, amount: 3890 },
+  { days: 16, rows: 8, found: 8, amount: 12650 },
+  { days: 27, rows: 4, found: 0, amount: 0 },
+].map(f => {
+  const uploaded = new Date(NOW.getTime() - (f.days * 24 + 2) * 3600e3);
+  const stamp = Math.floor(uploaded.getTime() / 1000);
+  return { ...f, uploaded, name: `${stamp}${digits(4)}_ServiceDeliverables_${stamp - 12}.csv`, status: f.found ? 'Success' : 'Failed' };
+});
 
 // Account (mock): store configuration, store groups and portal users. Credentials are never part of this data.
 const ACCOUNT_STORES = [
@@ -552,19 +649,30 @@ const ACCOUNT_STORES = [
   { id: 'demo_popup', name: 'Demo Pop-up Store', type: 'Only QR', baseUrl: '', currency: 'BDT', emi: 'No EMI', status: 'Inactive', created: new Date(2025, 11, 1), address: 'Bashundhara City, Dhaka' },
 ];
 const STORE_GROUPS = [
-  { id: 'G1', name: 'All Stores', description: 'Every store under this merchant account.', stores: ACCOUNT_STORES.map(s => s.id), system: true },
-  { id: 'G2', name: 'Physical Stores', description: 'Counters that take Bangla QR and cards in person.', stores: ['demo_dhanmondi', 'demo_gulshan', 'demo_popup'] },
-  { id: 'G3', name: 'Online Business', description: 'Web and app checkout stores.', stores: ['demo_online', 'demo_usd'] },
+  { id: 'G1', name: 'All Stores', description: 'Every store under this merchant account.', stores: ACCOUNT_STORES.map(s => s.id), system: true, active: true },
+  { id: 'G2', name: 'Physical Stores', description: 'Counters that take Bangla QR and cards in person.', stores: ['demo_dhanmondi', 'demo_gulshan', 'demo_popup'], active: true },
+  { id: 'G3', name: 'Online Business', description: 'Web and app checkout stores.', stores: ['demo_online', 'demo_usd'], active: true },
+  { id: 'G4', name: 'Pop-up Events', description: 'Seasonal fair counters.', stores: ['demo_popup'], active: false },
 ];
-const USER_ROLES = ['Merchant Admin', 'Merchant User', 'Support Agent'];
+// Old panel user roles and Merchant App roles.
+const USER_ROLES = ['Admin and Finance', 'ESCROW Report View', 'Escrow User - Report and Settlement', 'ECOMMERCE', 'Manage Invoice and View Reports', 'Merchant Admin', 'Merchant View and Settlement', 'QR Merchant Admin', 'Report View', 'Supports', 'Supports and Settlement', 'Transaction Tracking by ID'];
+const APP_ROLES = [['account_opening', 'Account Opening'], ['counter_user', 'Counter User'], ['cpqrc_user', 'cpqrc_user'], ['emi_locker_user', 'emi_locker_user'], ['hyperlocal-delivery', 'hyperlocal-delivery'], ['internal-hyperlocal-delivery', 'internal-hyperlocal-delivery'], ['loan-user', 'loan-user'], ['pdr', 'PDR']];
 const USERS = [
-  { login: 'demo_merchant', name: 'Demo Merchant Admin', role: 'Merchant Admin', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -1), ips: '' },
-  { login: 'manager_dhanmondi', name: 'Store Manager — Dhanmondi', role: 'Merchant User', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -2), ips: '' },
-  { login: 'manager_gulshan', name: 'Store Manager — Gulshan', role: 'Merchant User', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -5), ips: '' },
-  { login: 'accounts_team', name: 'Accounts Team', role: 'Merchant User', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -3), ips: '203.0.113.10, 203.0.113.11' },
-  { login: 'care_agent', name: 'Customer Care Agent', role: 'Support Agent', group: 'G3', status: 'Active', lastLogin: addDays(NOW, -0.3), ips: '' },
-  { login: 'old_manager', name: 'Former Store Manager', role: 'Merchant User', group: 'G2', status: 'Inactive', lastLogin: addDays(NOW, -64), ips: '' },
-].map((u, i) => ({ ...u, email: `${u.login[0]}•••••@example.com`, mobile: `01•••••${digits(3)}`, appRole: 'Merchant App Role', created: addDays(NOW, -(400 - i * 50)) }));
+  { login: 'demo_merchant', first: 'Demo', last: 'Admin', role: 'Merchant Admin', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -1), appRole: '' },
+  { login: 'manager_dhanmondi', first: 'Store Manager', last: 'Dhanmondi', role: 'Merchant View and Settlement', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -2), appRole: 'counter_user' },
+  { login: 'manager_gulshan', first: 'Store Manager', last: 'Gulshan', role: 'QR Merchant Admin', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -5), appRole: 'counter_user' },
+  { login: 'accounts_team', first: 'Accounts', last: 'Team', role: 'Admin and Finance', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -3), appRole: '' },
+  { login: 'care_agent', first: 'Customer Care', last: 'Agent', role: 'Supports', group: 'G3', status: 'Active', lastLogin: addDays(NOW, -0.3), appRole: '' },
+  { login: 'invoice_user', first: 'Invoice', last: 'User', role: 'Manage Invoice and View Reports', group: 'G3', status: 'Inactive', lastLogin: addDays(NOW, -40), appRole: '' },
+  { login: 'old_manager', first: 'Former', last: 'Manager', role: 'Report View', group: 'G2', status: 'Inactive', lastLogin: addDays(NOW, -64), appRole: '' },
+].map((u, i) => ({ ...u, middle: '', name: `${u.first} ${u.last}`.trim(), email: `${u.login[0]}•••••@example.com`, mobile: `01•••••${digits(3)}`, phone: '', addedBy: i ? 'demo_merchant' : 'SSL Onboarding', created: addDays(NOW, -(400 - i * 50)) }));
+
+// Per-store settings from the old Store List menus: contact, IPN and gateway settings, and charges (TDR).
+const STORE_SETTINGS = Object.fromEntries(ACCOUNT_STORES.map(st => [st.id, {
+  contact: { name: 'Demo Merchant Ltd.', email: 'm•••••@example.com', mobile: '01•••••000', phone: '', fax: '' },
+  ipn: { email1: 'o•••••@example.com', email2: '', email3: '', mobile1: '', sms1: false, mobile2: '', sms2: false, listener: st.baseUrl ? `${st.baseUrl}/ipn` : '', listenerOn: !!st.baseUrl },
+  gw: { primaryWeb: '#295cab', activeWeb: '#1d4a91', primarySdk: '#295cab', activeSdk: '#1d4a91', payGroup: '', chargeCustomer: 'Disabled' },
+}]));
 
 // Others (mock): referrals, FX rates, value added services, SMS credits, FAQ and learning material.
 const REFERRAL_CODE = 'DEMO-MRC-7Q4K';

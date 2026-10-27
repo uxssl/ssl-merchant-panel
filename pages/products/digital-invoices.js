@@ -1,24 +1,22 @@
 // =====================================================================
-// Digital Invoices
+// Digital Invoices — old panel flow: choose an invoice configuration (a payment link),
+// then bill the customer for one or more service / product items.
 // =====================================================================
-const INVOICE_STATUSES = ['Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
-const INVOICE_CLS = { Draft: 'bg-slate-100 text-slate-600', Sent: 'bg-blue-50 text-blue-600', Paid: 'bg-emerald-50 text-emerald-600', Overdue: 'bg-rose-50 text-rose-600', Cancelled: 'bg-slate-100 text-slate-400' };
+const INVOICE_CLS = { Unpaid: 'bg-rose-50 text-rose-600', Paid: 'bg-emerald-50 text-emerald-600', Canceled: 'bg-slate-100 text-slate-500' };
 const invoiceBadge = (s) => `<span class="${STATUS_BADGE} ${INVOICE_CLS[s]}">${s}</span>`;
-const dueText = (inv) => {
-  if (inv.status === 'Paid') return { text: `Paid ${fmtShort(inv.paidAt)}`, cls: 'text-emerald-600' };
-  if (inv.status === 'Cancelled' || inv.status === 'Draft') return { text: '', cls: '' };
-  const days = Math.ceil((inv.due - NOW) / 864e5);
-  if (days < 0) return { text: `${-days} day${days < -1 ? 's' : ''} overdue`, cls: 'text-rose-600' };
-  return { text: days === 0 ? 'Due today' : `Due in ${days} day${days > 1 ? 's' : ''}`, cls: days <= 3 ? 'text-amber-600' : 'text-slate-500' };
-};
+const invoiceExpired = (inv) => inv.status === 'Unpaid' && NOW > inv.expires;
+// Configurations a new invoice can be billed against: active payment links of the stores in view.
+const invoiceConfigs = () => PAYMENT_LINKS.filter(l => l.active && inStores(l.store));
+const configLabel = (l) => `${l.storeName} (${l.store}) - ${l.ref} - ${l.name}`;
 
 function invoiceRows(s, withStatus = true) {
   const q = s.search.trim().toLowerCase();
   return INVOICES.filter(inv =>
     inStores(inv.store) &&
     inRange(inv, s.range) &&
-    (!q || inv.no.toLowerCase().includes(q) || inv.customer.toLowerCase().includes(q)) &&
-    (!withStatus || s.status === 'all' || (s.status === 'open' ? ['Sent', 'Overdue'].includes(inv.status) : inv.status === s.status))
+    (!q || [inv.no, inv.orderRef, inv.email, inv.phone, inv.customer].some(v => v.toLowerCase().includes(q))) &&
+    (s.ref === 'all' || inv.config === s.ref) &&
+    (!withStatus || s.status === 'all' || inv.status === s.status)
   );
 }
 
@@ -27,37 +25,50 @@ function renderInvoices() {
   const base = invoiceRows(applied(s), false);
   const rows = invoiceRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
-  const total = (list) => list.reduce((n, inv) => n + invoiceTotals(inv).total, 0);
-  const open = base.filter(inv => ['Sent', 'Overdue'].includes(inv.status));
-  const overdue = base.filter(inv => inv.status === 'Overdue');
-  const paid = base.filter(inv => inv.status === 'Paid');
-  const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Outstanding (Sent + Overdue)', value: 'open' }, ...INVOICE_STATUSES.map(v => ({ label: v, value: v }))];
+  const total = (list) => list.reduce((n, inv) => n + invoiceTotal(inv), 0);
+  const of = (status) => base.filter(inv => inv.status === status);
+  const statusOpts = [{ label: 'All Status', value: 'all' }, ...INVOICE_STATUSES.map(v => ({ label: v, value: v }))];
+  const refOpts = [{ label: 'All References', value: 'all' }, ...PAYMENT_LINKS.filter(l => inStores(l.store)).map(l => ({ label: `${l.ref} - ${l.name}`, value: l.ref }))];
+  const action = (name, inv, icon, label, cls) => `<button data-action="${name}" data-value="${inv.no}" class="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs font-medium whitespace-nowrap ${cls}">${ic(icon, 'w-3.5 h-3.5')}${label}</button>`;
   const cols = [
-    { label: 'Invoice No', cell: inv => `<div class="font-mono text-xs font-semibold text-slate-800">${inv.no}</div><div class="text-xs text-slate-500">${esc(inv.customer)}</div>` },
-    { label: 'Issue Date', cell: inv => `<span class="whitespace-nowrap">${fmtDate(inv.date)}</span>` },
-    { label: 'Due Date', cell: inv => { const d = dueText(inv); return `<div class="whitespace-nowrap">${fmtDate(inv.due)}</div>${d.text ? `<div class="text-xs font-medium ${d.cls}">${d.text}</div>` : ''}`; } },
-    { label: 'Store', cls: 'hidden lg:table-cell', cell: inv => esc(inv.storeName) },
-    { label: 'Amount', right: true, cell: inv => `<span class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(invoiceTotals(inv).total)}</span>` },
-    { label: 'Status', cell: inv => invoiceBadge(inv.status) },
+    { label: 'Invoice Info', cell: inv => `
+      <div class="font-mono text-xs font-semibold text-primary-600">${inv.no}</div>
+      <div class="text-[11px] text-slate-500 leading-relaxed">
+        <div>Reference: <span class="font-mono text-slate-700">${esc(inv.orderRef)}</span></div>
+        <div>Invoice Date: <span class="text-slate-700">${fmtDate(inv.date)}, ${fmtTime(inv.date)}</span></div>
+        <div>Expire Date: <span class="${invoiceExpired(inv) ? 'text-rose-600 font-medium' : 'text-slate-700'}">${fmtDate(inv.expires)}${invoiceExpired(inv) ? ' (expired)' : ''}</span></div>
+        <div>Created By: <span class="text-slate-700">${esc(inv.createdBy)}</span></div>
+      </div>` },
+    { label: 'Customer Information', cell: inv => `<div class="text-xs text-slate-500">${esc(inv.email)}</div><div class="font-medium text-slate-800">${esc(inv.customer)}</div><div class="text-xs font-mono text-slate-500">${esc(inv.phone)}</div>` },
+    { label: 'Invoice Amount', right: true, cell: inv => `<span class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(invoiceTotal(inv))}</span>` },
+    { label: 'Payment Status', cell: inv => invoiceBadge(inv.status) },
+    { label: 'Action', cell: inv => `<div class="flex flex-wrap gap-1.5">
+      ${action('open-invoice', inv, 'eye', 'Detail', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+      ${action('invoice-download', inv, 'file-down', 'Download', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
+      ${inv.status === 'Unpaid' ? action('invoice-resend', inv, 'mail', 'Resend Email', 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50') : ''}
+      ${inv.status === 'Unpaid' ? action('invoice-cancel', inv, 'x', 'Cancel', 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50') : ''}
+    </div>` },
   ];
   return `
     <div class="space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Digital Invoices</h1>
-          <p class="text-slate-500 text-sm">Bill a specific customer for a fixed amount — they pay online from the invoice link.</p>
+          <p class="text-slate-500 text-sm">Bill a customer for services or products — they get the invoice by email and pay online.</p>
         </div>
         <button data-action="new-invoice" class="${BTN_PRIMARY} shrink-0">${ic('file-plus', 'w-4 h-4')}Create Invoice</button>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Invoice No or Customer', selectPill('list', 'status', 'Status', statusOpts, s.status))}
+        ${listFilterBar(s, 'Invoice Id, Email or Contact No.',
+          selectPill('list', 'ref', 'Invoice Reference', refOpts, s.ref) +
+          selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             ${metricCard({ title: 'Total Invoices', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
-            ${metricCard({ title: 'Outstanding', value: fmtBDTShort(total(open)), sub: `${open.length} unpaid`, status: 'open', selected: s.applied.status === 'open' })}
-            ${metricCard({ title: 'Overdue', value: fmtBDTShort(total(overdue)), sub: `${overdue.length} invoices`, status: 'Overdue', selected: s.applied.status === 'Overdue' })}
-            ${metricCard({ title: 'Paid', value: fmtBDTShort(total(paid)), sub: `${paid.length} invoices`, status: 'Paid', selected: s.applied.status === 'Paid' })}
+            ${metricCard({ title: 'Unpaid', value: fmtBDTShort(total(of('Unpaid'))), sub: `${of('Unpaid').length} invoices`, status: 'Unpaid', selected: s.applied.status === 'Unpaid' })}
+            ${metricCard({ title: 'Paid', value: fmtBDTShort(total(of('Paid'))), sub: `${of('Paid').length} invoices`, status: 'Paid', selected: s.applied.status === 'Paid' })}
+            ${metricCard({ title: 'Canceled', value: of('Canceled').length.toLocaleString(), status: 'Canceled', selected: s.applied.status === 'Canceled' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">
@@ -70,13 +81,12 @@ function renderInvoices() {
 }
 
 function invoicePaper(inv) {
-  const t = invoiceTotals(inv);
   return `
     <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-base font-bold text-slate-900">Demo Merchant Ltd.</p>
-          <p class="text-xs text-slate-500">${esc(inv.storeName)}</p>
+          <p class="text-xs text-slate-500">${esc(inv.storeName)} · ${esc(inv.configName)}</p>
         </div>
         <div class="text-right">
           <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Invoice</p>
@@ -84,113 +94,125 @@ function invoicePaper(inv) {
         </div>
       </div>
       <div class="grid grid-cols-3 gap-4 mt-6 text-xs">
-        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Billed to</p><p class="font-medium text-slate-800 mt-1">${esc(inv.customer)}</p><p class="text-slate-500 font-mono">${inv.phone}</p><p class="text-slate-500">${inv.email}</p></div>
-        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Issue date</p><p class="font-medium text-slate-800 mt-1">${fmtDate(inv.date)}</p></div>
-        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Due date</p><p class="font-medium text-slate-800 mt-1">${fmtDate(inv.due)}</p></div>
+        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Billed to</p><p class="font-medium text-slate-800 mt-1">${esc(inv.customer)}</p><p class="text-slate-500 font-mono">${esc(inv.phone)}</p><p class="text-slate-500">${esc(inv.email)}</p>${inv.customerId ? `<p class="text-slate-500">ID: <span class="font-mono">${esc(inv.customerId)}</span></p>` : ''}</div>
+        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Reference / Order ID</p><p class="font-mono font-medium text-slate-800 mt-1">${esc(inv.orderRef)}</p></div>
+        <div><p class="text-slate-400 uppercase tracking-wider text-[10px] font-semibold">Invoice / Expire date</p><p class="font-medium text-slate-800 mt-1">${fmtDate(inv.date)}</p><p class="text-slate-500">Expires ${fmtDate(inv.expires)}</p></div>
       </div>
-      <div class="mt-5">${miniTable(['Description', 'Qty', 'Unit Price', 'Amount'], inv.items.map(it => [esc(it.desc), it.qty, fmtBDT(it.price), fmtBDT(it.qty * it.price)]), { right: [1, 2, 3] })}</div>
-      <div class="mt-4 ml-auto w-64 text-sm space-y-1">
-        <div class="flex justify-between"><span class="text-slate-500">Subtotal</span><span class="tabular-nums">${fmtBDT(t.subtotal)}</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">VAT (${inv.vatRate}%)</span><span class="tabular-nums">${fmtBDT(t.vat)}</span></div>
-        <div class="flex justify-between border-t border-slate-200 pt-1 font-bold text-slate-900"><span>Total</span><span class="tabular-nums">${fmtBDT(t.total)}</span></div>
+      <div class="mt-5">${miniTable(['Service / Product', 'Qty', 'Unit Price', 'Total'], inv.items.map(it => [esc(it.desc), it.qty, fmtBDT(it.price), fmtBDT(it.qty * it.price)]), { right: [1, 2, 3] })}</div>
+      <div class="mt-4 ml-auto w-64 text-sm">
+        <div class="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900"><span>Total (BDT)</span><span class="tabular-nums">${fmtBDT(invoiceTotal(inv))}</span></div>
       </div>
-      ${inv.notes ? `<p class="mt-4 text-xs text-slate-500">${esc(inv.notes)}</p>` : ''}
       <div class="mt-5 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 flex items-center gap-2">
-        ${ic('link', 'w-3.5 h-3.5 text-slate-400')}<span class="font-mono text-[11px] text-slate-600 truncate flex-1">${linkUrl(inv.ref)}</span>
-        <button data-action="copy" data-value="${linkUrl(inv.ref)}" class="text-xs font-medium text-primary-600 hover:underline">Copy</button>
+        ${ic('link', 'w-3.5 h-3.5 text-slate-400')}<span class="font-mono text-[11px] text-slate-600 truncate flex-1">${linkUrl(inv.no)}</span>
+        <button data-action="copy" data-value="${linkUrl(inv.no)}" class="text-xs font-medium text-primary-600 hover:underline">Copy</button>
       </div>
     </div>`;
 }
 
 function invoiceDrawer(inv) {
-  const steps = [{ label: 'Invoice created', at: inv.date, tone: 'slate' }];
-  if (inv.status !== 'Draft') steps.push({ label: 'Sent to customer by SMS & email', at: new Date(Math.min(NOW.getTime(), inv.date.getTime() + 600e3)), tone: 'blue' });
-  if (inv.viewed && !['Draft', 'Cancelled'].includes(inv.status)) steps.push({ label: 'Viewed by customer', at: new Date(Math.min(NOW.getTime(), inv.date.getTime() + 5 * 3600e3)), tone: 'amber' });
+  const steps = [
+    { label: `Invoice created by ${inv.createdBy}`, at: inv.date, tone: 'slate' },
+    { label: 'Emailed to customer with a pay link', at: new Date(Math.min(NOW.getTime(), inv.date.getTime() + 60e3)), tone: 'blue' },
+  ];
+  if (inv.resentAt) steps.push({ label: 'Email resent', at: inv.resentAt, tone: 'blue' });
   if (inv.status === 'Paid') steps.push({ label: 'Paid online', at: inv.paidAt, tone: 'emerald' });
-  if (inv.status === 'Overdue') steps.push({ label: 'Payment overdue', at: inv.due, tone: 'rose' });
-  if (inv.status === 'Cancelled') steps.push({ label: 'Invoice cancelled', note: 'No payment can be made on this link', tone: 'slate' });
-  const canCancel = ['Draft', 'Sent', 'Overdue'].includes(inv.status);
+  if (inv.status === 'Canceled') steps.push({ label: 'Invoice canceled', note: 'No payment can be made on this invoice', tone: 'slate' });
+  if (inv.status === 'Unpaid') steps.push(invoiceExpired(inv) ? { label: 'Invoice expired', at: inv.expires, tone: 'rose' } : { label: `Payable until ${fmtDate(inv.expires)}`, note: 'Waiting for payment', tone: 'amber' });
   return drawerShell({
     wide: true,
-    title: 'Invoice',
+    title: 'Invoice Details',
     sub: `<span class="font-mono text-xs">${inv.no}</span>${invoiceBadge(inv.status)}`,
     body: `
       ${invoicePaper(inv)}
       ${section('Activity', timeline(steps))}
-      <p class="flex items-center gap-1.5 text-[11px] text-slate-400">${ic('shield-check', 'w-3.5 h-3.5')}Customer phone and email are masked in the portal.</p>`,
+      <p class="flex items-center gap-1.5 text-[11px] text-slate-400">${ic('shield-check', 'w-3.5 h-3.5')}Customer phone, email and ID are masked in the portal.</p>`,
     footer: `
-      ${canCancel ? `<button data-action="invoice-cancel" data-value="${inv.no}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('x', 'w-4 h-4')}Cancel Invoice</button>` : ''}
-      <button data-action="toast" data-msg="Prototype: PDF download is not wired up." class="${BTN_SECONDARY}">${ic('file-down', 'w-4 h-4')}Download PDF</button>
-      ${inv.status === 'Draft' ? `<button data-action="invoice-send" data-value="${inv.no}" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Send Invoice</button>` : ''}
-      ${['Sent', 'Overdue'].includes(inv.status) ? `<button data-action="toast" data-msg="Prototype: no reminder was sent." class="${BTN_PRIMARY}">${ic('bell-ring', 'w-4 h-4')}Send Reminder</button>` : ''}`,
+      ${inv.status === 'Unpaid' ? `<button data-action="invoice-cancel" data-value="${inv.no}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('x', 'w-4 h-4')}Cancel</button>` : ''}
+      <button data-action="invoice-download" data-value="${inv.no}" class="${BTN_SECONDARY}">${ic('file-down', 'w-4 h-4')}Download</button>
+      ${inv.status === 'Unpaid' ? `<button data-action="invoice-resend" data-value="${inv.no}" class="${BTN_PRIMARY}">${ic('mail', 'w-4 h-4')}Resend Email</button>` : ''}`,
   });
 }
 
+// ---------------------------------------------------------------------
+// Create Invoice: step 1 picks the configuration, step 2 is the invoice form.
+// ---------------------------------------------------------------------
 let invDraft = null;
 const newInvoiceDraft = () => ({
-  customer: '', phone: '', email: '', store: STORES[0].id,
-  due: toDateInput(addDays(TODAY, 15)), vatRate: '0', notes: '',
+  step: 'config', config: '',
+  orderRef: '', customer: '', email: '', phone: '', customerId: '',
   items: [{ desc: '', qty: '1', price: '' }],
 });
-const draftTotals = () => invoiceTotals({ vatRate: Number(invDraft.vatRate) || 0, items: invDraft.items.map(it => ({ qty: Number(it.qty) || 0, price: Number(it.price) || 0 })) });
+const draftItemTotal = (it) => (Number(it.qty) || 0) * (Number(it.price) || 0);
+
+function invoiceConfigDrawer() {
+  const d = invDraft;
+  const configs = invoiceConfigs();
+  return drawerShell({
+    title: 'Choose a Invoice Configuration',
+    sub: '<span>The invoice uses this payment link\'s store and settings</span>',
+    body: `
+      ${field('Choose Configuration', `<select data-inv="config" class="${INPUT}"><option value="">Select configuration</option>${options(configs.map(l => [l.ref, configLabel(l)]), d.config)}</select>`, { required: true, error: formErrors.config, hint: configs.length ? '' : 'No active payment link in the selected stores — create one under Payment Links first.' })}`,
+    footer: `
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
+      <button data-action="inv-proceed" class="${BTN_PRIMARY}">Proceed${ic('arrow-right', 'w-4 h-4')}</button>`,
+  });
+}
 
 function invoiceFormDrawer() {
   const d = invDraft;
-  const t = draftTotals();
+  if (d.step === 'config') return invoiceConfigDrawer();
+  const link = PAYMENT_LINKS.find(l => l.ref === d.config);
+  const e = formErrors;
   const inp = (key, attrs = '') => `<input data-inv="${key}" value="${esc(d[key])}" class="${INPUT}" ${attrs}>`;
+  const total = d.items.reduce((n, it) => n + draftItemTotal(it), 0);
   return drawerShell({
-    wide: true,
+    wide: 'xl',
     title: 'Create Invoice',
-    sub: '<span>The customer gets an SMS and email with a pay link</span>',
+    sub: `<span>Service / Product Invoice (Invoice# ${esc(link.store)} [${link.ref}])</span>`,
     body: `
-      ${section('Customer', `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${field('Customer Name', inp('customer', 'placeholder="Full name"'), { required: true, error: formErrors.customer })}
-        ${field('Mobile', inp('phone', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { required: true, error: formErrors.phone })}
-        ${field('Email', inp('email', 'type="email" placeholder="(optional)"'), { error: formErrors.email })}
-        ${field('Store', `<select data-inv="store" class="${INPUT}">${storeOptions(d.store)}</select>`, { required: true })}
-      </div>`)}
-      ${section('Items', `
-        <div class="space-y-2">
-          <div class="grid grid-cols-[1fr_70px_110px_32px] gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-0.5"><span>Description</span><span>Qty</span><span>Unit Price</span><span></span></div>
-          ${d.items.map((it, i) => `
-            <div class="grid grid-cols-[1fr_70px_110px_32px] gap-2">
-              <input data-inv-item="${i}:desc" value="${esc(it.desc)}" placeholder="Item or service" class="${INPUT}">
-              <input data-inv-item="${i}:qty" value="${esc(it.qty)}" type="number" min="1" class="${INPUT}">
-              <input data-inv-item="${i}:price" value="${esc(it.price)}" type="number" min="0" placeholder="0" class="${INPUT}">
-              <button data-action="inv-remove-item" data-value="${i}" ${d.items.length === 1 ? 'disabled' : ''} class="flex items-center justify-center rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30" title="Remove">${ic('trash-2', 'w-4 h-4')}</button>
-            </div>`).join('')}
-          ${formErrors.items ? `<p class="text-[11px] font-medium text-rose-600">${formErrors.items}</p>` : ''}
-          <button data-action="inv-add-item" class="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-700">${ic('plus', 'w-3.5 h-3.5')}Add item</button>
-        </div>`)}
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${field('Due Date', inp('due', `type="date" min="${toDateInput(NOW)}"`), { required: true, error: formErrors.due })}
-        ${field('VAT (%)', `<select data-inv="vatRate" class="${INPUT}">${options([['0', 'No VAT'], ['5', '5%'], ['7.5', '7.5%'], ['15', '15%']], d.vatRate)}</select>`, { hint: 'Mock options' })}
-        <div class="rounded-lg bg-slate-50 border border-slate-100 p-3 text-sm space-y-0.5" id="inv-totals">
-          <div class="flex justify-between"><span class="text-slate-500">Subtotal</span><span class="tabular-nums">${fmtBDT(t.subtotal)}</span></div>
-          <div class="flex justify-between"><span class="text-slate-500">VAT</span><span class="tabular-nums">${fmtBDT(t.vat)}</span></div>
-          <div class="flex justify-between font-bold text-slate-900"><span>Total</span><span class="tabular-nums">${fmtBDT(t.total)}</span></div>
-        </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        ${field('Reference/Order ID', inp('orderRef'), { required: true, error: e.orderRef })}
+        ${field('Customer/Company Name', inp('customer'), { required: true, error: e.customer })}
+        ${field('Email', inp('email', 'type="email"'), { required: true, error: e.email })}
+        ${field('Mobile', inp('phone', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { required: true, error: e.phone })}
+        ${field('Currency', `<input value="BDT" disabled class="${INPUT} bg-slate-50 text-slate-500">`)}
+        ${field('National ID/ Passport No/ Customer ID', inp('customerId'))}
       </div>
-      ${field('Notes', `<textarea data-inv="notes" rows="2" class="${INPUT}" placeholder="(optional) Shown on the invoice">${esc(d.notes)}</textarea>`)}`,
+      ${section('Enter the service / Products items you wish to bill', `
+        <div class="space-y-3">
+          ${d.items.map((it, i) => `
+            <div class="grid grid-cols-2 sm:grid-cols-[1fr_90px_130px_130px_32px] gap-3 items-end">
+              <div class="col-span-2 sm:col-span-1">${field(`Service Name (#${i + 1})`, `<input data-inv-item="${i}:desc" value="${esc(it.desc)}" class="${INPUT}">`, { required: true })}</div>
+              ${field('Quantity', `<input data-inv-item="${i}:qty" value="${esc(it.qty)}" type="number" min="1" step="1" class="${INPUT}">`, { required: true })}
+              ${field('Amount (Unit Price)', `<input data-inv-item="${i}:price" value="${esc(it.price)}" type="number" min="0" step="any" class="${INPUT}">`, { required: true })}
+              ${field('Total', `<input data-inv-total="${i}" value="${fmtBDT(draftItemTotal(it))}" disabled class="${INPUT} bg-slate-50 text-slate-600 tabular-nums">`)}
+              <button data-action="inv-remove-item" data-value="${i}" ${d.items.length === 1 ? 'disabled' : ''} class="h-9 flex items-center justify-center rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30" title="Remove item" aria-label="Remove item ${i + 1}">${ic('trash-2', 'w-4 h-4')}</button>
+            </div>`).join('')}
+          ${e.items ? `<p class="text-[11px] font-medium text-rose-600">${e.items}</p>` : ''}
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <button data-action="inv-add-item" class="${BTN_SECONDARY}">${ic('circle-plus', 'w-4 h-4')}Add More Product / Service Items</button>
+            <p class="text-sm text-slate-500">Invoice total <span id="inv-grand-total" class="ml-1 text-base font-bold text-slate-900 tabular-nums">${fmtBDT(total)}</span></p>
+          </div>
+        </div>`)}
+      <p class="text-xs text-slate-500">Billed through <span class="font-medium text-slate-700">${esc(configLabel(link))}</span> · valid ${Number(link.validity) > 0 ? `${link.validity} days` : 'for up to one month'}.</p>`,
     footer: `
-      <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="save-invoice" data-value="Draft" class="${BTN_SECONDARY}">${ic('save', 'w-4 h-4')}Save as Draft</button>
-      <button data-action="save-invoice" data-value="Sent" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Send Invoice</button>`,
+      <button data-action="inv-back" class="${BTN_SECONDARY}">${ic('arrow-left', 'w-4 h-4')}Change configuration</button>
+      <button data-action="save-invoice" class="${BTN_PRIMARY}">${ic('file-plus', 'w-4 h-4')}Create</button>`,
   });
 }
 
 function syncInvoiceTotals() {
-  const t = draftTotals();
-  const el = $('#inv-totals');
-  if (el) el.querySelectorAll('.tabular-nums').forEach((n, i) => { n.textContent = fmtBDT([t.subtotal, t.vat, t.total][i]); });
+  invDraft.items.forEach((it, i) => { const el = $(`[data-inv-total="${i}"]`); if (el) el.value = fmtBDT(draftItemTotal(it)); });
+  const total = $('#inv-grand-total');
+  if (total) total.textContent = fmtBDT(invDraft.items.reduce((n, it) => n + draftItemTotal(it), 0));
 }
 
 function validateInvoice() {
   const d = invDraft, e = {};
-  if (!d.customer.trim()) e.customer = 'Enter the customer name.';
+  if (!d.orderRef.trim()) e.orderRef = 'Enter the reference or order ID.';
+  if (!d.customer.trim()) e.customer = 'Enter the customer or company name.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = 'Enter a valid email — the invoice is sent there.';
   if (!/^01[3-9]\d{8}$/.test(d.phone.trim())) e.phone = 'Enter an 11-digit mobile number starting with 01.';
-  if (d.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = 'Enter a valid email or leave it empty.';
-  if (!d.items.some(it => it.desc.trim() && Number(it.qty) > 0 && Number(it.price) > 0)) e.items = 'Add at least one item with a description, quantity and price.';
-  if (!d.due || d.due < toDateInput(NOW)) e.due = 'Pick today or a later date.';
+  if (d.items.some(it => !it.desc.trim() || !(Number(it.qty) >= 1) || !(Number(it.price) > 0))) e.items = 'Fill in every item: service name, a quantity of 1 or more, and a unit price.';
   return e;
 }

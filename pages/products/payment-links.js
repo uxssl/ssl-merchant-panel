@@ -23,7 +23,7 @@ function renderPaymentLinks() {
   const cols = [
     { label: 'Payment Name', cell: l => `<div class="font-medium text-slate-800">${esc(l.name)}</div><div class="text-[11px] font-mono text-slate-500">${l.ref}</div>` },
     { label: 'Store', cls: 'hidden lg:table-cell', cell: l => esc(l.storeName) },
-    { label: 'Amount', cell: l => `<div class="font-semibold text-slate-900 whitespace-nowrap">${l.amountType === 'Fixed' ? fmtBDT(l.amount) : 'Any amount'}</div><div class="text-xs text-slate-500">${l.paymentType}${l.convFee ? ` · +${l.convFee}% fee` : ''}</div>` },
+    { label: 'Amount', cell: l => `<div class="font-semibold text-slate-900 whitespace-nowrap">${linkAmountLabel(l)}</div><div class="text-xs text-slate-500">${l.amountType}${l.cart === 'Yes' ? ' · cart' : ''}</div>` },
     { label: 'Payments', cls: 'hidden xl:table-cell', right: true, cell: l => `<div class="font-medium text-slate-800">${l.payments.length}</div><div class="text-xs text-slate-500 whitespace-nowrap">${fmtBDT(linkCollected(l))}</div>` },
     { label: 'Created On', cell: l => dateCell(l.date) },
     { label: 'Status', cell: l => activeBadge(l.active) },
@@ -58,36 +58,59 @@ function renderPaymentLinks() {
     </div>`;
 }
 
+// Old panel syntax: one "AMOUNT|Product Name" per line, amounts unique.
+function parseProducts(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const items = [];
+  for (const line of lines) {
+    const [amount, name, extra] = line.split('|');
+    if (extra !== undefined || !name?.trim() || !(Number(amount) > 0)) return { items, error: `Check "${line}" — use AMOUNT|Product Name.` };
+    if (/[:;]/.test(name)) return { items, error: 'Do not use ":" or ";" in product names.' };
+    if (items.some(it => it.amount === Number(amount))) return { items, error: `Amount ${amount} is used twice — each AMOUNT must be unique.` };
+    items.push({ amount: Number(amount), name: name.trim() });
+  }
+  return { items, error: '' };
+}
+const amountListOf = (text) => text.split(',').map(v => v.trim()).filter(Boolean);
+const linkAmountLabel = (l) => Number(l.amount) > 0 ? fmtBDT(Number(l.amount)) : l.productList ? 'Product list' : l.amountList ? 'Amount list' : 'Any amount';
+const shownCustomFields = (l) => LINK_CUSTOM_FIELDS.filter(f => l.custom[f]?.display).map(f => ({ ...l.custom[f], name: f }));
+
 function payPagePreview(l) {
-  const c = {
-    leftBg: safeColor(l.colors.leftBg, DEFAULT_LINK_COLORS.leftBg), leftText: safeColor(l.colors.leftText, DEFAULT_LINK_COLORS.leftText),
-    btnBg: safeColor(l.colors.btnBg, DEFAULT_LINK_COLORS.btnBg), btnText: safeColor(l.colors.btnText, DEFAULT_LINK_COLORS.btnText),
-  };
-  const box = (text) => `<div class="h-8 rounded border border-slate-200 px-2 flex items-center text-[11px] text-slate-400">${text}</div>`;
+  const c = Object.fromEntries(Object.keys(DEFAULT_LINK_COLORS).map(k => [k, safeColor(l.colors[k], DEFAULT_LINK_COLORS[k])]));
+  const box = (text, req) => `<div class="h-8 rounded px-2 flex items-center text-[11px] opacity-70" style="border:1px solid ${c.rightText}40">${esc(text)}${req ? ' *' : ''}</div>`;
+  const products = parseProducts(l.productList || '').items;
+  const amounts = amountListOf(l.amountList || '');
+  const fields = l.customOn ? shownCustomFields(l).map(f => box(f.label || f.placeholder || f.name, f.mandatory)) : [box('Name', true), box('Mobile', true), box('Email')];
   return `
     <div class="rounded-xl border border-slate-200 overflow-hidden grid grid-cols-5 shadow-sm">
-      <div class="col-span-3 p-5" style="background:${c.leftBg};color:${c.leftText}">
+      <div class="col-span-3 p-5 space-y-3" style="background:${c.leftBg};color:${c.leftText}">
+        ${l.banner ? `<div class="h-12 rounded flex items-center justify-center text-[11px] opacity-70" style="border:1px dashed ${c.leftText}66">${ic('image', 'w-3.5 h-3.5 mr-1')}${esc(l.banner)}</div>` : ''}
         <p class="text-[10px] uppercase tracking-wider opacity-60">Demo Merchant Ltd.</p>
-        <h4 class="text-lg font-bold mt-1 break-words">${esc(l.name || 'Payment name')}</h4>
-        ${l.topMessage ? `<p class="text-xs mt-2 opacity-80">${esc(l.topMessage)}</p>` : ''}
-        ${l.productDetails ? `<p class="text-xs mt-3 opacity-70 whitespace-pre-line">${esc(l.productDetails)}</p>` : ''}
-        <p class="text-2xl font-bold mt-4">${l.amountType === 'Fixed' ? fmtBDT(Number(l.amount) || 0) : `<span class="text-sm font-medium opacity-70">${esc(l.amountText || 'Customer enters the amount')}</span>`}</p>
-        ${Number(l.convFee) ? `<p class="text-[11px] opacity-70 mt-1">+ ${esc(l.convFee)}% convenience fee</p>` : ''}
+        <h4 class="text-lg font-bold break-words">${esc(l.name || 'Name of the payment')}</h4>
+        ${Number(l.amount) > 0 ? `<p class="text-2xl font-bold">${fmtBDT(Number(l.amount))}</p>` : ''}
+        ${amounts.length ? `<div class="flex flex-wrap gap-1.5">${amounts.map(a => `<span class="px-2 py-0.5 rounded-full text-xs" style="border:1px solid ${c.leftText}66">${esc(a)}</span>`).join('')}</div>` : ''}
+        ${products.length ? `<ul class="text-xs space-y-1">${products.map(p => `<li class="flex justify-between gap-3"><span class="opacity-80">${esc(p.name)}</span><span class="font-semibold">${fmtBDT(p.amount)}</span></li>`).join('')}</ul>` : ''}
       </div>
-      <div class="col-span-2 p-4 bg-white space-y-2">
-        ${box('Name')}${box('Mobile')}${box('Email (optional)')}
-        ${l.amountType === 'Any' ? box('Amount (BDT)') : ''}
-        <div class="h-9 rounded flex items-center justify-center text-sm font-semibold" style="background:${c.btnBg};color:${c.btnText}">${esc(l.buttonName || 'Pay Now')}</div>
-        ${l.buttonMessage ? `<p class="text-[10px] text-slate-500 text-center">${esc(l.buttonMessage)}</p>` : ''}
+      <div class="col-span-2 p-4 space-y-2" style="background:${c.rightBg};color:${c.rightText}">
+        ${l.topMessage ? `<p class="text-[11px] opacity-80">${esc(l.topMessage)}</p>` : ''}
+        ${l.alias ? box(l.alias, true) : ''}
+        ${fields.join('')}
+        ${l.amountType !== 'Fixed' && !Number(l.amount) && !products.length ? box('Amount (BDT)', true) : ''}
+        ${l.showTerms === 'Yes' ? `<p class="flex items-center gap-1.5 text-[10px] opacity-70"><span class="w-3 h-3 rounded-sm" style="border:1px solid ${c.rightText}66"></span>I agree to the terms and conditions</p>` : ''}
+        <div class="h-9 rounded flex items-center justify-center text-sm font-semibold bg-primary-600 text-white">${esc(l.buttonName || 'Pay Now')}</div>
+        ${l.footerMessage ? `<p class="text-[10px] opacity-70 text-center">${esc(l.footerMessage)}</p>` : ''}
       </div>
     </div>`;
 }
 
 const LINK_PARAMS = (l) => miniTable(['Parameter', 'Reason', 'Mandatory'], [
   ['Refer Id', 'Identifies this link', 'Yes'],
-  ['Name', 'Customer name on the receipt', 'Yes'],
-  ['Email Address', 'Receipt by email', 'No'],
-  ['Mobile', 'Payment notification by SMS', 'Yes'],
+  ...(l.alias ? [[esc(l.alias), 'Alias of the transaction reference', 'Yes']] : []),
+  ...(l.customOn ? shownCustomFields(l).map(f => [esc(f.label || f.name), f.type || 'Text Field', f.mandatory ? 'Yes' : 'No']) : [
+    ['Name', 'Customer name on the receipt', 'Yes'],
+    ['Email Address', 'Receipt by email', 'No'],
+    ['Mobile', 'Payment notification by SMS', 'Yes'],
+  ]),
   ['Amount', l.amountType === 'Fixed' ? 'Fixed by you' : 'Entered by the customer', 'Yes'],
   ['Currency', 'BDT', 'Yes'],
 ]);
@@ -96,6 +119,7 @@ function linkDrawer(l) {
   const url = linkUrl(l.ref);
   const share = (icon, label) => `<button data-action="toast" data-msg="Prototype: nothing was sent via ${label}." class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50">${ic(icon, 'w-3.5 h-3.5')}${label}</button>`;
   const last = l.payments[l.payments.length - 1];
+  const products = parseProducts(l.productList).items;
   return drawerShell({
     wide: true,
     title: esc(l.name),
@@ -115,14 +139,17 @@ function linkDrawer(l) {
         ${statBox('Last Payment', last ? fmtShort(last.date) : '—')}
       </div>
       ${section('Configuration', kvGrid([
-        kv('Pay Type', l.payType),
-        kv('Payment Type', l.paymentType),
-        kv('Amount Type', l.amountType),
-        kv(l.amountType === 'Fixed' ? 'Amount' : 'Amount Text', l.amountType === 'Fixed' ? fmtBDT(l.amount) : esc(l.amountText)),
-        kv('Convenience Fee', l.convFee ? `${l.convFee}%` : 'Not charged'),
-        kv('Pay Button Name', esc(l.buttonName)),
         kv('Store', esc(l.storeName)),
-        kv('Domain URL', l.domainUrl ? esc(l.domainUrl) : '—', true),
+        kv('Pay Button', esc(l.buttonName || 'Pay Now')),
+        kv('Amount Type', l.amountType),
+        kv('Amount (BDT)', Number(l.amount) > 0 ? fmtBDT(Number(l.amount)) : '—'),
+        kv('Amount List', l.amountList ? esc(l.amountList) : '—'),
+        kv('Product List', products.length ? `${products.length} product${products.length > 1 ? 's' : ''}` : '—'),
+        kv('Cart to Pay', l.cart === 'Yes' ? 'Yes — multiple items' : 'No — single item'),
+        kv('Alias of Transaction Reference', l.alias ? esc(l.alias) : '—'),
+        kv('Invoice Validity', Number(l.validity) > 0 ? `${l.validity} days` : 'Max one month'),
+        kv('Terms and Condition', l.showTerms === 'Yes' ? 'Displayed' : 'Not displayed'),
+        kv('IPN URL', l.ipnUrl ? esc(l.ipnUrl) : '—', true),
         kv('Created On', `${fmtDate(l.date)}, ${fmtTime(l.date)}`),
       ]))}
       ${section('Customer Page Preview', payPagePreview(l))}
@@ -140,50 +167,117 @@ function linkDrawer(l) {
   });
 }
 
+// ---------------------------------------------------------------------
+// Create Payment Link — the old panel's "Add New Payment Link" fields, with its notes under each field.
+// ---------------------------------------------------------------------
 let linkDraft = null;
 const newLinkDraft = () => ({
-  name: '', store: STORES[0].id, paymentType: 'Reusable', amountType: 'Fixed', amount: '', amountText: '',
-  convOn: false, convFee: '', buttonName: 'Pay Now', productDetails: '', topMessage: '', buttonMessage: '',
+  store: '', name: '', alias: '', buttonName: 'Pay Now',
+  amount: '', amountList: '', productList: '', category: '', cart: '', amountType: '',
+  preQrApi: '', billApi: '', ipnUrl: '', smsMobile: '', termsUrl: '', showTerms: '', validity: '0',
+  topMessage: '', footerMessage: '', banner: '', customOn: false, custom: {},
   colors: { ...DEFAULT_LINK_COLORS },
 });
+const CELL_INPUT = 'w-full px-2 py-1.5 bg-white border border-slate-200 rounded text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500';
+
+function customFieldsTable(d) {
+  const cell = (f, key, attrs = '') => `<input data-link-cf="${f}|${key}" value="${esc(d.custom[f]?.[key] || '')}" aria-label="${f} ${key}" class="${CELL_INPUT}" ${attrs}>`;
+  const check = (f, key, label) => `<input type="checkbox" data-link-cf="${f}|${key}" ${d.custom[f]?.[key] ? 'checked' : ''} aria-label="${f}: ${label}" class="rounded border-slate-300 text-primary-600">`;
+  return `
+    <div class="overflow-x-auto rounded-lg border border-slate-200">
+      <table class="min-w-[860px] w-full text-left text-xs">
+        <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          <tr><th class="px-3 py-2">Field</th><th class="px-2 py-2">Field Type</th><th class="px-2 py-2">Display Name</th><th class="px-2 py-2">Placeholder</th><th class="px-2 py-2">Default Value</th><th class="px-2 py-2">Other Value</th><th class="px-2 py-2 text-center">Mandatory</th><th class="px-2 py-2 text-center">Display</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          ${LINK_CUSTOM_FIELDS.map(f => `<tr>
+            <td class="px-3 py-1.5 font-medium text-slate-700 whitespace-nowrap">${f}</td>
+            <td class="px-2 py-1.5 w-32"><select data-link-cf="${f}|type" aria-label="${f} field type" class="${CELL_INPUT}">${options(LINK_FIELD_TYPES, d.custom[f]?.type || LINK_FIELD_TYPES[0])}</select></td>
+            <td class="px-2 py-1.5">${cell(f, 'label')}</td>
+            <td class="px-2 py-1.5">${cell(f, 'placeholder')}</td>
+            <td class="px-2 py-1.5">${cell(f, 'def')}</td>
+            <td class="px-2 py-1.5">${cell(f, 'other')}</td>
+            <td class="px-2 py-1.5 text-center">${check(f, 'mandatory', 'mandatory')}</td>
+            <td class="px-2 py-1.5 text-center">${check(f, 'display', 'display')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
 
 function linkFormDrawer() {
   const d = linkDraft;
+  const e = formErrors;
   const inp = (key, attrs = '') => `<input data-link="${key}" value="${esc(d[key])}" class="${INPUT}" ${attrs}>`;
-  const color = (key, label) => `<label class="flex items-center gap-2 text-xs text-slate-600"><input type="color" data-link-color="${key}" value="${safeColor(d.colors[key], DEFAULT_LINK_COLORS[key])}" class="w-8 h-8 rounded border border-slate-200 cursor-pointer">${label}</label>`;
+  const area = (key, rows = 3) => `<textarea data-link="${key}" rows="${rows}" class="${INPUT}">${esc(d[key])}</textarea>`;
+  const pick = (key, list) => `<select data-link="${key}" class="${INPUT}"><option value="">Select option</option>${options(list, d[key])}</select>`;
+  const color = (key, label) => `<label class="flex items-center gap-2 text-xs text-slate-600"><input type="color" data-link-color="${key}" value="${safeColor(d.colors[key], DEFAULT_LINK_COLORS[key])}" class="w-8 h-8 rounded border border-slate-200 cursor-pointer shrink-0">${label}</label>`;
+  const grid = (cells, cols = 'sm:grid-cols-2 lg:grid-cols-3') => `<div class="grid grid-cols-1 ${cols} gap-4">${cells.join('')}</div>`;
   return drawerShell({
-    wide: true,
+    wide: 'xl',
     title: 'Create Payment Link',
-    sub: '<span>Customers pay on an SSLCOMMERZ-hosted page</span>',
+    sub: '<span>Add New Payment Link — customers pay on an SSLCOMMERZ-hosted page</span>',
     body: `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${field('Payment Name', inp('name', 'placeholder="e.g. Purchase to pay"'), { required: true, error: formErrors.name })}
-        ${field('Store', `<select data-link="store" class="${INPUT}">${storeOptions(d.store)}</select>`, { required: true })}
-        ${field('Payment Type', `<select data-link="paymentType" data-rerender class="${INPUT}">${options([['Reusable', 'Reusable — many customers can pay'], ['One-time', 'One-time — closes after first payment']], d.paymentType)}</select>`)}
-        ${field('Amount Type', `<select data-link="amountType" data-rerender class="${INPUT}">${options([['Fixed', 'Fixed'], ['Any', 'Any — customer enters amount']], d.amountType)}</select>`)}
-        ${d.amountType === 'Fixed'
-          ? field('Amount (BDT)', inp('amount', 'type="number" min="1" step="1" placeholder="500"'), { required: true, error: formErrors.amount })
-          : field('Amount Text', inp('amountText', 'placeholder="(optional)"'), { hint: 'Shown above the amount box' })}
-        ${field('Pay Button Name', inp('buttonName'))}
-      </div>
-      <div class="rounded-lg border border-slate-200 p-3">
-        <label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" data-link="convOn" data-rerender ${d.convOn ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">Charge a convenience fee to the customer</label>
-        ${d.convOn ? `<div class="mt-3 max-w-[200px]">${field('Convenience Fee (%)', inp('convFee', 'type="number" min="0" max="10" step="0.1" placeholder="e.g. 2.1"'), { error: formErrors.convFee })}</div>` : ''}
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${field('Top Message', inp('topMessage', 'placeholder="(optional)"'))}
-        ${field('Button Message', inp('buttonMessage', 'placeholder="(optional)"'))}
-        <div class="sm:col-span-2">${field('Product Details', `<textarea data-link="productDetails" rows="2" class="${INPUT}" placeholder="(optional)">${esc(d.productDetails)}</textarea>`)}</div>
-      </div>
-      <div>
-        <p class="text-xs font-bold text-slate-700 mb-2">Page Colors</p>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          ${color('leftBg', 'Left background')}${color('leftText', 'Left text')}${color('btnBg', 'Button background')}${color('btnText', 'Button text')}
-        </div>
+      ${section('Store Information', grid([
+        field('Store', `<select data-link="store" class="${INPUT}"><option value="">Select store</option>${storeOptions(d.store)}</select>`, { required: true, error: e.store }),
+      ]))}
+      ${section('Pay or Subscription', grid([
+        field('Name of the Payment', inp('name'), { required: true, error: e.name, hint: '* A brief description of this payment link.' }),
+        field('Alias of Transaction Reference', inp('alias'), { hint: '* It is alias display name of the primary reference key. Example: Mobile Number, Account Number, Invoice Number, Roll Number, etc. Keep empty, if you do not want this field.' }),
+        field('Pay Button', inp('buttonName')),
+      ]))}
+      ${section('Transaction Information', `<div class="space-y-4">
+        ${grid([
+          field('Amount (BDT)', inp('amount', 'type="number" min="0" step="any"'), { error: e.amount, hint: "* Keep it unchanged, if you don't want to collect same amount from all customers." }),
+          field('Amount List', inp('amountList', 'placeholder="e.g. 500,1000,2000"'), { error: e.amountList, hint: '* Comma separated amount list to display.' }),
+          field('Product List with Amount', area('productList'), { error: e.productList, hint: '* Syntax: AMOUNT|Product Name (Amount), one product per line. Example: 200|Product Name 1 (200 BDT). Do not use "|", ":" and ";" within your text, and each AMOUNT must be unique. (Only applicable for Payment Link)' }),
+          field('Item or Product Category', inp('category', 'placeholder="e.g. Small,Regular"'), { hint: '* Depends on "Product List with Amount" — with no products, no category is shown. Separate names with commas, e.g. Small,Regular. An item named "Creamy Hot Chocolate (Regular)" is shown under "Regular"; "All" and "Others" are added automatically. (Only applicable for Payment Link)' }),
+          field('Is Support Cart to Pay', pick('cart', [['No', 'No - Single Item Payment'], ['Yes', 'Yes - Support to add Multiple Items in Cart']])),
+          field('Currency', `<input value="BDT" disabled class="${INPUT} bg-slate-50 text-slate-500">`),
+        ])}
+        ${grid([
+          field('Amount Type', pick('amountType', ['Dynamic', 'Fixed']), { error: e.amountType }),
+          field('Pre QR Query API', inp('preQrApi', 'type="url" placeholder="https://"'), { error: e.preQrApi }),
+          field('Bill Query API', inp('billApi', 'type="url" placeholder="https://"'), { error: e.billApi }),
+          field('IPN URL', inp('ipnUrl', 'type="url" placeholder="https://"'), { error: e.ipnUrl }),
+          field('Mobile Number (SMS Notification)', inp('smsMobile', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { error: e.smsMobile }),
+          field('Terms and Agreement URL', inp('termsUrl', 'type="url" placeholder="https://"'), { error: e.termsUrl }),
+          field('Enable Terms and Condition', pick('showTerms', [['Yes', 'Display Terms & Conditions'], ['No', "Don't Display Terms & Conditions"]])),
+          field('Invoice Validity', inp('validity', 'type="number" min="0" step="1"'), { error: e.validity, hint: '* How long a invoice will be valid. It is mentioned in day(s). "0" means, invoice validity will be max one month.' }),
+        ])}
+      </div>`)}
+      ${section('Additional Message', `<div class="space-y-4">
+        ${field('Message on Top', inp('topMessage'), { hint: '* This message will be displayed on the top of the fields.' })}
+        ${field('Message on Footer', inp('footerMessage'), { hint: '* This message will be displayed after the pay button.' })}
+      </div>`)}
+      ${section('Page Structure', `<div class="space-y-4">
+        ${grid([color('leftBg', 'Left Site Background Color'), color('leftText', 'Left Site Font Color'), color('rightBg', 'Right Site Background Color'), color('rightText', 'Right Site Font Color')], 'sm:grid-cols-2 lg:grid-cols-4')}
+        ${field('Upload Banner', `<input type="file" accept="image/*" data-link-banner class="block w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-1.5 file:rounded file:border file:border-slate-200 file:bg-white file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-50">`, { hint: d.banner ? `Selected: ${esc(d.banner)} (prototype — not uploaded)` : '' })}
+      </div>`)}
+      <div class="space-y-3">
+        <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" data-link="customOn" data-rerender ${d.customOn ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">Click to add customize fields</label>
+        ${d.customOn ? customFieldsTable(d) : ''}
       </div>
       ${section('Live Preview', `<div id="link-preview">${payPagePreview(d)}</div>`)}`,
     footer: `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="save-link" class="${BTN_PRIMARY}">${ic('link', 'w-4 h-4')}Create Link</button>`,
+      <button data-action="save-link" class="${BTN_PRIMARY}">${ic('link', 'w-4 h-4')}Create New</button>`,
   });
+}
+
+function validateLink() {
+  const d = linkDraft, e = {};
+  const url = (key) => { if (d[key].trim() && !/^https?:\/\/\S+\.\S+/.test(d[key].trim())) e[key] = 'Enter a full URL starting with https://'; };
+  if (!d.store) e.store = 'Choose a store.';
+  if (!d.name.trim()) e.name = 'Enter the name of the payment.';
+  if (d.amount !== '' && !(Number(d.amount) > 0)) e.amount = 'Enter an amount greater than 0.';
+  if (amountListOf(d.amountList).some(v => !(Number(v) > 0))) e.amountList = 'Use numbers separated by commas, e.g. 500,1000.';
+  const products = parseProducts(d.productList);
+  if (products.error) e.productList = products.error;
+  if (d.amountType === 'Fixed' && !(Number(d.amount) > 0) && !d.amountList.trim() && !products.items.length) e.amount = 'A Fixed link needs an amount, an amount list or a product list.';
+  ['preQrApi', 'billApi', 'ipnUrl', 'termsUrl'].forEach(url);
+  if (d.showTerms === 'Yes' && !d.termsUrl.trim()) e.termsUrl = 'Add the terms URL to display Terms & Conditions.';
+  if (d.smsMobile.trim() && !/^01[3-9]\d{8}$/.test(d.smsMobile.trim())) e.smsMobile = 'Enter an 11-digit mobile number starting with 01.';
+  if (!/^\d+$/.test(d.validity.trim())) e.validity = 'Enter a whole number of days (0 or more).';
+  return e;
 }

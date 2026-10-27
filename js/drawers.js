@@ -21,6 +21,12 @@ const CB_CLS = {
   'Success': 'bg-emerald-50 text-emerald-600',
   'Cancel': 'bg-rose-50 text-rose-600',
 };
+// Old panel request / approval statuses shown next to each other.
+const REQ_STATUS_CLS = { Success: 'bg-emerald-50 text-emerald-600', Processing: 'bg-amber-50 text-amber-600', Cancel: 'bg-rose-50 text-rose-600' };
+const MY_CB_LABEL = { Initial: 'Initial', Waiting: 'Waiting', Processing: 'Processing', Approve: 'Approved', Deny: 'Denied', Cancel: 'Cancelled' };
+const MY_CB_CLS = { Initial: 'bg-blue-50 text-blue-600', Waiting: 'bg-amber-50 text-amber-600', Processing: 'bg-amber-50 text-amber-600', Approve: 'bg-emerald-50 text-emerald-600', Deny: 'bg-rose-50 text-rose-600', Cancel: 'bg-slate-100 text-slate-500' };
+const reqBadge = (s) => `<span class="${STATUS_BADGE} ${REQ_STATUS_CLS[s]}">${s}</span>`;
+const myCbBadge = (s) => `<span class="${STATUS_BADGE} ${MY_CB_CLS[s]}">${MY_CB_LABEL[s]}</span>`;
 const refundBadge = (s) => `<span class="${STATUS_BADGE} ${REFUND_CLS[s]}">${s}</span>`;
 const cbBadge = (s) => `<span class="${STATUS_BADGE} ${CB_CLS[s]}">${s}</span>`;
 
@@ -57,7 +63,7 @@ function drawerShell({ title, sub, body, footer, wide = false }) {
   return `
     <div class="fixed inset-0 z-[150] flex justify-end">
       <div data-action="close-drawer" data-backdrop aria-hidden="true" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm anim-fade"></div>
-      <div id="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title" class="relative h-full w-full ${wide ? 'max-w-2xl' : 'max-w-xl'} bg-white shadow-2xl flex flex-col anim-drawer">
+      <div id="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title" class="relative h-full w-full ${wide === 'xl' ? 'max-w-4xl' : wide ? 'max-w-2xl' : 'max-w-xl'} bg-white shadow-2xl flex flex-col anim-drawer">
         <div class="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 id="drawer-title" class="text-lg font-semibold text-slate-900">${title}</h2>
@@ -71,163 +77,180 @@ function drawerShell({ title, sub, body, footer, wide = false }) {
     </div>`;
 }
 
-const txnSummary = (t) => kvGrid([
-  kv('Transaction ID', linkBtn('open-txn', t.id, t.id)),
-  kv('Transaction Date', `${fmtDate(t.date)}, ${fmtTime(t.date, true)}`),
-  kv('Transaction Amount', fmtBDT(t.amount)),
-  kv('Payment Method', `${t.method} <span class="text-slate-500 font-normal">· ${t.type}</span>`),
-  kv('Card / Account', t.account, true),
-  kv('Issuer', t.issuer),
-]);
-const storeSummary = (x) => kvGrid([kv('Store Name', esc(x.storeName)), kv('Store ID', x.store, true)]);
 
+// Old panel "Transaction Details": ids & gateway, amounts, card & customer IP on one side;
+// risk, bank processing, refund / settlement / chargeback, merchant API validation, discount and IPN on the other.
 function txnDrawer(t) {
-  const sec = (n) => new Date(t.date.getTime() + n * 1000);
-  const steps = [
-    { label: 'Payment initiated', at: t.date, tone: 'slate' },
-    { label: `Customer redirected to ${t.method}`, at: sec(3), tone: 'slate' },
-  ];
-  if (t.status === 'success' || t.status === 'refunded') {
-    steps.push({ label: 'Payment authorized', at: sec(t.auth), tone: 'emerald' }, { label: 'Validated by merchant (IPN)', at: sec(t.auth + 2), tone: 'emerald' });
-  } else if (t.status === 'failed') {
-    steps.push({ label: `Payment failed — ${t.reason}`, at: sec(t.auth), tone: 'rose' });
-  } else if (t.status === 'cancelled') {
-    steps.push({ label: 'Cancelled by customer', at: sec(t.auth), tone: 'slate' });
-  } else {
-    steps.push({ label: 'Awaiting confirmation from provider', at: sec(t.auth), tone: 'amber' });
-  }
+  const ok = t.status === 'success' || t.status === 'refunded';
   const rf = REFUND_BY_TXN.get(t.id);
   const cb = CB_BY_TXN.get(t.id);
-  const relatedRow = (action, value, icon, title, sub, badgeHtml) => `
-    <button data-action="${action}" data-value="${value}" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-left">
-      <span class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">${ic(icon, 'w-4 h-4')}</span>
-      <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800">${title}</span><span class="block text-xs text-slate-500 font-mono">${sub}</span></span>
-      ${badgeHtml}${ic('chevron-right', 'w-4 h-4 text-slate-400')}
-    </button>`;
-  const related = [
-    rf && relatedRow('open-refund', rf.ref, 'undo-2', 'Refund request', `${rf.ref} · ${fmtBDT(rf.amount)}`, refundBadge(rf.status)),
-    cb && relatedRow('open-cb', cb.ref, 'shield-alert', 'Chargeback', `${cb.ref} · ${cb.stage}`, cbBadge(cb.status)),
-  ].filter(Boolean);
+  const settlement = SETTLEMENTS.find(x => x.store === t.store && +x.day === +startOfDay(t.date));
+  const yesNo = (v, yes = 'text-rose-600', no = 'text-emerald-600') => `<span class="font-semibold ${v ? yes : no}">${v ? 'Yes' : 'No'}</span>`;
+  const when = (d) => d ? `${fmtDate(d)}, ${fmtTime(d, true)}` : '—';
+  const discount = t.discountPct ? t.amount * t.discountPct / 100 : 0;
+  const card = (title, body) => `<section class="rounded-lg border border-slate-200 p-4"><h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">${title}</h3>${body}</section>`;
+  const steps = [{ label: 'Payment initiated', at: t.date, tone: 'slate' }, { label: `Directed to ${t.gateway}`, at: t.directedAt, tone: 'slate' }];
+  if (ok) steps.push({ label: 'Payment authorized', at: t.returnedAt, tone: 'emerald' }, ...(t.apiValidated ? [{ label: 'Validated by merchant (IPN / API)', at: new Date(t.returnedAt.getTime() + 2e3), tone: 'emerald' }] : []));
+  else if (t.status === 'failed') steps.push({ label: `Payment failed — ${t.reason}`, at: t.returnedAt, tone: 'rose' });
+  else if (t.status === 'cancelled') steps.push({ label: 'Cancelled by customer', at: t.returnedAt, tone: 'slate' });
+  else steps.push({ label: 'Awaiting confirmation from provider', note: 'On processing', tone: 'amber' });
 
   return drawerShell({
+    wide: 'xl',
     title: 'Transaction Details',
-    sub: `<span class="font-mono text-xs">${t.id}</span>${badge(t.status)}`,
+    sub: `<span class="text-xs">${fmtDate(t.date)}, ${fmtTime(t.date)} · ${fmtBDT(t.amount)}</span>${t.onHold ? '<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700">On hold</span>' : badge(t.status === 'refunded' ? 'success' : t.status)}`,
     body: `
-      <div class="grid grid-cols-3 gap-3">
-        ${statBox('Amount', fmtBDT(t.amount))}
-        ${statBox('Gateway Fee <span class="lowercase font-normal opacity-80">(mock)</span>', fmtBDT(t.fee))}
-        ${statBox('Store Amount', fmtBDT(t.amount - t.fee))}
-      </div>
       ${t.reason ? `<div class="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">${ic('circle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span><span class="font-semibold">Failure reason:</span> ${t.reason}</span></div>` : ''}
-      ${related.length ? section('Related Requests', `<div class="space-y-2">${related.join('')}</div>`) : ''}
-      ${section('Payment Information', kvGrid([
-        kv('Transaction ID', t.id, true),
-        kv('Validation ID', t.valId, true),
-        kv('Bank Transaction ID', t.bankTranId, true),
-        kv('Date & Time', `${fmtDate(t.date)}, ${fmtTime(t.date, true)}`),
-        kv('Payment Method', `${t.method} <span class="text-slate-500 font-normal">· ${t.type}</span>`),
-        kv('Card / Account', t.account, true),
-        kv('Issuer', t.issuer),
-        kv('Currency', 'BDT'),
-      ]))}
-      ${section('Customer', kvGrid([kv('Name', esc(t.customer)), kv('Phone', t.phone, true), kv('Email', t.email)]))}
-      ${section('Store', storeSummary(t))}
+      ${typeof txnSymbols === 'function' && txnSymbols(t) ? `<div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">Symbols: ${txnSymbols(t)}</div>` : ''}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="space-y-4">
+          ${card('Transaction Information', kvGrid([
+            kv('Transaction ID', `${t.id} <button data-action="copy" data-value="${t.id}" class="text-primary-600 hover:underline font-sans">Copy</button>`, true),
+            kv('SSL ID', t.sslId, true),
+            kv('Bank ID', t.bankTranId, true),
+            kv('Bank Gateway', esc(t.gateway)),
+          ]))}
+          ${card('Amount', kvGrid([
+            kv('Store', esc(t.storeName)),
+            kv('Amount', fmtBDT(t.amount)),
+            kv('Charges', ok ? fmtBDT(t.fee) : '—'),
+            kv('Discount Charge', fmtBDT(discount)),
+            kv('Receivable', ok ? fmtBDT(t.amount - t.fee) : '—'),
+            kv('Currency', 'BDT'),
+          ]))}
+          ${card('Card &amp; Customer IP Information', kvGrid([
+            kv('Card Type', esc(t.cardType)),
+            kv('Card Holder', esc(t.customer)),
+            kv('Card Number', t.account, true),
+            kv('Card Issued Bank', `${esc(t.gateway)}${t.issuerCountry ? ` · ${esc(t.issuerCountry)}` : ''}`),
+            kv('Customer\'s IP', t.ip, true),
+            kv('Customer Contact', `${t.phone}<br>${esc(t.email)}`, true),
+          ]))}
+        </div>
+        <div class="space-y-4">
+          ${card('Risk Transaction', `<div class="flex items-center justify-between text-sm"><span class="text-slate-600">Flagged as a risk transaction</span>${yesNo(t.risk)}</div>`)}
+          ${card('Bank Processing Information', kvGrid([kv('Directed To Bank', when(t.directedAt)), kv('Returned From Bank', when(t.returnedAt))]))}
+          ${card('Refund, Settlement &amp; Chargeback', `<dl class="space-y-2 text-sm">
+            <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Refund Request</dt><dd>${rf ? `<button data-action="open-refund" data-value="${rf.ref}" class="font-medium text-primary-600 hover:underline">Yes · ${fmtBDT(rf.amount)}</button> ${refundBadge(rf.status)}` : '<span class="font-medium text-slate-800">No</span>'}</dd></div>
+            <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Payment Settled</dt><dd class="text-right">${!ok ? '<span class="text-slate-400">—</span>' : t.settled && settlement ? `<button data-action="open-settlement" data-value="${settlement.ref}" class="font-medium text-primary-600 hover:underline">Settled · ${fmtShort(settlement.date)}</button>` : t.onHold ? '<span class="font-medium text-amber-600">On hold</span>' : '<span class="font-medium text-slate-800">Settlement will be initiated</span>'}</dd></div>
+            <div class="flex items-center justify-between gap-3"><dt class="text-slate-500">Chargeback Request(s)</dt><dd>${cb ? `<button data-action="open-cb" data-value="${cb.ref}" class="font-medium text-primary-600 hover:underline">Yes</button> ${cbBadge(cb.status)}` : '<span class="font-medium text-slate-800">No</span>'}</dd></div>
+          </dl>`)}
+          ${card('Merchant API Validation', kvGrid([
+            kv('API Validated by Merchant', yesNo(t.apiValidated, 'text-emerald-600', 'text-amber-600')),
+            kv('Merchant Amount', ok ? fmtBDT(t.amount) : '—'),
+            kv('Merchant Currency', 'BDT'),
+            kv('Validation ID', t.valId, true),
+          ]))}
+          ${card('Discount Information', kvGrid([
+            kv('Discount Percentage', `${(t.discountPct || 0).toFixed(2)} %`),
+            kv('Discount Remarks', t.discountRemarks ? esc(t.discountRemarks) : '—'),
+          ]))}
+          ${card('IPN Resend', `<div class="flex items-center justify-between gap-3 text-sm"><span class="text-slate-600">Send the payment notification (IPN) to your listener again.</span><button data-action="ipn-resend" data-value="${t.id}" ${ok ? '' : 'disabled'} class="shrink-0 px-3 py-1.5 rounded-md border border-primary-200 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-40">Resend IPN</button></div>`)}
+        </div>
+      </div>
       ${section('Timeline', timeline(steps))}
       ${PCI_NOTE}`,
     footer: `
       <button data-action="new-tt" data-value="${t.id}" class="${BTN_SECONDARY}">${ic('life-buoy', 'w-4 h-4')}Raise Ticket</button>
       <button data-action="toast" data-msg="Prototype: receipt download is not wired up." class="${BTN_SECONDARY}">${ic('file-down', 'w-4 h-4')}Download Receipt</button>
-      ${t.status === 'success' && !rf ? `<button data-action="toast" data-msg="Prototype: no refund request was submitted." class="${BTN_PRIMARY}">${ic('undo-2', 'w-4 h-4')}Request Refund</button>` : ''}`,
+      ${ok && !rf ? `<button data-action="refund-for-txn" data-value="${t.id}" class="${BTN_PRIMARY}">${ic('undo-2', 'w-4 h-4')}Request Refund</button>` : ''}`,
   });
 }
 
 function refundDrawer(r) {
   const t = r.txn;
-  const after = (h) => new Date(Math.min(NOW.getTime(), r.date.getTime() + h * 3600e3));
-  const order = ['Initiate', 'Processing', 'Submit To Bank', 'Success'];
-  const reached = (s) => order.indexOf(r.status) >= order.indexOf(s);
-  const steps = [{ label: `Refund requested by ${r.requestedBy}`, at: r.date, tone: 'blue' }];
-  if (r.status === 'Cancelled') {
-    steps.push({ label: 'Request cancelled', at: after(26), tone: 'rose' });
-  } else {
-    steps.push(reached('Processing')
-      ? { label: 'Approved by SSLCOMMERZ', at: after(3), tone: 'amber' }
-      : { label: 'Waiting for approval', note: 'Usually reviewed within one working day (mock)', tone: 'slate' });
-    if (reached('Submit To Bank')) steps.push({ label: `Submitted to ${t.issuer}`, at: after(20), tone: 'amber' });
-    if (reached('Success')) steps.push({ label: 'Refunded to customer', at: after(48), tone: 'emerald' });
-    else steps.push({ label: 'Refund to customer', note: 'Pending', tone: 'slate' });
-  }
-
   return drawerShell({
+    wide: true,
     title: 'Refund Details',
-    sub: `<span class="font-mono text-xs">${r.ref}</span>${refundBadge(r.status)}`,
+    sub: `<span class="font-mono text-xs">${r.ref}</span>${reqBadge(r.requestStatus)}${refundBadge(r.status)}`,
     body: `
       <div class="grid grid-cols-3 gap-3">
         ${statBox('Transaction Amount', fmtBDT(t.amount))}
         ${statBox('Refund Amount', fmtBDT(r.amount), 'text-rose-600')}
         ${statBox('Refund Type', r.type)}
       </div>
-      ${section('Refund Information', kvGrid([
-        kv('Refund Reference ID', r.ref, true),
-        kv('Request Status', refundBadge(r.status)),
-        kv('Requested On', `${fmtDate(r.date)}, ${fmtTime(r.date, true)}`),
-        kv('Requested By', r.requestedBy, true),
-        kv('Merchant\'s Remarks', esc(r.remarks)),
-      ]))}
-      ${section('Transaction Details', txnSummary(t))}
-      ${section('Store', storeSummary(r))}
-      ${section('Progress', timeline(steps))}
+      ${detailList([
+        ['Merchant Name', MERCHANT_NAME],
+        ['Store Name', esc(r.storeName)],
+        ['Store ID', `<span class="font-mono">${r.store}</span>`],
+        ['Homepage of store', esc(storeHome(r.store))],
+        ['Bank Name', esc(t.cardType)],
+        ['Transaction ID', linkBtn('open-txn', t.id, t.id)],
+        ['Transaction Date', at(t.date)],
+        ['Transaction Amount', fmtBDT(t.amount)],
+        ['Refund Amount', fmtBDT(r.amount)],
+        ['Refund Reference ID', `<span class="font-mono">${r.ref}</span>`],
+        ['Merchant Reference Code', r.merchantRef ? `<span class="font-mono">${esc(r.merchantRef)}</span>` : ''],
+        ['Request Remarks', esc(r.remarks)],
+        ['Requested On', at(r.date)],
+        ['Requested By', `<span class="font-mono">${r.requestedBy}</span>`],
+        ['Request Status', reqBadge(r.requestStatus)],
+        ['Approval Remarks', esc(r.approvalRemarks || '')],
+        ['Approved On', at(r.approvedOn)],
+        ['Approved By', esc(r.approvedBy || '')],
+        ['Approval Status', refundBadge(r.status)],
+      ])}
       ${PCI_NOTE}`,
     footer: `
       <button data-action="open-txn" data-value="${t.id}" class="${BTN_SECONDARY}">${ic('receipt', 'w-4 h-4')}View Transaction</button>
-      ${r.status === 'Initiate' ? `<button data-action="toast" data-msg="Prototype: the refund request was not cancelled." class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('x', 'w-4 h-4')}Cancel Request</button>` : ''}`,
+      ${r.status === 'Initiate' ? `<button data-action="refund-cancel" data-value="${r.ref}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('x', 'w-4 h-4')}Cancel Request</button>` : ''}`,
   });
 }
 
+let cbDecision = null; // { ref, remarks } while the merchant writes why they deny a chargeback
 function cbDrawer(c) {
   const t = c.txn;
   const rb = respondBy(c);
-  const after = (h) => new Date(Math.min(NOW.getTime(), c.date.getTime() + h * 3600e3));
-  const steps = [
-    { label: `Chargeback raised by ${c.bank}`, at: c.date, tone: 'blue' },
-    { label: 'Merchant notified by email & portal', at: after(1), tone: 'slate' },
-  ];
-  if (CB_OPEN.has(c.status)) steps.push({ label: 'Waiting for your response', note: `Respond by ${fmtDate(c.respondBy)}, ${fmtTime(c.respondBy)}`, tone: 'amber' });
-  if (['Processing', 'Submit To Bank', 'Success', 'Cancel'].includes(c.status)) steps.push({ label: 'Evidence received — under review', at: after(72), tone: 'amber' });
-  if (['Submit To Bank', 'Success', 'Cancel'].includes(c.status)) steps.push({ label: `Submitted to ${c.bank}`, at: after(120), tone: 'amber' });
-  if (c.status === 'Success') steps.push({ label: 'Chargeback accepted — amount adjusted from settlement', at: after(200), tone: 'rose' });
-  if (c.status === 'Cancel') steps.push({ label: 'Chargeback cancelled — no amount adjusted', at: after(200), tone: 'emerald' });
-
+  const deciding = cbDecision?.ref === c.ref;
   return drawerShell({
+    wide: true,
     title: 'Chargeback Information',
-    sub: `<span class="font-mono text-xs">${c.ref}</span>${cbBadge(c.status)}`,
+    sub: `<span class="font-mono text-xs">${c.ref}</span>${cbBadge(c.status)}${myCbBadge(c.myStatus)}`,
     body: `
       <div class="grid grid-cols-3 gap-3">
         ${statBox('Transaction Amount', fmtBDT(t.amount))}
         ${statBox('Chargeback Amount', fmtBDT(c.amount), 'text-rose-600')}
         ${statBox('Respond By', rb ? `${fmtShort(c.respondBy)}<span class="block text-[11px] font-semibold ${rb.cls}">${rb.text}</span>` : '—')}
       </div>
-      ${rb ? `<div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">${ic('triangle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span>Upload delivery proof, invoice or customer communication before the deadline. Without a response the chargeback may be accepted automatically (mock rule).</span></div>` : ''}
-      ${section('Key Information', kvGrid([
-        kv('Chargeback Reference ID', c.ref, true),
-        kv('Request Status', cbBadge(c.status)),
-        kv('Chargeback Reason', c.reason),
-        kv('Chargeback Stage', c.stage),
-        kv('Bank Name', c.bank),
-        kv('Requested On', `${fmtDate(c.date)}, ${fmtTime(c.date, true)}`),
-      ]))}
-      ${section('Transaction Details', txnSummary(t))}
-      ${section('Store', storeSummary(c))}
-      ${section('Progress', timeline(steps))}
+      ${rb ? `<div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">${ic('triangle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span>Approve the chargeback, or deny it with your reason (for example delivery proof) before the deadline. Without a response it may be approved automatically (mock rule).</span></div>` : ''}
+      ${deciding ? `<div class="space-y-2 rounded-lg border border-slate-200 p-3">
+        ${field('Why are you denying this chargeback?', `<textarea id="cb-remarks" rows="3" class="${INPUT}" placeholder="e.g. Delivered on 12 Oct, signed delivery note attached">${esc(cbDecision.remarks)}</textarea>`, { required: true, error: formErrors.cbRemarks })}
+      </div>` : ''}
+      ${detailList([
+        ['Merchant Name', MERCHANT_NAME],
+        ['Store Name', esc(c.storeName)],
+        ['Store ID', `<span class="font-mono">${c.store}</span>`],
+        ['Homepage of store', esc(storeHome(c.store))],
+        ['Bank Name', esc(c.bank)],
+        ['Transaction ID', linkBtn('open-txn', t.id, t.id)],
+        ['Transaction Date', at(t.date)],
+        ['Transaction Amount', fmtBDT(t.amount)],
+        ['Chargeback Amount', fmtBDT(c.amount)],
+        ['Chargeback Reference ID', `<span class="font-mono">${c.ref}</span>`],
+        ['Merchant Reference Code', c.merchantRef ? `<span class="font-mono">${esc(c.merchantRef)}</span>` : ''],
+        ['Request Remarks', `${esc(c.reason)} · ${c.stage}`],
+        ['Requested On', at(c.date)],
+        ['Requested By', esc(c.requestedBy)],
+        ['Request Status', cbBadge(c.status)],
+        ['Approval Remarks', esc(c.approvalRemarks || '')],
+        ['Approved On', at(c.approvedOn)],
+        ['Approved By', c.approvedBy ? `<span class="font-mono">${c.approvedBy}</span>` : ''],
+        ['Approval Status', myCbBadge(c.myStatus)],
+      ])}
       ${PCI_NOTE}`,
     footer: `
-      <button data-action="open-txn" data-value="${t.id}" class="${BTN_SECONDARY}">${ic('receipt', 'w-4 h-4')}View Transaction</button>
-      ${rb ? `<button data-action="toast" data-msg="Prototype: evidence upload is not wired up." class="${BTN_PRIMARY}">${ic('upload', 'w-4 h-4')}Submit Evidence</button>` : ''}`,
+      <button data-action="open-txn" data-value="${t.id}" class="${BTN_SECONDARY} mr-auto">${ic('receipt', 'w-4 h-4')}View Transaction</button>
+      ${rb && !deciding ? `
+        <button data-action="cb-deny" data-value="${c.ref}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('circle-x', 'w-4 h-4')}Deny</button>
+        <button data-action="cb-approve" data-value="${c.ref}" class="${BTN_PRIMARY}">${ic('circle-check', 'w-4 h-4')}Approve</button>` : ''}
+      ${deciding ? `
+        <button data-action="cb-deny-cancel" class="${BTN_SECONDARY}">Back</button>
+        <button data-action="cb-deny-submit" data-value="${c.ref}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded shadow-sm hover:bg-rose-700">${ic('send', 'w-4 h-4')}Submit Denial</button>` : ''}`,
   });
 }
 
 let drawerReturnFocus = null;
-const FIELD_KEYS = ['id', 'data-link', 'data-link-color', 'data-inv', 'data-inv-item', 'data-mc', 'data-ticket', 'data-user', 'data-group', 'data-other', 'data-join-store', 'data-group-store'];
+const FIELD_KEYS = ['id', 'data-link', 'data-link-color', 'data-inv', 'data-inv-item', 'data-mc', 'data-ticket', 'data-user', 'data-group', 'data-other', 'data-pc-row', 'data-mc-row', 'data-pc-on', 'data-mc-on', 'data-group-store', 'data-refund', 'data-store'];
 // Remembers which field had focus so a re-render (validation, add item…) can put it back.
 function focusKey(el) {
   if (!el || el === document.body) return null;
@@ -248,14 +271,14 @@ function renderDrawer() {
   const key = wasOpen ? focusKey(document.activeElement) : null;
   if (!wasOpen) drawerReturnFocus = document.activeElement;
   document.body.style.overflow = 'hidden';
-  const render = { txn: txnDrawer, contacts: contactsDrawer, refund: refundDrawer, cb: cbDrawer, settlement: settlementDrawer, fy: fyDrawer, link: linkDrawer, 'link-new': linkFormDrawer, invoice: invoiceDrawer, 'invoice-new': invoiceFormDrawer, emi: emiDrawer, partner: partnerDrawer, 'partner-join': joinDrawer, mc: mcDrawer, 'mc-new': mcFormDrawer, tt: ttDrawer, 'tt-new': ttFormDrawer, gt: gtDrawer, 'gt-new': gtFormDrawer, sr: srDrawer, 'sr-new': srFormDrawer, store: storeDrawer, group: groupDrawer, 'group-new': groupFormDrawer, user: userDrawer, 'user-new': userFormDrawer, 'referral-new': referralFormDrawer, 'sms-buy': smsBuyDrawer, video: videoDrawer }[drawer.kind];
+  const render = { txn: txnDrawer, contacts: contactsDrawer, refund: refundDrawer, cb: cbDrawer, settlement: settlementDrawer, fy: fyDrawer, link: linkDrawer, 'link-new': linkFormDrawer, invoice: invoiceDrawer, 'invoice-new': invoiceFormDrawer, 'refund-new': refundFormDrawer, emi: emiDrawer, partner: partnerDrawer, 'partner-edit': partnerFormDrawer, mc: mcDrawer, 'mc-new': mcFormDrawer, tt: ttDrawer, 'tt-new': ttFormDrawer, gt: gtDrawer, 'gt-new': gtFormDrawer, 'delivery-upload': deliveryUploadDrawer, store: storeDrawer, 'store-charge': storeChargeDrawer, 'store-bank': storeBankDrawer, 'store-settings': storeSettingsDrawer, group: groupDrawer, 'group-new': groupFormDrawer, user: userDrawer, 'user-new': userFormDrawer, 'referral-new': referralFormDrawer, 'sms-buy': smsBuyDrawer, video: videoDrawer }[drawer.kind];
   root.innerHTML = render(drawer.item);
   lucide.createIcons();
   makeKeyboardReachable(root);
   const panel = $('#drawer-panel');
   const firstError = Object.keys(formErrors).length && panel.querySelector('.text-rose-600')?.closest('label, section, div')?.querySelector('input, select, textarea');
   const target = firstError || (key && panel.querySelector(key)) || (!wasOpen && (panel.querySelector('input:not([disabled]), select, textarea') || panel.querySelector('[data-drawer-close]')));
-  target?.focus();
+  if (target) target.focus();
 }
 
 // Rows and cards that open something are divs/trs; give them a tab stop and a role.
@@ -268,7 +291,7 @@ function makeKeyboardReachable(root) {
 
 function closeDrawer() {
   drawer = null;
-  linkDraft = invDraft = joinDraft = mcDraft = ticketDraft = groupDraft = userDraft = otherDraft = null;
+  linkDraft = invDraft = partnerDraft = mcDraft = refundDraft = cbDecision = storeDraft = ticketDraft = groupDraft = userDraft = otherDraft = null;
   formErrors = {};
   renderDrawer();
 }

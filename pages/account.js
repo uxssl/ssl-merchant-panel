@@ -1,122 +1,144 @@
 // =====================================================================
 // Account & Settings
 // =====================================================================
-const ACC = { myStores: '/account/my-stores', storeList: '/account/store-list', groups: '/account/store-groups', users: '/account/user-management', password: '/account/change-password' };
+const ACC = { storeList: '/account/store-list', groups: '/account/store-groups', users: '/account/user-management', password: '/account/change-password' };
 const accStore = (id) => ACCOUNT_STORES.find(s => s.id === id);
 const groupOf = (id) => STORE_GROUPS.find(g => g.id === id);
 const storeTypeIcon = (type) => type === 'Only QR' ? 'qr-code' : type === 'Only Online' ? 'globe' : 'store';
 let groupDraft = null;
 let userDraft = null;
 
-function storeStats(id) {
-  const ok = TXNS.filter(t => t.store === id && t.status === 'success');
-  const monthStart = new Date(NOW.getFullYear(), NOW.getMonth(), 1);
-  const last30 = TXNS.filter(t => t.store === id && t.date >= addDays(TODAY, -29));
-  const lastPaid = SETTLEMENTS.find(x => x.store === id && x.status === 'Paid');
-  return {
-    today: ok.filter(t => t.date >= TODAY).reduce((s, t) => s + t.amount, 0),
-    month: ok.filter(t => t.date >= monthStart).reduce((s, t) => s + t.amount, 0),
-    rate: last30.length ? pct(last30.filter(t => t.status === 'success').length, last30.length) : null,
-    lastPaid,
-  };
-}
+// ----- Store List (old panel "My Stores") -----------------------------
+// Each store sits in at most one store group besides the default "All Stores".
+const storeGroupOf = (id) => STORE_GROUPS.find(g => !g.system && g.stores.includes(id));
+const storeCfg = (id) => STORE_SETTINGS[id];
+let storeDraft = null; // { kind: 'group' | 'ipn' | 'gw', id, ...fields }
 
-// ----- My Stores --------------------------------------------------------
-function renderMyStores() {
-  const active = ACCOUNT_STORES.filter(s => s.status === 'Active');
-  return `
-    <div class="space-y-6">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-slate-900">My Stores</h1>
-          <p class="text-slate-500 text-sm">Each store at a glance — sales, settlement and quick links.</p>
-        </div>
-        <button data-action="toast" data-msg="Prototype: new store requests go through your KAM." class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}Request New Store</button>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        ${active.map(st => {
-          const k = storeStats(st.id);
-          const bank = STORE_BANK[st.id];
-          return `
-            <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
-              <div class="px-5 py-4 border-b border-slate-100 flex items-start gap-3">
-                <span class="w-10 h-10 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">${ic(storeTypeIcon(st.type), 'w-5 h-5')}</span>
-                <div class="min-w-0 flex-1">
-                  <p class="text-sm font-semibold text-slate-900 truncate">${esc(st.name)}</p>
-                  <p class="text-xs text-slate-500"><span class="font-mono">${st.id}</span> · ${st.type} · ${st.currency}</p>
-                </div>
-                ${activeBadge(true)}
-              </div>
-              <div class="p-5 grid grid-cols-2 gap-3 flex-1">
-                ${statBox('Today', st.currency === 'BDT' ? fmtBDTShort(k.today) : '—')}
-                ${statBox('This Month', st.currency === 'BDT' ? fmtBDTShort(k.month) : '—')}
-                ${statBox('Success Rate (30d)', k.rate == null ? '—' : fmtPct(k.rate))}
-                ${statBox('Last Settlement', k.lastPaid ? fmtShort(k.lastPaid.date) : '—')}
-                <div class="col-span-2 text-xs text-slate-500 flex items-center gap-1.5">${ic('landmark', 'w-3.5 h-3.5')}${bank ? `${bank.bank} · <span class="font-mono">${bank.account}</span>` : 'Settlement account not set up yet'}</div>
-                ${st.currency === 'USD' ? '<p class="col-span-2 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">New store — no payments yet.</p>' : ''}
-              </div>
-              <div class="px-5 py-3 border-t border-slate-100 flex flex-wrap gap-2">
-                <button data-action="store-txns" data-value="${st.id}" class="px-2.5 py-1.5 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">Transactions</button>
-                <button data-action="store-settlements" data-value="${st.id}" class="px-2.5 py-1.5 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">Settlements</button>
-                ${st.type !== 'Only Online' ? `<a href="#/products/payment-qr" class="px-2.5 py-1.5 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">QR</a>` : ''}
-                <button data-action="open-store" data-value="${st.id}" class="ml-auto px-2.5 py-1.5 rounded text-xs font-semibold text-primary-600 hover:bg-primary-50">Store details</button>
-              </div>
-            </div>`;
-        }).join('')}
-      </div>
-      ${ACCOUNT_STORES.some(s => s.status !== 'Active') ? `<p class="text-xs text-slate-500">${ACCOUNT_STORES.filter(s => s.status !== 'Active').length} inactive store hidden here — see <a href="#/account/store-list" class="text-primary-600 hover:underline">Store List</a>.</p>` : ''}
-    </div>`;
-}
+const STORE_VIEW_MENU = [['store-charge', 'Gateway Charge'], ['open-store', 'Store Details'], ['store-bank', 'Settlement Bank Details']];
+const STORE_SET_MENU = [['store-set-group', 'Set Group'], ['store-ipn', 'IPN Settings'], ['store-gw', 'GW Settings']];
+const rowMenu = (key, icon, cls, items, id, label) => `
+  <div class="relative" data-dd-root>
+    <button data-action="dd-toggle" data-key="${key}" aria-haspopup="menu" aria-expanded="${openDD === key}" aria-label="${label}" title="${label}" class="inline-flex items-center gap-0.5 px-2 py-1 rounded text-white ${cls}">${ic(icon, 'w-3.5 h-3.5')}${ic('chevron-down', 'w-3 h-3')}</button>
+    ${openDD === key ? `<div role="menu" class="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 anim-pop">
+      ${items.map(([action, text]) => `<button role="menuitem" data-action="${action}" data-value="${id}" class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">${text}</button>`).join('')}
+    </div>` : ''}
+  </div>`;
 
 function storeDrawer(st) {
-  const bank = STORE_BANK[st.id];
+  const c = storeCfg(st.id).contact;
   return drawerShell({
-    wide: true,
-    title: esc(st.name),
+    title: 'Store Details',
     sub: `<span class="font-mono text-xs">${st.id}</span>${activeBadge(st.status === 'Active')}`,
     body: `
-      ${section('Store Information', kvGrid([
-        kv('Store Id', st.id, true), kv('Store Name', esc(st.name)), kv('Type', st.type), kv('Currency', st.currency), kv('EMI Status', st.emi), kv('Created On', fmtDate(st.created)),
+      ${section('Store Information', detailList([
+        ['Store ID', `<span class="font-mono">${st.id}</span>`],
+        ['Store Name', esc(st.name)],
+        ['Base URL of Store', st.baseUrl ? `<span class="font-mono">${esc(st.baseUrl)}</span>` : ''],
+        ['Homepage of Store', st.baseUrl ? `<span class="font-mono">${esc(st.baseUrl)}</span>` : ''],
+        ['Store Status', activeBadge(st.status === 'Active')],
       ]))}
-      ${section('Account Information', bank ? kvGrid([
-        kv('Account Payee', esc(bank.payee)), kv('Bank', bank.bank), kv('Branch Name', bank.branch),
-        kv('Account Number', bank.account, true), kv('Routing Number', bank.routing, true), kv('Payment Type', 'BEFTN'),
-      ]) : '<p class="text-sm text-slate-500">No settlement account yet — your KAM sets it up after KYC.</p>')}
-      ${section('Settlement Information', kvGrid([
-        kv('Settl. Status', st.status === 'Active' ? activeBadge(true) : activeBadge(false)), kv('Settl. Day', 'Next working day (mock)'), kv('Settl. Type', 'Daily'),
-        kv('Max Trans Amount', '৳5,00,000 (mock)'), kv('Min Trans Amount', '৳10 (mock)'),
-      ]))}
-      ${section('Tran. Config', kvGrid([
-        kv('Base URL of Store', st.baseUrl || '—', true), kv('Home Page of Store', st.baseUrl || '—', true),
-        kv('Default Gateway Duration', '30 minutes (mock)'), kv('Store Status', st.status),
-      ]))}
-      ${section('Contact Information', kvGrid([
-        kv('Name', 'Demo Merchant Ltd.'), kv('Mailing Address', esc(st.address)), kv('Email', 'm•••••@example.com'), kv('Mobile', '01•••••000', true),
+      ${section('Contact Information', detailList([
+        ['Name', esc(c.name)], ['Mailing Address', esc(st.address)], ['Email', esc(c.email)], ['Mobile', `<span class="font-mono">${c.mobile}</span>`], ['Phone', esc(c.phone)], ['Fax', esc(c.fax)],
       ]))}
       <div class="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600">${ic('shield-check', 'w-4 h-4 mt-px shrink-0 text-slate-500')}<span>Store password and API credentials are not shown here. Find integration details under <a href="#/others/developer-information" class="text-primary-600 hover:underline">Developer / Technical Information</a>; never share them by email or chat.</span></div>`,
     footer: `
-      <button data-action="toast" data-msg="Prototype: store change requests go through your KAM." class="${BTN_SECONDARY}">${ic('pencil', 'w-4 h-4')}Request Change</button>
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
       <button data-action="store-txns" data-value="${st.id}" class="${BTN_PRIMARY}">${ic('list', 'w-4 h-4')}View Transactions</button>`,
   });
 }
 
-// ----- Store List ------------------------------------------------------
+function storeChargeDrawer(st) {
+  const rows = Object.entries(FEE_RATE).map(([type, rate]) => [type, `${(rate * 100).toFixed(2)}%`]);
+  return drawerShell({
+    title: 'Gateway Charge',
+    sub: `<span class="font-mono text-xs">${st.id}</span><span>${esc(st.name)}</span>`,
+    body: `${miniTable(['Gateway Type', 'TDR'], rows, { right: [1] })}<p class="text-xs text-slate-500">TDR is the charge per successful payment, deducted before settlement (mock rates).</p>`,
+    footer: `<button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>`,
+  });
+}
+
+function storeBankDrawer(st) {
+  const b = STORE_BANK[st.id];
+  return drawerShell({
+    title: 'Settlement Bank Details',
+    sub: `<span class="font-mono text-xs">${st.id}</span>`,
+    body: `
+      ${detailList([
+        ['Store ID', `<span class="font-mono">${st.id}</span>`], ['Store Name', esc(st.name)],
+        ['Account Payee', esc(b?.payee || '')], ['Bank Name', esc(b?.bank || '')], ['Branch Name', esc(b?.branch || '')],
+        ['Account No', b ? `<span class="font-mono">${b.account}</span>` : ''], ['Route No', b ? `<span class="font-mono">${b.routing}</span>` : ''],
+      ])}
+      ${b ? '<p class="text-xs text-slate-500">Account and routing numbers are masked. To change the settlement account, contact your KAM.</p>' : '<p class="text-xs text-slate-500">No settlement account yet — your KAM sets it up after KYC.</p>'}`,
+    footer: `<button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>`,
+  });
+}
+
+function storeSettingsDrawer() {
+  const d = storeDraft;
+  const st = accStore(d.id);
+  const e = formErrors;
+  const inp = (key, attrs = '') => `<input data-store="${key}" value="${esc(d[key])}" class="${INPUT}" ${attrs}>`;
+  const check = (key, label) => `<label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" data-store="${key}" ${d[key] ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">${label}</label>`;
+  const color = (key, label) => `<label class="flex items-center gap-2 text-xs text-slate-600"><input type="color" data-store="${key}" value="${safeColor(d[key], '#295cab')}" class="w-8 h-8 rounded border border-slate-200 cursor-pointer shrink-0">${label}</label>`;
+  const info = (rows) => section('Store Information', detailList(rows));
+  const body = {
+    group: `${field('Store Group', `<select data-store="group" class="${INPUT}"><option value="">Select group</option>${options(STORE_GROUPS.filter(g => !g.system && (g.active || g.id === d.group)).map(g => [g.id, g.name]), d.group)}</select>`, { required: true, error: e.group, hint: 'A store belongs to one group. "All Stores" always has every store.' })}`,
+    ipn: `
+      ${info([['Store Name', esc(st.name)], ['Store ID', `<span class="font-mono">${st.id}</span>`], ['Contact Email', esc(storeCfg(st.id).contact.email)]])}
+      ${section('IPN at Email Address', `<div class="space-y-3">${field('Email One', inp('email1', 'type="email"'), { error: e.email1 })}${field('Email Two', inp('email2', 'type="email"'), { error: e.email2 })}${field('Email Three', inp('email3', 'type="email"'), { error: e.email3 })}</div>`)}
+      ${section('IPN by SMS at Mobile', `<div class="space-y-3">${field('Mobile One', inp('mobile1', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { error: e.mobile1 })}${check('sms1', 'Enable SMS')}${field('Mobile Two', inp('mobile2', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { error: e.mobile2 })}${check('sms2', 'Enable SMS')}</div>`)}
+      ${section('IPN at HTTP Listener', `<div class="space-y-3">${field('IPN Listener', inp('listener', 'type="url" placeholder="https://"'), { error: e.listener })}${check('listenerOn', 'Enable')}</div>`)}`,
+    gw: `
+      ${info([['Store Name', esc(st.name)], ['Store ID', `<span class="font-mono">${st.id}</span>`], ['Store Logo', `<span class="inline-flex w-9 h-9 rounded bg-slate-100 items-center justify-center text-xs font-bold text-slate-500">${esc(st.name[0])}</span>`]])}
+      ${section('Gateway Color', `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">${color('primaryWeb', 'Primary Color (Web)')}${color('activeWeb', 'Active Color (Web)')}${color('primarySdk', 'Primary Color (App SDK)')}${color('activeSdk', 'Active Color (App SDK)')}</div>`)}
+      ${section('Gateway Settings', `<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        ${field('Default Pay Group', `<select data-store="payGroup" class="${INPUT}"><option value="">Select Default Pay Group</option>${options(['Cards Payment', 'Internet Banking', 'Mobile Banking'], d.payGroup)}</select>`, { hint: 'Opens first on the payment page' })}
+        ${field('Gateway charge paid by customer', `<select data-store="chargeCustomer" class="${INPUT}">${options(['Disabled', 'Enabled'], d.chargeCustomer)}</select>`)}
+      </div>`)}`,
+  }[d.kind];
+  return drawerShell({
+    wide: d.kind !== 'group',
+    title: { group: 'Set Store Group', ipn: 'IPN Settings', gw: 'Gateway Settings' }[d.kind],
+    sub: `<span class="font-mono text-xs">${st.id}</span>`,
+    body,
+    footer: `
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
+      <button data-action="save-store-settings" class="${BTN_PRIMARY}">${ic('save', 'w-4 h-4')}Submit</button>`,
+  });
+}
+
+function validateStoreSettings() {
+  const d = storeDraft, e = {};
+  const email = (k) => { if (d[k].trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d[k].trim())) e[k] = 'Enter a valid email address.'; };
+  const mobile = (k, on) => { if ((d[k].trim() || d[on]) && !/^(88)?01[3-9]\d{8}$/.test(d[k].trim())) e[k] = 'Enter a valid mobile number, like 017XXXXXXXX.'; };
+  if (d.kind === 'group' && !d.group) e.group = 'Choose a store group.';
+  if (d.kind === 'ipn') {
+    ['email1', 'email2', 'email3'].forEach(email);
+    mobile('mobile1', 'sms1'); mobile('mobile2', 'sms2');
+    if ((d.listener.trim() || d.listenerOn) && !/^https:\/\/\S+\.\S+/.test(d.listener.trim())) e.listener = 'Enter a full https:// URL for your IPN listener.';
+  }
+  return e;
+}
+
 function renderStoreList() {
   const s = pageState();
   const f = applied(s);
   const q = f.search.trim().toLowerCase();
   const rows = ACCOUNT_STORES.filter(st =>
-    (!q || st.id.includes(q) || st.name.toLowerCase().includes(q) || st.baseUrl.includes(q)) &&
-    (f.currency === 'all' || st.currency === f.currency) && (f.emi === 'all' || st.emi === f.emi) &&
-    (f.stype === 'all' || st.type === f.stype) && (f.status === 'all' || st.status === f.status));
-  const opts = (list, all) => [{ label: all, value: 'all' }, ...list.map(v => ({ label: v, value: v }))];
+    (!q || st.id.toLowerCase().includes(q) || st.name.toLowerCase().includes(q) || st.baseUrl.includes(q)) &&
+    (f.stype === 'all' || storeGroupOf(st.id)?.id === f.stype) && (f.status === 'all' || st.status === f.status));
+  const groupOpts = [{ label: 'All Store Groups', value: 'all' }, ...STORE_GROUPS.filter(g => !g.system).map(g => ({ label: g.name, value: g.id }))];
+  const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }];
   const cols = [
-    { label: 'Store', cell: st => `<div class="font-medium text-slate-800">${esc(st.name)}</div><div class="text-[11px] font-mono text-slate-500">${st.id}</div>` },
-    { label: 'Base URL', cls: 'hidden xl:table-cell', cell: st => st.baseUrl ? `<span class="font-mono text-xs">${st.baseUrl}</span>` : '<span class="text-slate-400">—</span>' },
-    { label: 'Currency', cell: st => st.currency },
-    { label: 'EMI Status', cls: 'hidden md:table-cell', cell: st => `<span class="${STATUS_BADGE} ${st.emi === 'EMI Enabled' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}">${st.emi}</span>` },
-    { label: 'Type', cell: st => `<span class="inline-flex items-center gap-1.5 text-xs">${ic(storeTypeIcon(st.type), 'w-3.5 h-3.5 text-slate-400')}${st.type}</span>` },
+    { label: 'Store ID', cell: st => `<span class="font-mono text-xs text-slate-800">${st.id}</span>` },
+    { label: 'Store Name', cell: st => `<span class="font-medium text-slate-800">${esc(st.name)}</span>` },
+    { label: 'Base URL', cls: 'hidden lg:table-cell', cell: st => st.baseUrl ? `<span class="font-mono text-xs">${esc(st.baseUrl.replace(/^https?:\/\//, ''))}</span>` : '<span class="text-slate-400">—</span>' },
+    { label: 'Group', cell: st => storeGroupOf(st.id) ? `<span class="text-xs text-slate-700">${esc(storeGroupOf(st.id).name)}</span>` : '<span class="text-slate-400">—</span>' },
     { label: 'Status', cell: st => activeBadge(st.status === 'Active') },
+    { label: 'Action', cell: st => `<div class="flex items-center gap-1">
+      ${rowMenu(`store-view:${st.id}`, 'eye', 'bg-[#0b3a63] hover:opacity-90', STORE_VIEW_MENU, st.id, `View menu for ${st.id}`)}
+      ${rowMenu(`store-set:${st.id}`, 'settings', 'bg-cyan-600 hover:bg-cyan-700', STORE_SET_MENU, st.id, `Settings menu for ${st.id}`)}
+    </div>` },
   ];
   return `
     <div class="space-y-6">
@@ -125,15 +147,13 @@ function renderStoreList() {
         <p class="text-slate-500 text-sm">All stores under your merchant account, including inactive ones.</p>
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Store ID, name or Base URL',
-          selectPill('list', 'currency', 'Currency', opts(['BDT', 'USD', 'EUR'], 'All Currencies'), s.currency) +
-          selectPill('list', 'emi', 'EMI Status', opts(['EMI Enabled', 'No EMI'], 'All'), s.emi) +
-          selectPill('list', 'stype', 'Type', opts(['Only Online', 'Only QR', 'Online & QR'], 'All Types'), s.stype) +
-          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status),
+        ${listFilterBar(s, 'Store ID, Store Name or Base URL',
+          selectPill('list', 'stype', 'Store Group', groupOpts, s.stype) +
+          selectPill('list', 'status', 'Status', statusOpts, s.status),
           { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
-          ${dataTable({ cols, rows, rowAttrs: st => `data-action="open-store" data-value="${st.id}"`, emptyTitle: 'No stores match these filters', emptyHint: 'Try clearing some filters.' })}
+          ${dataTable({ cols, rows, rowAttrs: () => '', emptyTitle: 'No stores match these filters', emptyHint: 'Try clearing some filters.', menus: true })}
         </div>
       </div>
     </div>`;
@@ -154,14 +174,17 @@ function renderStoreGroups() {
         ${STORE_GROUPS.map(g => {
           const users = USERS.filter(u => u.group === g.id);
           return `
-            <button data-action="open-group" data-value="${g.id}" class="text-left bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-5 flex flex-col gap-3">
+            <div data-action="open-group" data-value="${g.id}" class="text-left bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-5 flex flex-col gap-3 cursor-pointer ${g.active ? '' : 'opacity-70'}">
               <div class="flex items-start justify-between gap-2">
                 <div><p class="text-sm font-semibold text-slate-900">${esc(g.name)}</p><p class="text-xs text-slate-500 mt-0.5">${esc(g.description || '')}</p></div>
-                ${g.system ? '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Default</span>' : ''}
+                <div class="flex items-center gap-1.5 shrink-0">${g.system ? '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Default</span>' : ''}${activeBadge(g.active)}</div>
               </div>
               <div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>
-              <p class="text-xs text-slate-500 mt-auto flex items-center gap-1.5">${ic('users', 'w-3.5 h-3.5')}${users.length} user${users.length === 1 ? '' : 's'} · ${g.stores.length} store${g.stores.length === 1 ? '' : 's'}</p>
-            </button>`;
+              <div class="mt-auto flex items-center justify-between gap-2">
+                <p class="text-xs text-slate-500 flex items-center gap-1.5">${ic('users', 'w-3.5 h-3.5')}${users.length} user${users.length === 1 ? '' : 's'} · ${g.stores.length} store${g.stores.length === 1 ? '' : 's'}</p>
+                ${g.system ? '' : `<button data-action="group-toggle" data-value="${g.id}" class="px-2.5 py-1 rounded-md border text-xs font-semibold ${g.active ? 'border-rose-200 text-rose-600 hover:bg-rose-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}">${g.active ? 'Deactivate' : 'Activate'}</button>`}
+              </div>
+            </div>`;
         }).join('')}
       </div>
     </div>`;
@@ -171,13 +194,15 @@ function groupDrawer(g) {
   const users = USERS.filter(u => u.group === g.id);
   return drawerShell({
     title: esc(g.name),
-    sub: `<span>${g.stores.length} stores · ${users.length} users</span>`,
+    sub: `<span>${g.stores.length} stores · ${users.length} users</span>${activeBadge(g.active)}`,
     body: `
       ${g.description ? `<p class="text-sm text-slate-600">${esc(g.description)}</p>` : ''}
+      ${g.active ? '' : `<p class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">${ic('circle-alert', 'w-4 h-4 mt-0.5 shrink-0')}Inactive — it can’t be given to new users${users.length ? ', and its users can’t see these stores until it is activated again' : ''}.</p>`}
       ${section('Stores', `<div class="divide-y divide-slate-100 rounded-lg border border-slate-200">${g.stores.map(id => { const st = accStore(id); return `<div class="flex items-center justify-between px-3 py-2.5"><span><span class="block text-sm text-slate-800">${esc(st.name)}</span><span class="block text-[11px] font-mono text-slate-500">${st.id}</span></span>${activeBadge(st.status === 'Active')}</div>`; }).join('')}</div>`)}
       ${section('Users with access', users.length ? `<div class="divide-y divide-slate-100 rounded-lg border border-slate-200">${users.map(u => `<button data-action="open-user" data-value="${u.login}" class="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-50"><span><span class="block text-sm text-slate-800">${esc(u.name)}</span><span class="block text-[11px] text-slate-500">${u.role}</span></span>${activeBadge(u.status === 'Active')}</button>`).join('')}</div>` : '<p class="text-sm text-slate-500">No users are assigned to this group.</p>')}`,
     footer: g.system ? '<span class="text-xs text-slate-500">The default group always contains every store.</span>' : `
       ${users.length ? '' : `<button data-action="delete-group" data-value="${g.id}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50">${ic('trash-2', 'w-4 h-4')}Delete Group</button>`}
+      <button data-action="group-toggle" data-value="${g.id}" class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border rounded shadow-sm ${g.active ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}">${ic(g.active ? 'circle-pause' : 'circle-play', 'w-4 h-4')}${g.active ? 'Deactivate' : 'Activate'}</button>
       <button data-action="edit-group" data-value="${g.id}" class="${BTN_PRIMARY}">${ic('pencil', 'w-4 h-4')}Edit Group</button>`,
   });
 }
@@ -202,58 +227,54 @@ function groupFormDrawer() {
 }
 
 // ----- User Management -------------------------------------------------
-const ROLE_PERMISSIONS = [
-  ['View transactions & reports', true, true, true],
-  ['Export data (CSV / PDF)', true, true, false],
-  ['Refund & chargeback requests', true, false, false],
-  ['Payment links & invoices', true, true, false],
-  ['Campaigns', true, false, false],
-  ['Settlement & financial reports', true, true, false],
-  ['Raise support tickets', true, true, true],
-  ['Manage users, stores & groups', true, false, false],
-];
+// ----- User Management (old panel "My Users") ------------------------
+const appRoleLabel = (v) => APP_ROLES.find(([k]) => k === v)?.[1] || '—';
+const userStatus = (s) => `<span class="${STATUS_BADGE} ${s === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${s === 'Active' ? 'Active' : 'De-active'}</span>`;
 
 function renderUsers() {
   const s = pageState();
   const f = applied(s);
   const q = f.search.trim().toLowerCase();
   const rows = USERS.filter(u =>
-    (!q || u.login.includes(q) || u.name.toLowerCase().includes(q)) &&
-    (f.status === 'all' || u.status === f.status) && (f.role === 'all' || u.role === f.role));
+    (!q || [u.login, u.first, u.last, u.email].some(v => v.toLowerCase().includes(q))) &&
+    (f.status === 'all' || u.status === f.status) && (f.role === 'all' || u.role === f.role) && (f.stype === 'all' || u.group === f.stype));
+  const opts = (list, all) => [{ label: all, value: 'all' }, ...list.map(v => Array.isArray(v) ? { label: v[1], value: v[0] } : { label: v, value: v })];
   const cols = [
-    { label: 'User', cell: u => `<div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-full bg-slate-700 text-white text-xs font-semibold flex items-center justify-center shrink-0">${esc(u.name[0])}</span><span><span class="block font-medium text-slate-800">${esc(u.name)}</span><span class="block text-[11px] font-mono text-slate-500">${u.login}</span></span></div>` },
+    { label: 'Login ID', cell: u => `<span class="font-mono text-xs text-slate-800">${esc(u.login)}</span>` },
+    { label: 'First Name', cell: u => esc(u.first) },
+    { label: 'Last Name', cls: 'hidden md:table-cell', cell: u => esc(u.last) || '<span class="text-slate-400">—</span>' },
+    { label: 'Email Address', cls: 'hidden lg:table-cell', cell: u => `<span class="text-xs">${esc(u.email)}</span>` },
     { label: 'Role', cell: u => `<span class="text-xs text-slate-700">${u.role}</span>` },
-    { label: 'Store Group', cls: 'hidden lg:table-cell', cell: u => `<span class="text-xs text-slate-600">${esc(groupOf(u.group)?.name || '—')}</span>` },
-    { label: 'Email', cls: 'hidden xl:table-cell', cell: u => `<span class="text-xs">${u.email}</span>` },
-    { label: 'Last Login', cls: 'hidden md:table-cell', cell: u => `<span class="text-xs whitespace-nowrap">${fmtDate(u.lastLogin)}</span>` },
-    { label: 'Status', cell: u => activeBadge(u.status === 'Active') },
+    { label: 'Allowed Store', cls: 'hidden xl:table-cell', cell: u => `<span class="text-xs text-slate-600">${esc(groupOf(u.group)?.name || '—')}</span>` },
+    { label: 'Status', cell: u => userStatus(u.status) },
+    { label: 'Action', cell: u => `<div class="flex items-center gap-1">
+      <button data-action="open-user" data-value="${u.login}" title="Details" aria-label="Details of ${u.login}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>
+      <button data-action="edit-user" data-value="${u.login}" title="Update" aria-label="Update ${u.login}" class="p-1.5 rounded bg-cyan-600 text-white hover:bg-cyan-700">${ic('square-pen', 'w-3.5 h-3.5')}</button>
+    </div>` },
   ];
-  const opts = (list, all) => [{ label: all, value: 'all' }, ...list.map(v => ({ label: v, value: v }))];
   return `
     <div class="space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">User Management</h1>
-          <p class="text-slate-500 text-sm">Who can sign in to this portal, what they can do, and which stores they see.</p>
+          <p class="text-slate-500 text-sm">Who can sign in to this portal, their role, and which store group they see.</p>
         </div>
-        <button data-action="new-user" class="${BTN_PRIMARY} shrink-0">${ic('user-plus', 'w-4 h-4')}Add User</button>
+        <button data-action="new-user" class="${BTN_PRIMARY} shrink-0">${ic('circle-plus', 'w-4 h-4')}Create User</button>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         ${metricCard({ title: 'Total Users', value: USERS.length, status: 'all', selected: s.applied.status === 'all' })}
         ${metricCard({ title: 'Active', value: USERS.filter(u => u.status === 'Active').length, status: 'Active', selected: s.applied.status === 'Active' })}
-        ${metricCard({ title: 'Inactive', value: USERS.filter(u => u.status === 'Inactive').length, status: 'Inactive', selected: s.applied.status === 'Inactive' })}
-        ${metricCard({ title: 'Admins', value: USERS.filter(u => u.role === 'Merchant Admin').length, sub: 'can manage users & stores' })}
+        ${metricCard({ title: 'De-active', value: USERS.filter(u => u.status === 'Inactive').length, status: 'Inactive', selected: s.applied.status === 'Inactive' })}
       </div>
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Login ID or User Name',
-          selectPill('list', 'status', 'Status', opts(['Active', 'Inactive'], 'All Status'), s.status) +
-          selectPill('list', 'role', 'Role', opts(USER_ROLES, 'All Roles'), s.role), { noDate: true, noStore: true })}
+        ${listFilterBar(s, 'Login ID, First Name, Last Name or Email',
+          selectPill('list', 'role', 'User Role', opts(USER_ROLES, 'All Roles'), s.role) +
+          selectPill('list', 'stype', 'Allowed Store', opts(STORE_GROUPS.map(g => [g.id, g.name]), 'All Store Groups'), s.stype) +
+          selectPill('list', 'status', 'Status', opts([['Active', 'Active'], ['Inactive', 'De-active']], 'All Status'), s.status), { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           ${dataTable({ cols, rows, rowAttrs: u => `data-action="open-user" data-value="${u.login}"`, emptyTitle: 'No users match these filters', emptyHint: 'Try clearing some filters.' })}
         </div>
       </div>
-      ${anCard('Role Permissions', 'What each role can do (mock)', miniTable(['Feature', ...USER_ROLES],
-        ROLE_PERMISSIONS.map(([f, ...allowed]) => [f, ...allowed.map(a => a ? '<span class="text-emerald-600 font-semibold">Yes</span>' : '<span class="text-slate-400">—</span>')]), { right: [] }))}
     </div>`;
 }
 
@@ -261,60 +282,96 @@ function userDrawer(u) {
   const g = groupOf(u.group);
   const isSelf = u.login === 'demo_merchant';
   return drawerShell({
-    title: esc(u.name),
-    sub: `<span class="font-mono text-xs">${u.login}</span>${activeBadge(u.status === 'Active')}`,
+    title: 'User Details',
+    sub: `<span class="font-mono text-xs">${esc(u.login)}</span>${userStatus(u.status)}`,
     body: `
-      ${section('User', kvGrid([
-        kv('User Name', esc(u.name)), kv('Login Name', u.login, true), kv('Email Address', u.email), kv('Mobile Number', u.mobile, true),
-        kv('User Role', u.role), kv('Merchant App Role', u.appRole), kv('Store Group', esc(g?.name || '—')), kv('Login Status', u.status === 'Active' ? 'Active' : 'De-active'),
-        `<div class="col-span-2">${kv('Allowed IP List', u.ips || 'Any IP')}</div>`,
+      ${section('Login Information', detailList([
+        ['User Login ID', `<span class="font-mono">${esc(u.login)}</span>`],
+        ['Password', '<span class="text-slate-400">-----</span> <span class="text-xs text-slate-400">(never shown)</span>'],
+        ['User Role', esc(u.role)],
+        ['Allowed Store Groups', esc(g?.name || '')],
+        ['Merchant App Role', appRoleLabel(u.appRole)],
+        ['Status', userStatus(u.status)],
       ]))}
-      ${section('Activity', kvGrid([kv('Last Login', `${fmtDate(u.lastLogin)}, ${fmtTime(u.lastLogin)}`), kv('Created On', fmtDate(u.created))]))}
-      ${section('Stores this user can see', g ? `<div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>` : '—')}
-      ${section('Permissions', `<div class="space-y-1.5">${ROLE_PERMISSIONS.map(([f, ...allowed]) => { const on = allowed[USER_ROLES.indexOf(u.role)]; return `<div class="flex items-center gap-2 text-sm ${on ? 'text-slate-800' : 'text-slate-400'}">${ic(on ? 'check' : 'minus', `w-4 h-4 ${on ? 'text-emerald-600' : ''}`)}${f}</div>`; }).join('')}</div>`)}`,
+      ${section('Contact Information', detailList([
+        ['Name', esc([u.first, u.middle, u.last].filter(Boolean).join(' '))],
+        ['Email', esc(u.email)],
+        ['Mobile', `<span class="font-mono">${u.mobile}</span>`],
+        ['Phone', esc(u.phone)],
+        ['User Added By', esc(u.addedBy)],
+        ['Added On', `${fmtDate(u.created)}, ${fmtTime(u.created)}`],
+      ]))}
+      ${g ? section('Stores this user can see', `<div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>`) : ''}`,
     footer: isSelf ? '<span class="text-xs text-slate-500">This is your own account — change your password from Change Password.</span>' : `
-      <button data-action="toast" data-msg="Prototype: no password reset email was sent." class="${BTN_SECONDARY}">${ic('key-round', 'w-4 h-4')}Send Password Reset</button>
-      <button data-action="user-toggle" data-value="${u.login}" class="${u.status === 'Active' ? 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-600 bg-white border border-rose-200 rounded shadow-sm hover:bg-rose-50' : BTN_PRIMARY}">${ic(u.status === 'Active' ? 'user-x' : 'user-check', 'w-4 h-4')}${u.status === 'Active' ? 'Deactivate' : 'Activate'}</button>`,
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
+      <button data-action="edit-user" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('square-pen', 'w-4 h-4')}Update</button>`,
   });
 }
 
+const newUserDraft = (u) => ({
+  login0: u?.login || null, first: u?.first || '', middle: u?.middle || '', last: u?.last || '',
+  mobile: '', phone: u?.phone || '', email: '', login: u?.login || '', password: '', confirm: '',
+  role: u?.role || '', group: u?.group || 'G1', appRole: u?.appRole || '', status: u?.status || '', showPolicy: false,
+});
+
 function userFormDrawer() {
   const d = userDraft;
+  const e = formErrors;
+  const edit = !!d.login0;
+  const u = edit && USERS.find(x => x.login === d.login0);
   const inp = (key, attrs = '') => `<input data-user="${key}" value="${esc(d[key])}" class="${INPUT}" ${attrs}>`;
+  const sel = (key, list, placeholder) => `<select data-user="${key}" class="${INPUT}">${placeholder ? `<option value="">${placeholder}</option>` : ''}${options(list, d[key])}</select>`;
   return drawerShell({
-    wide: true,
-    title: 'Add User',
-    sub: '<span>The user gets an email to set their own password</span>',
+    wide: 'xl',
+    title: edit ? 'Update User' : 'Create User',
+    sub: `<span>${edit ? `<span class="font-mono">${esc(d.login0)}</span>` : 'New portal user for Demo Merchant Ltd.'}</span>`,
     body: `
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${field('Merchant Name', `<input value="Demo Merchant Ltd." disabled class="${INPUT} bg-slate-50 text-slate-500">`)}
-        ${field('User Name', inp('name', 'placeholder="Full name"'), { required: true, error: formErrors.name })}
-        ${field('Mobile Number', inp('mobile', 'inputmode="numeric" placeholder="01XXXXXXXXX"'), { required: true, error: formErrors.mobile })}
-        ${field('Email Address', inp('email', 'type="email" placeholder="name@company.com"'), { required: true, error: formErrors.email })}
-        ${field('Login Name', inp('login', 'placeholder="e.g. accounts_2"'), { required: true, error: formErrors.login, hint: 'Lowercase letters, numbers and _ only' })}
-        ${field('User Role', `<select data-user="role" class="${INPUT}">${options([['', 'Select user role'], ...USER_ROLES.map(r => [r, r])], d.role)}</select>`, { required: true, error: formErrors.role })}
-        ${field('Store Group', `<select data-user="group" class="${INPUT}">${options(STORE_GROUPS.map(g => [g.id, g.name]), d.group)}</select>`)}
-        ${field('Merchant App Role', `<select data-user="appRole" class="${INPUT}">${options(['Merchant App Role'], d.appRole)}</select>`)}
-        <div class="sm:col-span-2">${field('Allowed IP List', inp('ips', 'placeholder="Multiple IPs could be configured by comma separate."'), { error: formErrors.ips, hint: 'Leave empty to allow any IP' })}</div>
-        ${field('Login Status', `<select data-user="status" class="${INPUT}">${options([['Active', 'Active'], ['Inactive', 'De-active']], d.status)}</select>`)}
-      </div>
-      <p class="text-xs text-slate-500">Passwords are never set or shown by an admin — the new user sets their own from the email link.</p>`,
+      ${section('Profile Information', `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        ${field('First Name', inp('first'), { required: true, error: e.first })}
+        ${field('Middle Name', inp('middle'))}
+        ${field('Last Name', inp('last'))}
+        ${field('Mobile Number', inp('mobile', `inputmode="numeric" placeholder="${edit ? esc(u.mobile) + ' (unchanged)' : '01XXXXXXXXX'}"`), { required: !edit, error: e.mobile })}
+        ${field('Phone Number', inp('phone'))}
+        ${field('Email Address', inp('email', `type="email" placeholder="${edit ? esc(u.email) + ' (unchanged)' : 'name@company.com'}"`), { required: !edit, error: e.email })}
+      </div>`)}
+      ${section('Login Credentials', `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        ${field('Login Name', inp('login', `autocomplete="off" ${edit ? 'disabled' : ''}`), { required: true, error: e.login, hint: edit ? '' : 'Letters, numbers and . _ @ - (4–50)' })}
+        ${field('Login Password', inp('password', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.password, hint: edit ? 'Leave empty to keep the current password' : '' })}
+        ${field('Confirm Password', inp('confirm', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.confirm })}
+        ${field('User Role', sel('role', USER_ROLES, 'Select Role'), { required: true, error: e.role })}
+        ${field('Allowed Store Groups', sel('group', STORE_GROUPS.filter(g => g.active || g.id === d.group).map(g => [g.id, g.name])), { required: true })}
+        ${field('Merchant App Role', sel('appRole', APP_ROLES, 'Select Merchant App Role'))}
+        ${field('Login Status', sel('status', [['Active', 'Active'], ['Inactive', 'De-active']], 'Select Login Status'), { required: true, error: e.status })}
+      </div>`)}
+      <section class="rounded-lg border border-slate-200">
+        <button data-action="user-policy" aria-expanded="${d.showPolicy}" class="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-900">Password Policy${ic(d.showPolicy ? 'circle-minus' : 'circle-plus', 'w-5 h-5 text-slate-500')}</button>
+        ${d.showPolicy ? `<ul class="px-4 pb-4 space-y-1.5 text-sm">${PASSWORD_RULES.map(r => `<li class="flex items-center gap-2 ${d.password && r.test(d.password) ? 'text-emerald-700' : 'text-slate-600'}">${ic(d.password && r.test(d.password) ? 'circle-check' : 'circle', 'w-4 h-4 shrink-0')}${r.text}</li>`).join('')}</ul>` : ''}
+      </section>
+      <p class="flex items-start gap-2 text-xs text-slate-500">${ic('shield-check', 'w-4 h-4 shrink-0')}Prototype: passwords are only checked here, never stored or sent. Share the first password with the user in person, not by email or chat.</p>`,
     footer: `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="save-user" class="${BTN_PRIMARY}">${ic('user-plus', 'w-4 h-4')}Add User</button>`,
+      <button data-action="save-user" class="${BTN_PRIMARY}">${ic(edit ? 'save' : 'circle-plus', 'w-4 h-4')}${edit ? 'Update' : 'Create New'}</button>`,
   });
 }
 
 function validateUser() {
   const d = userDraft, e = {};
-  if (!d.name.trim()) e.name = 'Enter the user name.';
-  if (!/^01[3-9]\d{8}$/.test(d.mobile.trim())) e.mobile = 'Enter an 11-digit mobile number starting with 01.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = 'Enter a valid email address.';
-  if (!/^[a-z0-9_]{4,30}$/.test(d.login.trim())) e.login = 'Use 4–30 lowercase letters, numbers or _.';
-  else if (USERS.some(u => u.login === d.login.trim())) e.login = 'This login name is already taken.';
+  const edit = !!d.login0;
+  if (!d.first.trim()) e.first = 'Enter the first name.';
+  if ((!edit || d.mobile.trim()) && !/^(88)?01[3-9]\d{8}$/.test(d.mobile.trim())) e.mobile = 'Enter a valid mobile number, like 017XXXXXXXX.';
+  if ((!edit || d.email.trim()) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = 'Enter a valid email address.';
+  if (!edit) {
+    if (!/^[A-Za-z0-9._@-]{4,50}$/.test(d.login.trim())) e.login = 'Use 4–50 letters, numbers or . _ @ -';
+    else if (USERS.some(u => u.login.toLowerCase() === d.login.trim().toLowerCase())) e.login = 'This login name is already taken.';
+  }
+  if (!edit || d.password) {
+    const failed = PASSWORD_RULES.filter(r => !r.test(d.password));
+    if (!d.password) e.password = 'Enter a password.';
+    else if (failed.length) e.password = `Doesn't meet ${failed.length} password policy rule${failed.length > 1 ? 's' : ''} — see Password Policy below.`;
+    if (d.confirm !== d.password) e.confirm = 'Passwords do not match.';
+  }
   if (!d.role) e.role = 'Choose a role.';
-  const ips = d.ips.split(',').map(x => x.trim()).filter(Boolean);
-  if (ips.some(ip => !/^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(ip))) e.ips = 'Enter IPv4 addresses separated by commas.';
+  if (!d.status) e.status = 'Choose a login status.';
   return e;
 }
 

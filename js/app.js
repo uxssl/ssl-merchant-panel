@@ -75,6 +75,10 @@ function renderPage() {
     page.innerHTML = renderPaymentQr();
   } else if (path === EMI_PATH) {
     page.innerHTML = renderDigitalEmi();
+  } else if (path === TXN_RPT.gpay) {
+    page.innerHTML = renderGpayReport();
+  } else if (path === TXN_RPT.bqr) {
+    page.innerHTML = renderBanglaQrReport();
   } else if (path === AN.home) {
     page.innerHTML = renderReportsHome();
   } else if (path === AN.business) {
@@ -103,8 +107,6 @@ function renderPage() {
     page.innerHTML = renderGeneralTickets();
   } else if (path === SUP.service) {
     page.innerHTML = renderServiceDelivery();
-  } else if (path === ACC.myStores) {
-    page.innerHTML = renderMyStores();
   } else if (path === ACC.storeList) {
     page.innerHTML = renderStoreList();
   } else if (path === ACC.groups) {
@@ -169,9 +171,6 @@ const actions = {
   'mobile-nav': () => { mobileNav = !mobileNav; renderSidebar(); lucide.createIcons(); },
   'nav-parent': (el) => {
     const key = el.dataset.key;
-    const to = NAV.find(n => n.key === key).to;
-    // A parent with its own page opens it (the hashchange render expands it); clicking it again on that page toggles the list.
-    if (to && currentPath() !== to) { if (navCollapsed) collapsed = false; location.hash = '#' + to; return; }
     if (navCollapsed) { collapsed = false; expanded = key; }
     else expanded = expanded === key ? null : key;
     render();
@@ -302,16 +301,29 @@ const actions = {
     if (TXN_VIEWS[path]) return exportCsv(TXN_VIEWS[path]);
     if (path === REFUND_PATH) {
       return downloadCsv('refund-requests',
-        ['Refund Ref. ID', 'Requested On', 'Transaction ID', 'Store', 'Refund Type', 'Refund Amount (BDT)', 'Transaction Amount (BDT)', 'Status'],
-        refundRows(applied(pageState())).map(r => [r.ref, `${fmtDate(r.date)} ${fmtTime(r.date, true)}`, r.txn.id, r.storeName, r.type, r.amount.toFixed(2), r.txn.amount.toFixed(2), r.status]));
+        ['Refund Ref. ID', 'Merchant Ref. Code', 'Requested On', 'Transaction ID', 'Store', 'Card / Ref No (masked)', 'Refund Type', 'Refund Amount (BDT)', 'Transaction Amount (BDT)', 'Request Status', 'Approval Status'],
+        refundRows(applied(pageState())).map(r => [r.ref, r.merchantRef, `${fmtDate(r.date)} ${fmtTime(r.date, true)}`, r.txn.id, r.storeName, r.txn.account, r.type, r.amount.toFixed(2), r.txn.amount.toFixed(2), r.requestStatus, r.status]));
     }
     if (path === LINKS_PATH) {
-      return downloadCsv('payment-links', ['Payment Name', 'Refer Id', 'Store', 'Amount Type', 'Amount', 'Payment Type', 'Payments', 'Collected (BDT)', 'Created On', 'Status', 'Payment URL'],
-        linkRows(applied(pageState())).map(l => [l.name, l.ref, l.storeName, l.amountType, l.amount ?? '', l.paymentType, l.payments.length, linkCollected(l).toFixed(2), fmtDate(l.date), l.active ? 'Active' : 'Inactive', linkUrl(l.ref)]));
+      return downloadCsv('payment-links', ['Payment Name', 'Refer Id', 'Store', 'Amount Type', 'Amount', 'Amount List', 'Cart to Pay', 'Payments', 'Collected (BDT)', 'Created On', 'Status', 'Payment URL'],
+        linkRows(applied(pageState())).map(l => [l.name, l.ref, l.storeName, l.amountType, l.amount ?? '', l.amountList, l.cart, l.payments.length, linkCollected(l).toFixed(2), fmtDate(l.date), l.active ? 'Active' : 'Inactive', linkUrl(l.ref)]));
     }
     if (path === INVOICES_PATH) {
-      return downloadCsv('invoices', ['Invoice No', 'Customer', 'Store', 'Issue Date', 'Due Date', 'Subtotal', 'VAT', 'Total (BDT)', 'Status'],
-        invoiceRows(applied(pageState())).map(inv => { const t = invoiceTotals(inv); return [inv.no, inv.customer, inv.storeName, fmtDate(inv.date), fmtDate(inv.due), t.subtotal.toFixed(2), t.vat.toFixed(2), t.total.toFixed(2), inv.status]; }));
+      return downloadCsv('invoices', ['Invoice Id', 'Reference/Order ID', 'Invoice Reference', 'Customer', 'Email', 'Mobile', 'Store', 'Invoice Date', 'Expire Date', 'Created By', 'Invoice Amount (BDT)', 'Payment Status'],
+        invoiceRows(applied(pageState())).map(inv => [inv.no, inv.orderRef, inv.config, inv.customer, inv.email, inv.phone, inv.storeName, fmtDate(inv.date), fmtDate(inv.expires), inv.createdBy, invoiceTotal(inv).toFixed(2), inv.status]));
+    }
+    if (path === TXN_RPT.gpay || path === TXN_RPT.bqr) {
+      const gp = path === TXN_RPT.gpay;
+      return downloadCsv(gp ? 'google-pay-report' : 'bangla-qr-report', gp ? ['Date', 'OTP Based Amount', 'OTP Based Total Transactions', 'Direct Payment Amount', 'Direct Payment Total Transactions', 'Total Transactions', 'Total Amount'] : ['Date', 'Transaction Amount (BDT)', 'Total Transactions'],
+        rptDays(gp ? 'Google Pay' : 'Bangla QR').map(d => gp ? [fmtDate(d.day), d.otpAmt.toFixed(2), d.otpN, d.directAmt.toFixed(2), d.directN, d.n, d.amount.toFixed(2)] : [fmtDate(d.day), d.amount.toFixed(2), d.n]));
+    }
+    if (path === CMP.partner) {
+      return downloadCsv('partnership-campaigns', ['Tracking Id', 'Campaign Name', 'Bank Name', 'Start Date', 'End Date', 'Merchant Last Participation Date', 'Status', 'Stores Joined'],
+        campaignRows(PARTNER_CAMPAIGNS, applied(pageState())).map(c => [c.tracking, c.name, c.bank, fmtDate(c.start), fmtDate(c.end), fmtDate(c.last), c.status, joinedStores(c).map(storeName).join('; ')]));
+    }
+    if (path === CMP.merchant) {
+      return downloadCsv('merchant-campaigns', ['Tracking Id', 'Campaign Name', 'Start Date', 'End Date', 'Bank Communicator', 'Card BIN / Banks', 'Status', 'Stores'],
+        campaignRows(MERCHANT_CAMPAIGNS, applied(pageState())).map(c => [c.tracking, c.name, fmtDate(c.start), fmtDate(c.end), c.communicator, (c.communicator === 'SSL' ? [...c.banks, ...c.mfs, ...c.ib] : c.bins).join('; '), c.status, joinedStores(c).map(storeName).join('; ')]));
     }
     if (path === EMI_PATH) {
       return downloadCsv('emi-requests', ['EMI Ref. Id', 'Requested On', 'Store', 'Transaction ID', 'TXN Amount', 'EMI Amount', 'Tenure', 'EMI Issuer Bank', 'Status', 'Bank Status'],
@@ -324,8 +336,8 @@ const actions = {
     }
     if (path === CB_PATH) {
       return downloadCsv('chargeback-requests',
-        ['Chargeback Ref. ID', 'Requested On', 'Transaction ID', 'Store', 'Stage', 'Reason', 'Amount (BDT)', 'Respond By', 'Status'],
-        cbRows(applied(pageState())).map(c => [c.ref, `${fmtDate(c.date)} ${fmtTime(c.date, true)}`, c.txn.id, c.storeName, c.stage, c.reason, c.amount.toFixed(2), CB_OPEN.has(c.status) ? fmtDate(c.respondBy) : '', c.status]));
+        ['Chargeback Ref. ID', 'Merchant Ref. Code', 'Requested On', 'Transaction ID', 'Store', 'Card / Ref No (masked)', 'Reason', 'Chargeback Amount (BDT)', 'Request Status (SSL)', 'Approval Status (My)'],
+        cbRows(applied(pageState())).map(c => [c.ref, c.merchantRef, `${fmtDate(c.date)} ${fmtTime(c.date, true)}`, c.txn.id, c.storeName, c.txn.account, c.reason, c.amount.toFixed(2), c.status, MY_CB_LABEL[c.myStatus]]));
     }
   },
   'copy': async (el) => {
@@ -344,9 +356,64 @@ const actions = {
       toast(ok ? 'Copied to clipboard' : 'Could not copy — select the text and copy it manually', ok ? 'success' : 'info');
     }
   },
-  'open-txn': (el) => { drawer = { kind: 'txn', item: TXNS.find(t => t.id === el.dataset.value) }; renderDrawer(); },
+  'open-txn': (el) => {
+    const t = TXNS.find(x => x.id === el.dataset.value);
+    drawer = { kind: 'txn', item: t };
+    renderDrawer();
+    // As in the old panel, opening a successful payment clears its "read" mark.
+    if (!t.viewed) { t.viewed = true; if (TXN_VIEWS[currentPath()]) render(); }
+  },
+  'rpt-view': (el) => { rptView[el.dataset.key] = el.dataset.value; render(); },
+  'txn-panel': (el) => { txnPanels[el.dataset.value] = !txnPanels[el.dataset.value]; render(); },
+  'txn-symbols': () => { txnPanels.symbols = true; render(); $('#symbol-meaning')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  'ipn-resend': () => toast('IPN resent to your listener URL (prototype — nothing was sent)', 'success'),
+  'new-refund': () => { refundDraft = newRefundDraft(); formErrors = {}; drawer = { kind: 'refund-new', item: null }; renderDrawer(); },
+  'refund-for-txn': (el) => { refundDraft = newRefundDraft(el.dataset.value); lookupRefundTxn(); drawer = { kind: 'refund-new', item: null }; renderDrawer(); },
+  'refund-lookup': () => { lookupRefundTxn(); renderDrawer(); },
+  'refund-open': () => { refundDraft.open = true; formErrors = {}; renderDrawer(); },
+  'save-refund': () => {
+    formErrors = validateRefund();
+    if (Object.keys(formErrors).length) { renderDrawer(); return; }
+    const d = refundDraft, t = d.txn, now = new Date();
+    const stamp = `${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const rf = {
+      ref: `R${stamp}-${String(Math.floor(Math.random() * 1e5)).padStart(5, '0')}`, txn: t, date: new Date(NOW), // NOW keeps it inside 'All Time' status: 'Initiate', requestStatus: 'Success',
+      requestedBy: 'demo_merchant', remarks: d.remarks.trim(), type: d.type, amount: d.type === 'Full' ? t.amount : Number(d.amount),
+      merchantRef: d.merchantRef.trim(), store: t.store, storeName: t.storeName,
+    };
+    REFUNDS.unshift(rf);
+    REFUND_BY_TXN.set(t.id, rf);
+    refundDraft = null; formErrors = {};
+    drawer = { kind: 'refund', item: rf };
+    renderDrawer(); render();
+    toast('Refund request created (prototype — nothing was sent to the bank)', 'success');
+  },
+  'refund-cancel': (el) => {
+    const rf = REFUNDS.find(r => r.ref === el.dataset.value);
+    Object.assign(rf, { status: 'Cancelled', requestStatus: 'Cancel', approvedOn: new Date(), approvedBy: 'demo_merchant', approvalRemarks: 'Cancelled at merchant request' });
+    renderDrawer(); render();
+    toast('Refund request cancelled (prototype)', 'success');
+  },
+  'cb-approve': (el) => {
+    const c = CHARGEBACKS.find(x => x.ref === el.dataset.value);
+    Object.assign(c, { myStatus: 'Approve', status: 'Processing', approvedOn: new Date(), approvedBy: 'demo_merchant', approvalRemarks: 'Approved by merchant' });
+    renderDrawer(); render();
+    toast('Chargeback approved — the amount will be adjusted from settlement (prototype)', 'success');
+  },
+  'cb-deny': (el) => { cbDecision = { ref: el.dataset.value, remarks: '' }; formErrors = {}; renderDrawer(); },
+  'cb-deny-cancel': () => { cbDecision = null; formErrors = {}; renderDrawer(); },
+  'cb-deny-submit': (el) => {
+    cbDecision.remarks = $('#cb-remarks').value.trim();
+    formErrors = cbDecision.remarks ? {} : { cbRemarks: 'Write why you are denying it — the bank sees this.' };
+    if (formErrors.cbRemarks) { renderDrawer(); return; }
+    const c = CHARGEBACKS.find(x => x.ref === el.dataset.value);
+    Object.assign(c, { myStatus: 'Deny', status: 'Processing', approvedOn: new Date(), approvedBy: 'demo_merchant', approvalRemarks: cbDecision.remarks });
+    cbDecision = null;
+    renderDrawer(); render();
+    toast('Chargeback denied — SSLCOMMERZ will send your reason to the bank (prototype)', 'success');
+  },
   'open-refund': (el) => { drawer = { kind: 'refund', item: REFUNDS.find(r => r.ref === el.dataset.value) }; renderDrawer(); },
-  'open-cb': (el) => { drawer = { kind: 'cb', item: CHARGEBACKS.find(c => c.ref === el.dataset.value) }; renderDrawer(); },
+  'open-cb': (el) => { cbDecision = null; formErrors = {}; drawer = { kind: 'cb', item: CHARGEBACKS.find(c => c.ref === el.dataset.value) }; renderDrawer(); },
   'open-settlement': (el) => { drawer = { kind: 'settlement', item: SETTLEMENTS.find(x => x.ref === el.dataset.value) }; renderDrawer(); },
   'open-fy': (el) => { drawer = { kind: 'fy', item: { y: Number(el.dataset.year), storeId: el.dataset.store } }; renderDrawer(); },
   'fy-toggle': (el) => { const y = Number(el.dataset.value); fyOpen.has(y) ? fyOpen.delete(y) : fyOpen.add(y); render(); },
@@ -390,7 +457,26 @@ const actions = {
   'faq-cat': (el) => { faqState.cat = el.dataset.value; faqState.open = null; render(); },
   'learn-tab': (el) => { learn.tab = el.dataset.value; render(); },
   'open-video': (el) => { drawer = { kind: 'video', item: VIDEOS.find(v => v.id === el.dataset.value) }; renderDrawer(); },
-  'open-store': (el) => { drawer = { kind: 'store', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'open-store': (el) => { openDD = null; render(); drawer = { kind: 'store', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'store-charge': (el) => { openDD = null; render(); drawer = { kind: 'store-charge', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'store-bank': (el) => { openDD = null; render(); drawer = { kind: 'store-bank', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'store-set-group': (el) => openStoreSettings('group', el.dataset.value, { group: storeGroupOf(el.dataset.value)?.id || '' }),
+  'store-ipn': (el) => openStoreSettings('ipn', el.dataset.value, { ...storeCfg(el.dataset.value).ipn }),
+  'store-gw': (el) => openStoreSettings('gw', el.dataset.value, { ...storeCfg(el.dataset.value).gw }),
+  'save-store-settings': () => {
+    formErrors = validateStoreSettings();
+    if (Object.keys(formErrors).length) { renderDrawer(); return; }
+    const { kind, id, ...fields } = storeDraft;
+    if (kind === 'group') {
+      STORE_GROUPS.forEach(g => { if (!g.system) g.stores = g.stores.filter(x => x !== id); });
+      groupOf(fields.group).stores.push(id);
+    } else {
+      Object.assign(storeCfg(id)[kind], Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])));
+    }
+    storeDraft = null; drawer = null; formErrors = {};
+    renderDrawer(); render();
+    toast(`${{ group: 'Store group', ipn: 'IPN settings', gw: 'Gateway settings' }[kind]} saved for ${id} (prototype)`, 'success');
+  },
   'store-txns': (el) => {
     Object.assign(txnState('all'), { search: '', status: 'all', method: 'all', store: el.dataset.value, range: makeRange('30d'), page: 1 });
     drawer = null; renderDrawer();
@@ -413,11 +499,18 @@ const actions = {
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     let g = d.id && groupOf(d.id);
     if (g) Object.assign(g, { name: d.name.trim(), description: d.description.trim(), stores: [...d.stores] });
-    else { g = { id: `G${STORE_GROUPS.length + 1}${alnum(3)}`, name: d.name.trim(), description: d.description.trim(), stores: [...d.stores] }; STORE_GROUPS.push(g); }
+    else { g = { id: `G${STORE_GROUPS.length + 1}${alnum(3)}`, name: d.name.trim(), description: d.description.trim(), stores: [...d.stores], active: true }; STORE_GROUPS.push(g); }
     groupDraft = null;
     drawer = { kind: 'group', item: g };
     renderDrawer(); render();
     toast('Store group saved (prototype)', 'success');
+  },
+  'group-toggle': (el) => {
+    const g = groupOf(el.dataset.value);
+    g.active = !g.active;
+    if (drawer) renderDrawer();
+    render();
+    toast(`Store group ${g.active ? 'activated' : 'deactivated'} (prototype)`, 'success');
   },
   'delete-group': (el) => {
     STORE_GROUPS.splice(STORE_GROUPS.findIndex(g => g.id === el.dataset.value), 1);
@@ -425,30 +518,29 @@ const actions = {
     toast('Store group deleted (prototype)', 'success');
   },
   'open-user': (el) => { drawer = { kind: 'user', item: USERS.find(u => u.login === el.dataset.value) }; renderDrawer(); },
-  'new-user': () => { userDraft = { name: '', mobile: '', email: '', login: '', role: '', group: 'G1', appRole: 'Merchant App Role', ips: '', status: 'Active' }; formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
+  'new-user': () => { userDraft = newUserDraft(); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
+  'edit-user': (el) => { userDraft = newUserDraft(USERS.find(u => u.login === el.dataset.value)); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
+  'user-policy': () => { userDraft.showPolicy = !userDraft.showPolicy; renderDrawer(); },
   'save-user': () => {
     formErrors = validateUser();
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     const d = userDraft;
-    const email = d.email.trim();
-    const user = {
-      login: d.login.trim(), name: d.name.trim(), role: d.role, group: d.group, status: d.status, appRole: d.appRole,
-      ips: d.ips.split(',').map(x => x.trim()).filter(Boolean).join(', '),
-      // Keep only masked contact details, like the rest of the portal.
-      email: `${email[0]}•••••@${email.split('@')[1]}`, mobile: `01•••••${d.mobile.trim().slice(-3)}`,
-      lastLogin: new Date(NOW), created: new Date(NOW),
+    const email = d.email.trim(), mobile = d.mobile.trim();
+    // Only masked contact details are kept, and the password is never stored (prototype).
+    const fields = {
+      first: d.first.trim(), middle: d.middle.trim(), last: d.last.trim(), phone: d.phone.trim(),
+      role: d.role, group: d.group, appRole: d.appRole, status: d.status,
+      ...(email ? { email: `${email[0]}•••••@${email.split('@')[1]}` } : {}),
+      ...(mobile ? { mobile: `01•••••${mobile.slice(-3)}` } : {}),
     };
-    USERS.push(user);
+    fields.name = `${fields.first} ${fields.last}`.trim();
+    let user = d.login0 && USERS.find(u => u.login === d.login0);
+    if (user) Object.assign(user, fields);
+    else { user = { login: d.login.trim(), ...fields, addedBy: 'demo_merchant', lastLogin: new Date(NOW), created: new Date(NOW) }; USERS.push(user); }
     userDraft = null;
     drawer = { kind: 'user', item: user };
     renderDrawer(); render();
-    toast('User added — prototype, no invitation email was sent', 'success');
-  },
-  'user-toggle': (el) => {
-    const u = USERS.find(x => x.login === el.dataset.value);
-    u.status = u.status === 'Active' ? 'Inactive' : 'Active';
-    renderDrawer(); render();
-    toast(`User ${u.status === 'Active' ? 'activated' : 'deactivated'} (prototype)`, 'success');
+    toast(d.login0 ? 'User updated (prototype)' : 'User created — prototype, nothing was sent and the password was not stored', 'success');
   },
   'pw-toggle': (el) => {
     const input = $(`#${el.dataset.value}`);
@@ -469,10 +561,8 @@ const actions = {
   },
   'open-tt': (el) => { formErrors = {}; drawer = { kind: 'tt', item: TXN_TICKETS.find(t => t.no === el.dataset.value) }; renderDrawer(); },
   'open-gt': (el) => { formErrors = {}; drawer = { kind: 'gt', item: GEN_TICKETS.find(t => t.no === el.dataset.value) }; renderDrawer(); },
-  'open-sr': (el) => { drawer = { kind: 'sr', item: SERVICE_REQUESTS.find(r => r.no === el.dataset.value) }; renderDrawer(); },
   'new-tt': (el) => { ticketDraft = { txnId: el.dataset.value || '', queries: [], text: '' }; formErrors = {}; drawer = { kind: 'tt-new', item: null }; renderDrawer(); },
   'new-gt': () => { ticketDraft = { title: '', type: '', store: '', text: '', attachment: null }; formErrors = {}; drawer = { kind: 'gt-new', item: null }; renderDrawer(); },
-  'new-sr': () => { ticketDraft = { type: '', store: STORES[0].id, qty: '1', text: '' }; formErrors = {}; drawer = { kind: 'sr-new', item: null }; renderDrawer(); },
   'save-tt': () => {
     const d = ticketDraft;
     const txn = TXNS.find(t => t.id.toLowerCase() === d.txnId.trim().toLowerCase());
@@ -511,35 +601,18 @@ const actions = {
     renderDrawer(); render();
     toast('Ticket submitted (prototype — saved in this page only)', 'success');
   },
-  'save-sr': () => {
-    const d = ticketDraft;
-    const type = SERVICE_TYPES.find(t => t.v === d.type);
-    const qty = Number(d.qty) || 1;
-    formErrors = {};
-    if (!type) formErrors.type = 'Choose a service.';
-    if (qty < 1 || qty > 50) formErrors.qty = 'Enter 1–50.';
-    if (Object.keys(formErrors).length) { renderDrawer(); return; }
-    const store = STORES.find(st => st.id === d.store);
-    const req = {
-      no: `SR${ymd(NOW)}${digits(4)}`, date: new Date(NOW), type: type.v, sla: type.sla, due: endOfDay(addDays(TODAY, type.sla)),
-      store: store.id, storeName: store.name, qty: ['QR Standee Delivery', 'Branding Materials'].includes(type.v) ? qty : 1,
-      stage: 'Requested', stageIndex: 0, stageAt: [new Date(NOW)], assignee: 'Assigned after approval', notes: d.text.trim(), rating: null,
-    };
-    SERVICE_REQUESTS.unshift(req);
-    ticketDraft = null;
-    drawer = { kind: 'sr', item: req };
-    renderDrawer(); render();
-    toast('Service requested (prototype — saved in this page only)', 'success');
+  'get-deliverables': () => {
+    const rows = pendingDeliverables();
+    downloadCsv('ServiceDeliverables', DELIVERY_COLUMNS, rows.map((t, i) => [i + 1, t.id, `${toDateInput(t.date)} ${pad(t.date.getHours())}:${pad(t.date.getMinutes())}`, t.bankTranId, t.store, t.invoiceId, '', '', '', '', '', '', '']));
   },
-  'cancel-sr': (el) => {
-    Object.assign(SERVICE_REQUESTS.find(r => r.no === el.dataset.value), { stage: 'Cancelled', stageIndex: -1 });
+  'upload-delivery': () => { deliveryDraft = { file: null, error: '' }; formErrors = {}; drawer = { kind: 'delivery-upload', item: null }; renderDrawer(); },
+  'save-delivery': async () => {
+    if (!deliveryDraft.file) { formErrors = { file: 'Choose the delivery file (.csv) to upload.' }; renderDrawer(); return; }
+    const result = processDeliveryFile(deliveryDraft.file.name, await deliveryDraft.file.text());
+    if (result.error) { formErrors = { file: result.error }; renderDrawer(); return; }
+    deliveryDraft = null; drawer = null; formErrors = {};
     renderDrawer(); render();
-    toast('Request cancelled (prototype)', 'success');
-  },
-  'rate-sr': (el) => {
-    SERVICE_REQUESTS.find(r => r.no === el.dataset.value).rating = Number(el.dataset.rating);
-    renderDrawer();
-    toast('Thanks for the rating (prototype)', 'success');
+    toast(result.status === 'Success' ? `${result.found} of ${result.rows} transactions marked delivered (prototype)` : 'No matching escrow transaction found in the file', result.status === 'Success' ? 'success' : 'info');
   },
   'send-reply': (el) => {
     const text = $('#reply-text').value.trim();
@@ -550,54 +623,53 @@ const actions = {
     renderDrawer();
     if (text) toast('Reply added (prototype — not sent to support)', 'success');
   },
-  'partner-tab': (el) => { partnerTab = el.dataset.value; render(); },
-  'open-partner': (el) => { drawer = { kind: 'partner', item: PARTNER_CAMPAIGNS.find(c => c.id === el.dataset.value) }; renderDrawer(); },
-  'join-partner': (el) => {
-    const c = PARTNER_CAMPAIGNS.find(x => x.id === el.dataset.value);
-    joinDraft = { id: c.id, stores: [], agree: false };
-    formErrors = {};
-    drawer = { kind: 'partner-join', item: null };
-    renderDrawer();
-  },
-  'submit-join': () => {
-    formErrors = {};
-    if (!joinDraft.stores.length) formErrors.stores = 'Choose at least one store.';
-    if (!joinDraft.agree) formErrors.agree = 'Accept the cost share to continue.';
+  'open-partner': (el) => { partnerDraft = null; formErrors = {}; drawer = { kind: 'partner', item: PARTNER_CAMPAIGNS.find(c => c.id === el.dataset.value) }; renderDrawer(); },
+  'edit-partner': (el) => { partnerDraft = newPartnerDraft(PARTNER_CAMPAIGNS.find(c => c.id === el.dataset.value)); formErrors = {}; drawer = { kind: 'partner-edit', item: null }; renderDrawer(); },
+  'save-partner': () => {
+    formErrors = validatePartner();
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
-    const c = PARTNER_CAMPAIGNS.find(x => x.id === joinDraft.id);
-    Object.assign(c, { participation: 'Created', stores: [...joinDraft.stores] });
-    joinDraft = null;
+    const c = PARTNER_CAMPAIGNS.find(x => x.id === partnerDraft.id);
+    c.discounts = Object.fromEntries(Object.entries(partnerDraft.rows).filter(([, r]) => r.on).map(([id, r]) => [id,
+      pDiscount(Number(r.pct), r.burned, Number(r.minOrder), Number(r.maxPerTxn), Number(r.perUser), r.remarks.trim())]));
+    partnerDraft = null;
     drawer = { kind: 'partner', item: c };
     renderDrawer(); render();
-    toast('Request sent to your KAM (prototype)', 'success');
+    toast(joinedStores(c).length ? `Discounts updated for ${joinedStores(c).length} store${joinedStores(c).length > 1 ? 's' : ''} (prototype)` : 'All stores removed from this campaign (prototype)', 'success');
   },
-  'withdraw-partner': (el) => {
-    const c = PARTNER_CAMPAIGNS.find(x => x.id === el.dataset.value);
-    Object.assign(c, { participation: 'Not joined', stores: [] });
-    renderDrawer(); render();
-    toast('Request withdrawn (prototype)', 'success');
-  },
-  'open-mc': (el) => { drawer = { kind: 'mc', item: MERCHANT_CAMPAIGNS.find(c => c.id === el.dataset.value) }; renderDrawer(); },
+  'open-mc': (el) => { mcDraft = null; formErrors = {}; drawer = { kind: 'mc', item: MERCHANT_CAMPAIGNS.find(c => c.id === el.dataset.value) }; renderDrawer(); },
   'new-mc': () => { mcDraft = newMcDraft(); formErrors = {}; drawer = { kind: 'mc-new', item: null }; renderDrawer(); },
-  'save-mc': (el) => {
+  'edit-mc': (el) => { mcDraft = newMcDraft(MERCHANT_CAMPAIGNS.find(c => c.id === el.dataset.value)); formErrors = {}; drawer = { kind: 'mc-new', item: null }; renderDrawer(); },
+  'mc-bin-remove': (el) => { mcDraft.bins.splice(mcDraft.bins.indexOf(el.dataset.value), 1); renderDrawer(); },
+  'save-mc': () => {
+    if (mcDraft.binInput.trim()) { addMcBin(); if (formErrors.bins) return; }
     formErrors = validateMc();
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     const d = mcDraft;
-    const c = {
-      id: `MC${alnum(6)}`, tracking: alnum(20), name: d.name.trim(), description: d.description.trim(),
-      start: new Date(`${d.start}T00:00`), end: endOfDay(new Date(`${d.end}T00:00`)),
-      stores: [...d.stores], banks: [...d.banks], mfs: [...d.mfs], ib: [...d.ib],
-      type: d.type, value: Number(d.value), max: d.type === 'Percentage' ? Number(d.max) : Number(d.value),
-      minOrder: Number(d.minOrder) || 0, perUser: Number(d.perUser), status: el.dataset.value,
+    const fields = {
+      name: d.name.trim(), start: new Date(`${d.start}T00:00`), end: endOfDay(new Date(`${d.end}T00:00`)), communicator: d.communicator,
+      bins: d.communicator === 'Merchant' ? [...d.bins] : [], banks: d.communicator === 'SSL' ? [...d.banks] : [], mfs: d.communicator === 'SSL' ? [...d.mfs] : [], ib: d.communicator === 'SSL' ? [...d.ib] : [],
+      discounts: Object.fromEntries(Object.entries(d.rows).filter(([, r]) => r.on).map(([id, r]) => [id,
+        mDiscount(Number(r.pct), r.observed, Number(r.minOrder), Number(r.maxPerTxn), Number(r.maxPerCard), Number(r.perUser), r.remarks.trim())])),
     };
-    MERCHANT_CAMPAIGNS.unshift(c);
+    let c = d.id && MERCHANT_CAMPAIGNS.find(x => x.id === d.id);
+    if (c) Object.assign(c, fields);
+    else {
+      const created = new Date();
+      c = { id: `MC${alnum(6)}`, tracking: trackingId(created), created, status: 'Created', ...fields };
+      MERCHANT_CAMPAIGNS.unshift(c);
+    }
     mcDraft = null; formErrors = {};
     drawer = { kind: 'mc', item: c };
     renderDrawer(); render();
-    toast(c.status === 'Pending' ? 'Submitted to your KAM for approval (prototype)' : 'Saved as draft (prototype)', 'success');
+    toast(d.id ? 'Campaign updated (prototype)' : 'Campaign created (prototype — saved in this page only)', 'success');
   },
-  'mc-submit': (el) => { MERCHANT_CAMPAIGNS.find(c => c.id === el.dataset.value).status = 'Pending'; renderDrawer(); render(); toast('Submitted to your KAM for approval (prototype)', 'success'); },
-  'mc-close': (el) => { MERCHANT_CAMPAIGNS.find(c => c.id === el.dataset.value).status = 'Closed'; renderDrawer(); render(); toast('Campaign closed (prototype)', 'success'); },
+  'mc-cancel': (el) => {
+    const c = MERCHANT_CAMPAIGNS.find(x => x.id === el.dataset.value);
+    c.status = 'Canceled';
+    if (drawer) renderDrawer();
+    render();
+    toast('Campaign canceled (prototype)', 'success');
+  },
   'cal-nav': (el) => {
     const step = Number(el.dataset.value);
     cal.month = step === 0 ? new Date(NOW.getFullYear(), NOW.getMonth(), 1) : new Date(cal.month.getFullYear(), cal.month.getMonth() + step, 1);
@@ -609,19 +681,15 @@ const actions = {
   'new-link': () => { linkDraft = newLinkDraft(); formErrors = {}; drawer = { kind: 'link-new', item: null }; renderDrawer(); },
   'save-link': () => {
     const d = linkDraft;
-    formErrors = {};
-    if (!d.name.trim()) formErrors.name = 'Enter a payment name.';
-    if (d.amountType === 'Fixed' && !(Number(d.amount) > 0)) formErrors.amount = 'Enter an amount greater than 0.';
-    if (d.convOn && !(Number(d.convFee) > 0 && Number(d.convFee) <= 10)) formErrors.convFee = 'Enter a fee between 0.1 and 10.';
+    formErrors = validateLink();
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     const store = STORES.find(st => st.id === d.store);
+    const amount = Number(d.amount) > 0 ? Number(d.amount) : null;
     const link = {
-      ref: alnum(13), name: d.name.trim(), store: store.id, storeName: store.name, date: new Date(NOW), // NOW keeps it inside 'All Time'
-      payType: 'Payment Link', paymentType: d.paymentType, amountType: d.amountType,
-      amount: d.amountType === 'Fixed' ? Number(d.amount) : null, amountText: d.amountText,
-      convFee: d.convOn ? Number(d.convFee) : 0, buttonName: d.buttonName || 'Pay Now',
-      productDetails: d.productDetails, topMessage: d.topMessage, buttonMessage: d.buttonMessage,
-      domainUrl: '', colors: { ...d.colors }, active: true, payments: [],
+      ...d, ref: alnum(13), name: d.name.trim(), store: store.id, storeName: store.name, date: new Date(NOW), // NOW keeps it inside 'All Time'
+      amount, amountType: d.amountType || (amount ? 'Fixed' : 'Dynamic'), cart: d.cart || 'No', showTerms: d.showTerms || 'No',
+      buttonName: d.buttonName.trim() || 'Pay Now', validity: d.validity.trim(),
+      custom: structuredClone(d.custom), colors: { ...d.colors }, active: true, payments: [],
     };
     PAYMENT_LINKS.unshift(link);
     linkDraft = null;
@@ -636,39 +704,47 @@ const actions = {
     toast(`Link ${l.active ? 'activated' : 'deactivated'} (prototype)`, 'success');
   },
   'new-invoice': () => { invDraft = newInvoiceDraft(); formErrors = {}; drawer = { kind: 'invoice-new', item: null }; renderDrawer(); },
+  'inv-proceed': () => {
+    formErrors = invDraft.config ? {} : { config: 'Choose a configuration.' };
+    if (!formErrors.config) invDraft.step = 'form';
+    renderDrawer();
+  },
+  'inv-back': () => { invDraft.step = 'config'; formErrors = {}; renderDrawer(); },
   'inv-add-item': () => { invDraft.items.push({ desc: '', qty: '1', price: '' }); renderDrawer(); },
   'inv-remove-item': (el) => { invDraft.items.splice(Number(el.dataset.value), 1); renderDrawer(); },
-  'save-invoice': (el) => {
+  'save-invoice': () => {
     formErrors = validateInvoice();
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     const d = invDraft;
-    const store = STORES.find(st => st.id === d.store);
+    const link = PAYMENT_LINKS.find(l => l.ref === d.config);
     const phone = d.phone.trim();
     const email = d.email.trim();
+    const id = d.customerId.trim();
     const inv = {
-      no: `INV-${NOW.getFullYear()}-${1040 + INVOICES.length}`, ref: alnum(13), store: store.id, storeName: store.name,
+      no: `INV${alnum(13)}`, orderRef: d.orderRef.trim(), config: link.ref, configName: link.name, store: link.store, storeName: link.storeName,
       // Only masked contact details are kept, the same as the rest of the portal.
-      customer: d.customer.trim(), phone: `01•••••${phone.slice(-3)}`, email: email ? `${email[0]}•••••@${email.split('@')[1]}` : '—',
-      date: new Date(NOW), due: endOfDay(new Date(`${d.due}T00:00`)), vatRate: Number(d.vatRate) || 0, notes: d.notes.trim(),
-      items: d.items.filter(it => it.desc.trim() && Number(it.qty) > 0 && Number(it.price) > 0).map(it => ({ desc: it.desc.trim(), qty: Number(it.qty), price: Number(it.price) })),
-      status: el.dataset.value, viewed: false,
+      customer: d.customer.trim(), phone: `01•••••${phone.slice(-3)}`, email: `${email[0]}•••••@${email.split('@')[1]}`, customerId: id ? `•••••${id.slice(-4)}` : '',
+      date: new Date(NOW), expires: invoiceExpiry(NOW, link.validity), createdBy: USERS[0].login,
+      items: d.items.map(it => ({ desc: it.desc.trim(), qty: Number(it.qty), price: Number(it.price) })),
+      status: 'Unpaid',
     };
     INVOICES.unshift(inv);
     invDraft = null; formErrors = {};
     drawer = { kind: 'invoice', item: inv };
     renderDrawer(); render();
-    toast(inv.status === 'Sent' ? 'Invoice created — prototype, no SMS or email was sent' : 'Invoice saved as draft (prototype)', 'success');
+    toast('Invoice created — prototype, no email or SMS was sent', 'success');
   },
-  'invoice-send': (el) => {
-    const inv = INVOICES.find(i => i.no === el.dataset.value);
-    inv.status = NOW > inv.due ? 'Overdue' : 'Sent';
-    renderDrawer(); render();
-    toast('Marked as sent — prototype, no SMS or email was sent', 'success');
+  'invoice-resend': (el) => {
+    INVOICES.find(i => i.no === el.dataset.value).resentAt = new Date();
+    if (drawer) renderDrawer();
+    toast('Invoice email resent — prototype, nothing was sent', 'success');
   },
+  'invoice-download': () => toast('Prototype: invoice PDF download is not wired up.'),
   'invoice-cancel': (el) => {
-    INVOICES.find(i => i.no === el.dataset.value).status = 'Cancelled';
-    renderDrawer(); render();
-    toast('Invoice cancelled (prototype)', 'success');
+    INVOICES.find(i => i.no === el.dataset.value).status = 'Canceled';
+    if (drawer) renderDrawer();
+    render();
+    toast('Invoice canceled (prototype)', 'success');
   },
   'qr-generate': () => {
     qrGen.store = $('#qr-store').value;
@@ -679,14 +755,35 @@ const actions = {
     render();
   },
   'qr-txns': (el) => {
-    Object.assign(txnState('bangla-qr'), { search: '', status: 'all', store: el.dataset.value, range: makeRange('today'), page: 1 });
-    location.hash = '#/transactions/bangla-qr';
+    const s = txnState('all');
+    Object.assign(s, { search: '', status: 'all', method: 'Bangla QR', range: makeRange('today'), page: 1 });
+    s.applied = snapshotFilters(s);
+    location.hash = '#/transactions/all';
   },
   'an-preset': (el) => { an.preset = el.dataset.value; render(); },
   'an-export': () => { if (anExport) downloadCsv(anExport.name, anExport.header, anExport.rows); },
   'emi-tab': (el) => { emiTab = el.dataset.value; openDD = null; render(); },
-  'track': () => { tracking.query = $('#track-input').value; runTracking(); render(); },
-  'track-sample': (el) => { tracking.query = el.dataset.value; runTracking(); render(); },
+  'emi-fold': (el) => { const c = emiForm.collapsed, name = el.dataset.value; c.has(name) ? c.delete(name) : c.add(name); render(); },
+  'emi-all': (el) => {
+    const on = el.dataset.value === 'on';
+    for (const b of EMI_BANKS) emiForm.banks[b.name] = { on, tenures: Object.fromEntries(b.tenures.map(m => [m, on])) };
+    render();
+  },
+  'emi-save': () => {
+    const f = emiForm;
+    const enabled = f.model !== 'disable';
+    f.error = !f.agree ? 'Agree to the terms and conditions to update the EMI configuration.'
+      : enabled && !EMI_BANKS.some(b => f.banks[b.name].on && b.tenures.some(m => f.banks[b.name].tenures[m])) ? 'Turn on at least one bank with one tenure, or set EMI Status to Disable.' : '';
+    if (!f.error) {
+      EMI_CONFIG[f.store] = { model: f.model, banks: structuredClone(f.banks) };
+      EMI_STORES[f.store] = enabled;
+      toast(`EMI configuration updated for ${STORES.find(st => st.id === f.store).name} (prototype)`, 'success');
+    }
+    render();
+  },
+  'track': () => { runTracking(); render(); },
+  'track-reset': () => { Object.assign(tracking, { merchant: '', bkash: '', nagad: '', results: null }); render(); },
+  'track-sample': (el) => { Object.assign(tracking, { merchant: '', bkash: '', nagad: '' }, { [el.dataset.key]: el.dataset.value }); runTracking(); render(); },
   'cb-needs-response': () => {
     const s = pageState();
     Object.assign(s, { status: 'action', range: makeRange('all'), page: 1 });
@@ -721,6 +818,26 @@ document.addEventListener('mousedown', (e) => {
   if (headerMenu && !e.target.closest('[data-header-menu]')) openHeaderMenu(null);
 });
 
+const syncLinkPreview = () => { const el = $('#link-preview'); if (el) el.innerHTML = payPagePreview(linkDraft); lucide.createIcons(); };
+const setLinkCustom = (ref, value) => {
+  const [f, key] = ref.split('|');
+  (linkDraft.custom[f] ||= { type: LINK_FIELD_TYPES[0] })[key] = value;
+  syncLinkPreview();
+};
+
+// Ticking a store row enables its discount inputs without redrawing the (long) form.
+function syncDiscountRow(scope, id, on) {
+  document.querySelectorAll(`[data-${scope}-row^="${id}|"]`).forEach(el => { el.disabled = !on; });
+  document.querySelector(`[data-${scope}-on="${id}"]`)?.closest('tr')?.classList.toggle('bg-primary-50/40', on);
+}
+
+function openStoreSettings(kind, id, fields) {
+  openDD = null; render();
+  storeDraft = { kind, id, ...fields }; formErrors = {};
+  drawer = { kind: 'store-settings', item: null };
+  renderDrawer();
+}
+
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id === 'global-search') {
@@ -728,22 +845,30 @@ document.addEventListener('input', (e) => {
     if (headerMenu !== 'search') { openHeaderMenu('search'); return; }
     $('#search-results').innerHTML = searchResults(); lucide.createIcons();
   }
-  if (t.id === 'track-input') tracking.query = t.value;
+  if (t.dataset.track) tracking[t.dataset.track] = t.value;
+  if (t.id === 'unsettled-search') { unsettledQ = t.value; $('#unsettled-table').innerHTML = unsettledTable(); }
   if (t.id === 'qr-amount') qrGen.amount = t.value;
-  if (t.id === 'emi-calc-amount') { emiCalc.amount = t.value; $('#emi-calc-result').innerHTML = emiCalcResult(); }
   if (t.dataset.link && linkDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') {
     linkDraft[t.dataset.link] = t.value;
-    $('#link-preview').innerHTML = payPagePreview(linkDraft);
+    syncLinkPreview();
   }
-  if (t.dataset.linkColor && linkDraft) { linkDraft.colors[t.dataset.linkColor] = t.value; $('#link-preview').innerHTML = payPagePreview(linkDraft); }
+  if (t.dataset.linkCf && linkDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') setLinkCustom(t.dataset.linkCf, t.value);
+  if (t.dataset.linkColor && linkDraft) { linkDraft.colors[t.dataset.linkColor] = t.value; syncLinkPreview(); }
   if (t.dataset.inv && invDraft && t.tagName !== 'SELECT') invDraft[t.dataset.inv] = t.value;
+  if (t.dataset.refund && refundDraft && t.tagName !== 'SELECT') refundDraft[t.dataset.refund] = t.value;
+  if (t.id === 'cb-remarks' && cbDecision) cbDecision.remarks = t.value;
   if (t.dataset.mc && mcDraft && t.tagName !== 'SELECT') mcDraft[t.dataset.mc] = t.value;
+  for (const [scope, draft] of [['pc', partnerDraft], ['mc', mcDraft]]) {
+    const cell = draft && t.tagName !== 'SELECT' && t.getAttribute(`data-${scope}-row`);
+    if (cell) { const [id, key] = cell.split('|'); draft.rows[id][key] = t.value; }
+  }
   if (t.dataset.group && groupDraft) groupDraft[t.dataset.group] = t.value;
   if (t.dataset.other && otherDraft) otherDraft[t.dataset.other] = t.value;
   if (t.id === 'fx-amount') { fx.amount = t.value; $('#fx-result').innerHTML = fxResult(); }
   if (t.id === 'faq-search') { faqState.q = t.value; faqState.open = null; $('#faq-list').innerHTML = faqList(); lucide.createIcons(); }
   if (t.id === 'learn-search') { learn.q = t.value; render(); }
   if (t.dataset.user && userDraft && t.tagName !== 'SELECT') userDraft[t.dataset.user] = t.value;
+  if (t.dataset.store && storeDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') storeDraft[t.dataset.store] = t.value;
   if (t.id === 'pw-new') syncPasswordRules();
   if (['pw-old', 'pw-new', 'pw-confirm'].includes(t.id)) setPwError(t.id, '');
   if (t.dataset.ticket && ticketDraft && t.tagName !== 'SELECT') {
@@ -771,25 +896,34 @@ document.addEventListener('change', (e) => {
   }
   if (t.dataset.change === 'page-size') { const s = pageState(); s.pageSize = Number(t.value); s.page = 1; render(); }
   if (t.id === 'qr-store') qrGen.store = t.value;
-  if (t.id === 'emi-calc-bank') { emiCalc.bank = t.value; $('#emi-calc-result').innerHTML = emiCalcResult(); }
+  if (t.id === 'emi-store') { loadEmiForm(t.value); render(); }
+  if (t.id === 'emi-model') emiForm.model = t.value;
+  if (t.id === 'emi-agree') { emiForm.agree = t.checked; if (emiForm.error) { emiForm.error = ''; render(); } }
+  if (t.dataset.emiBank && emiForm) { emiForm.banks[t.dataset.emiBank].on = t.checked; render(); }
+  if (t.dataset.emiTenure && emiForm) { const [bank, m] = t.dataset.emiTenure.split('|'); emiForm.banks[bank].tenures[m] = t.checked; }
   if (t.dataset.link && linkDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) {
     linkDraft[t.dataset.link] = t.type === 'checkbox' ? t.checked : t.value;
-    if (t.hasAttribute('data-rerender')) renderDrawer(); else $('#link-preview').innerHTML = payPagePreview(linkDraft);
+    if (t.hasAttribute('data-rerender')) renderDrawer(); else syncLinkPreview();
   }
+  if (t.dataset.linkCf && linkDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) setLinkCustom(t.dataset.linkCf, t.type === 'checkbox' ? t.checked : t.value);
+  if (t.hasAttribute('data-link-banner') && linkDraft) { linkDraft.banner = t.files[0]?.name || ''; renderDrawer(); }
   if (t.dataset.inv && invDraft && t.tagName === 'SELECT') { invDraft[t.dataset.inv] = t.value; syncInvoiceTotals(); }
+  if (t.id === 'delivery-file' && deliveryDraft) { deliveryDraft.file = t.files[0] || null; formErrors = {}; renderDrawer(); }
+  if (t.dataset.refund && refundDraft && t.tagName === 'SELECT') { refundDraft[t.dataset.refund] = t.value; if (t.hasAttribute('data-rerender')) renderDrawer(); }
   if (t.dataset.mc && mcDraft && t.tagName === 'SELECT') { mcDraft[t.dataset.mc] = t.value; if (t.hasAttribute('data-rerender')) renderDrawer(); }
   if (t.dataset.mcCheck && mcDraft) {
     const list = mcDraft[t.dataset.mcCheck];
     t.checked ? list.push(t.value) : list.splice(list.indexOf(t.value), 1);
-    renderDrawer();
   }
-  if (t.dataset.joinStore && joinDraft) {
-    const list = joinDraft.stores;
-    t.checked ? list.push(t.dataset.joinStore) : list.splice(list.indexOf(t.dataset.joinStore), 1);
+  for (const [scope, draft] of [['pc', partnerDraft], ['mc', mcDraft]]) {
+    if (!draft) continue;
+    const on = t.getAttribute(`data-${scope}-on`), cell = t.getAttribute(`data-${scope}-row`);
+    if (on) { draft.rows[on].on = t.checked; syncDiscountRow(scope, on, t.checked); }
+    if (cell && t.tagName === 'SELECT') { const [id, key] = cell.split('|'); draft.rows[id][key] = t.value; }
   }
-  if (t.hasAttribute('data-join-agree') && joinDraft) joinDraft.agree = t.checked;
   if (t.dataset.calToggle) { cal[t.dataset.calToggle] = t.checked; render(); }
   if (t.dataset.user && userDraft && t.tagName === 'SELECT') userDraft[t.dataset.user] = t.value;
+  if (t.dataset.store && storeDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) storeDraft[t.dataset.store] = t.type === 'checkbox' ? t.checked : t.value;
   if (t.id === 'fx-code') { fx.code = t.value; $('#fx-result').innerHTML = fxResult(); }
   if (t.dataset.otherRadio && otherDraft) { otherDraft[t.dataset.otherRadio] = t.value; renderDrawer(); }
   if (t.id === 'sms-alert') { sms.lowAlert = t.checked; render(); }
@@ -813,7 +947,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); document.querySelector(`[data-search-item="${search.active}"]`)?.click(); return; }
   }
   if (e.key === 'Enter' && (t.id === 'txn-search' || t.id === 'list-search')) { commitFilters(pageState()); render(); return; }
-  if (e.key === 'Enter' && t.id === 'track-input') { tracking.query = t.value; runTracking(); render(); return; }
+  if (e.key === 'Enter' && t.dataset.track) { runTracking(); render(); return; }
+  if (e.key === 'Enter' && t.id === 'refund-txn' && refundDraft) { e.preventDefault(); lookupRefundTxn(); renderDrawer(); return; }
+  if (e.key === 'Enter' && t.id === 'mc-bin' && mcDraft) { e.preventDefault(); addMcBin(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute?.('role') === 'button' && t.dataset.action) { e.preventDefault(); t.click(); return; }
   if (e.key === 'Tab' && drawer) {
     // Keep focus inside the open drawer.

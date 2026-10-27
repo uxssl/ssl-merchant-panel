@@ -20,9 +20,9 @@ function renderTxnTickets() {
   const cols = [
     { label: 'Requested On', cell: t => dateCell(t.date) },
     { label: 'Ticket No', cell: t => idCell(t.no) },
-    { label: 'Store', cls: 'hidden lg:table-cell', cell: t => esc(t.storeName) },
+    { label: 'Store', cls: 'hidden xl:table-cell', cell: t => esc(t.storeName) },
     { label: 'Transaction ID', cell: t => `<div class="font-mono text-xs text-slate-800">${t.txn.id}</div><div class="text-xs text-slate-500 whitespace-nowrap">${fmtBDT(t.txn.amount)} · ${t.txn.method}</div>` },
-    { label: 'Query For', cls: 'hidden xl:table-cell', cell: t => `<div class="flex flex-wrap gap-1">${t.queries.map(q => `<span class="px-2 py-0.5 rounded bg-slate-100 text-[11px] text-slate-700">${q}</span>`).join('')}</div>` },
+    { label: 'Query For', cell: t => `<div class="flex flex-wrap gap-1 max-w-[260px]">${t.queries.map(q => `<span class="px-2 py-0.5 rounded bg-slate-100 text-[11px] text-slate-700">${q}</span>`).join('')}</div>` },
     { label: 'Status', cell: t => supBadge(TT_CLS, t.status) },
   ];
   return `

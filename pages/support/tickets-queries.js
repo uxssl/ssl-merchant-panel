@@ -18,12 +18,13 @@ function renderGeneralTickets() {
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Open (Pending + Processing)', value: 'open' }, ...Object.keys(GT_CLS).map(v => ({ label: v, value: v }))];
   const typeOpts = [{ label: 'All Issue Type', value: 'all' }, ...ISSUE_TYPES.map(v => ({ label: v, value: v }))];
   const cols = [
-    { label: 'Created On', cell: t => dateCell(t.date) },
+    { label: 'Created At', cell: t => dateCell(t.date) },
     { label: 'Resolved On', cls: 'hidden xl:table-cell', cell: t => t.resolvedAt ? dateCell(t.resolvedAt) : '<span class="text-slate-400">—</span>' },
     { label: 'Ticket No', cell: t => `<span class="font-mono text-xs text-slate-800">${t.no}</span>` },
     { label: 'Title', cell: t => `<div class="font-medium text-slate-800">${esc(t.title)}</div><div class="text-xs text-slate-500 lg:hidden">${t.type}</div>` },
     { label: 'Issue Type', cls: 'hidden lg:table-cell', cell: t => `<span class="text-xs text-slate-600">${t.type}</span>` },
-    { label: 'Attachment', cls: 'hidden xl:table-cell', cell: t => t.attachment ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600">${ic('paperclip', 'w-3.5 h-3.5')}${esc(t.attachment)}</span>` : '<span class="text-slate-400">—</span>' },
+    { label: 'Attachment', cell: t => t.attachment ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600 max-w-[160px]" title="${esc(t.attachment)}">${ic('paperclip', 'w-3.5 h-3.5 shrink-0')}<span class="truncate">${esc(t.attachment)}</span></span>` : '<span class="text-slate-400">—</span>' },
+    { label: 'Created By', cell: t => `<span class="font-mono text-xs text-slate-700">${esc(t.createdBy)}</span>` },
     { label: 'Status', cell: t => supBadge(GT_CLS, t.status) },
   ];
   return `
@@ -78,7 +79,7 @@ function gtDrawer(t) {
       ]))}
       ${section('Metadata', kvGrid([
         kv('Created By', t.createdBy, true),
-        kv('Created On', `${fmtDate(t.date)}, ${fmtTime(t.date)}`),
+        kv('Created At', `${fmtDate(t.date)}, ${fmtTime(t.date)}`),
         kv('Resolved By', t.resolvedBy || '—'),
         kv('Resolved On', t.resolvedAt ? `${fmtDate(t.resolvedAt)}, ${fmtTime(t.resolvedAt)}` : '—'),
       ]))}

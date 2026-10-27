@@ -6,17 +6,9 @@ const NAV = [
   {
     key: 'transactions', label: 'Transactions', icon: 'credit-card', children: [
       { label: 'All Transactions', to: '/transactions/all' },
-      { label: 'Google Pay Transactions', to: '/transactions/google-pay' },
-      { label: 'Bangla QR Transactions', to: '/transactions/bangla-qr' },
       { label: 'Transaction ID Tracking', to: '/transactions/tracking' },
       { label: 'Refund Requests', to: '/transactions/refund-requests' },
       { label: 'Chargeback Requests', to: '/transactions/chargeback-requests' },
-    ]
-  },
-  {
-    key: 'settlements', label: 'Settlements & Accounting', icon: 'banknote', children: [
-      { label: 'Settlement Report', to: '/settlements/settlement-report' },
-      { label: 'Financial Year Report', to: '/settlements/financial-year-report' },
     ]
   },
   {
@@ -28,8 +20,9 @@ const NAV = [
     ]
   },
   {
-    // A parent with its own `to` opens that page (the reports landing) as well as expanding.
-    key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', to: '/analytics', children: [
+    // No sidebar submenu: the item opens the reports landing, which links to each report.
+    // `pages` keeps the reports in header search and highlights the item while one is open.
+    key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', to: '/analytics', pages: [
       { label: 'Business Analytics', to: '/analytics/business-analytics' },
       { label: 'Market Share', to: '/analytics/market-share' },
       { label: 'Geographic Analytics', to: '/analytics/geographic-analytics' },
@@ -37,6 +30,10 @@ const NAV = [
       { label: 'Browsers & Devices', to: '/analytics/browsers-devices' },
       { label: 'Issuer Location', to: '/analytics/issuer-location' },
       { label: 'Saved Card Analytics', to: '/analytics/saved-card-analytics' },
+      { label: 'Google Pay Transaction Report', to: '/analytics/google-pay-report' },
+      { label: 'Bangla QR Transaction Report', to: '/analytics/bangla-qr-report' },
+      { label: 'Settlement Report', to: '/analytics/settlement-report' },
+      { label: 'Financial Year Report', to: '/analytics/financial-year-report' },
     ]
   },
   {
@@ -55,7 +52,6 @@ const NAV = [
   },
   {
     key: 'account', label: 'Account & Settings', icon: 'settings', children: [
-      { label: 'My Stores', to: '/account/my-stores' },
       { label: 'Store List', to: '/account/store-list' },
       { label: 'Store Groups', to: '/account/store-groups' },
       { label: 'User Management', to: '/account/user-management' },
@@ -82,6 +78,4 @@ const NAV = [
 
 const TXN_VIEWS = {
   '/transactions/all': { key: 'all', title: 'All Transactions', sub: 'Monitor and search all payments across your stores.' },
-  '/transactions/google-pay': { key: 'google-pay', title: 'Google Pay Transactions', sub: 'Payments made with Google Pay across your stores.', lockMethod: 'Google Pay' },
-  '/transactions/bangla-qr': { key: 'bangla-qr', title: 'Bangla QR Transactions', sub: 'Payments received through Bangla QR across your stores.', lockMethod: 'Bangla QR' },
 };

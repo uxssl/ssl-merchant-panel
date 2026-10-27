@@ -274,7 +274,7 @@ function renderDashboard() {
           </div>
 
           <div class="${DASH_CARD}">
-            ${dashHead('Settlement', 'Estimated, mock values', linkMore('#/settlements/settlement-report', 'Report'))}
+            ${dashHead('Settlement', 'Estimated, mock values', linkMore('#/analytics/settlement-report', 'Report'))}
             <div class="p-4 space-y-3">
               <div class="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2.5">
                 <p class="text-xs font-semibold text-primary-700">Pending Settlement</p>
