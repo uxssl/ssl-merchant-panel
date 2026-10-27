@@ -89,8 +89,8 @@ function txnCell(key, t) {
       <div class="text-[11px] text-slate-500 whitespace-nowrap">Receivable: <span class="font-medium text-slate-700">${fmtBDT(t.amount - t.fee)}</span></div>` : ''}`;
     case 'status': return `<div class="flex flex-col items-start gap-1">${t.onHold ? symbolChip('bg-slate-200 text-slate-700', 'Success', 'Payment Hold for this transaction.') : badge(shownStatus(t))}${!t.viewed ? symbolChip('bg-[#0b3a63] text-white', 'read', 'Details not viewed yet') : ''}<div class="flex flex-wrap gap-1">${txnSymbols(t)}</div></div>`;
     case 'action': return `<div class="flex items-center gap-1">
-      <button data-action="open-txn" data-value="${t.id}" title="Details" aria-label="Details of ${t.id}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>
-      <button data-action="new-tt" data-value="${t.id}" title="Raise a ticket about this transaction" aria-label="Raise a ticket about ${t.id}" class="p-1.5 rounded bg-[#b8902a] text-white hover:opacity-90">${ic('circle-help', 'w-3.5 h-3.5')}</button>
+      ${rowAction('open-txn', t.id, 'eye', 'Details', { title: `Details of ${t.id}` })}
+      ${rowAction('new-tt', t.id, 'circle-help', 'Ticket', { title: `Raise a ticket about ${t.id}` })}
     </div>`;
   }
 }
