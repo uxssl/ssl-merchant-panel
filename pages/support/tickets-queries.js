@@ -25,7 +25,7 @@ function renderGeneralTickets() {
     { label: 'Created By', cell: t => `<span class="font-mono text-xs text-slate-700">${esc(t.createdBy)}</span>` },
     { label: 'Created At', cell: t => dateCell(t.date) },
     { label: 'Status', cell: t => supBadge(GT_CLS, t.status) },
-    { label: 'Action', cell: t => `<button data-action="open-gt" data-value="${t.no}" title="Details" aria-label="Details of ${t.no}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
+    { label: 'Action', cell: t => rowAction('open-gt', t.no, 'eye', 'Details', { title: `Details of ${t.no}` }) },
   ];
   return `
     <div class="space-y-6">
