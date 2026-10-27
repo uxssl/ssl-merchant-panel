@@ -2,7 +2,7 @@
 // Saved Card Analytics
 // =====================================================================
 function renderSavedCards() {
-  return analyticsShell('Saved Card Analytics', 'How saved (tokenized) cards speed up checkout for returning customers.', (all) => {
+  return analyticsShell('Save Card & MOTO Transactions', 'How saved (tokenized) cards speed up checkout for returning customers.', (all) => {
     const cards = all.filter(t => t.savedCard !== undefined);
     if (!cards.length) {
       return anCard('Saved cards are available on online checkout', '', `<p class="text-sm text-slate-500">Saved cards are offered on the hosted checkout of <strong>Demo Online Shop</strong>. Include that store (or All Stores) to see this report.</p>`);

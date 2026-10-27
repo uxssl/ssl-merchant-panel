@@ -18,14 +18,14 @@ function renderGeneralTickets() {
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Open (Pending + Processing)', value: 'open' }, ...Object.keys(GT_CLS).map(v => ({ label: v, value: v }))];
   const typeOpts = [{ label: 'All Issue Type', value: 'all' }, ...ISSUE_TYPES.map(v => ({ label: v, value: v }))];
   const cols = [
-    { label: 'Created At', cell: t => dateCell(t.date) },
-    { label: 'Resolved On', cls: 'hidden xl:table-cell', cell: t => t.resolvedAt ? dateCell(t.resolvedAt) : '<span class="text-slate-400">—</span>' },
     { label: 'Ticket No', cell: t => `<span class="font-mono text-xs text-slate-800">${t.no}</span>` },
     { label: 'Title', cell: t => `<div class="font-medium text-slate-800">${esc(t.title)}</div><div class="text-xs text-slate-500 lg:hidden">${t.type}</div>` },
     { label: 'Issue Type', cls: 'hidden lg:table-cell', cell: t => `<span class="text-xs text-slate-600">${t.type}</span>` },
     { label: 'Attachment', cell: t => t.attachment ? `<span class="inline-flex items-center gap-1 text-xs text-slate-600 max-w-[160px]" title="${esc(t.attachment)}">${ic('paperclip', 'w-3.5 h-3.5 shrink-0')}<span class="truncate">${esc(t.attachment)}</span></span>` : '<span class="text-slate-400">—</span>' },
     { label: 'Created By', cell: t => `<span class="font-mono text-xs text-slate-700">${esc(t.createdBy)}</span>` },
+    { label: 'Created At', cell: t => dateCell(t.date) },
     { label: 'Status', cell: t => supBadge(GT_CLS, t.status) },
+    { label: 'Action', cell: t => `<button data-action="open-gt" data-value="${t.no}" title="Details" aria-label="Details of ${t.no}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
   ];
   return `
     <div class="space-y-6">
@@ -34,7 +34,7 @@ function renderGeneralTickets() {
           <h1 class="text-2xl font-bold text-slate-900">Tickets & Queries</h1>
           <p class="text-slate-500 text-sm">General questions and requests — gateway, QR, EMI, payment links and account changes.</p>
         </div>
-        <button data-action="new-gt" class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}New Ticket</button>
+        <button data-action="new-gt" class="${BTN_PRIMARY} shrink-0">${ic('circle-plus', 'w-4 h-4')}Raise a Ticket/Query</button>
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Ticket No or Title',
@@ -51,7 +51,7 @@ function renderGeneralTickets() {
         </div>
         <div class="space-y-4 pt-6">
           ${listToolbar(rows.length, 'tickets', applied(s))}
-          ${dataTable({ cols, rows: pageRows, rowAttrs: t => `data-action="open-gt" data-value="${t.no}"`, emptyTitle: 'No tickets found' })}
+          ${dataTable({ cols, rows: pageRows, rowAttrs: t => `data-action="open-gt" data-value="${t.no}"`, emptyTitle: 'No tickets found', serial: start + 1 })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>
       </div>
@@ -91,18 +91,15 @@ function gtDrawer(t) {
 function gtFormDrawer() {
   const d = ticketDraft;
   return drawerShell({
-    title: 'New Ticket',
+    title: 'Raise a Ticket/Query',
     sub: '<span>For questions about a specific payment, use Transaction Tickets</span>',
     body: `
       ${field('Title', `<input data-ticket="title" value="${esc(d.title)}" placeholder="Short summary" class="${INPUT}">`, { required: true, error: formErrors.title })}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        ${field('Issue Type', `<select data-ticket="type" class="${INPUT}">${options([['', 'Select one'], ...ISSUE_TYPES.map(v => [v, v])], d.type)}</select>`, { required: true, error: formErrors.type })}
-        ${field('Store', `<select data-ticket="store" class="${INPUT}">${options([['', 'All / not store-specific'], ...STORES.map(st => [st.id, st.name])], d.store)}</select>`)}
-      </div>
       ${field('Description', `<textarea data-ticket="text" rows="5" class="${INPUT}" placeholder="What happened, and what do you need?">${esc(d.text)}</textarea>`, { required: true, error: formErrors.text })}
-      ${field('Attachment', `<input type="file" data-ticket-file accept=".png,.jpg,.jpeg,.pdf" class="block w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-1.5 file:rounded file:border-0 file:bg-slate-100 file:text-slate-700 file:text-xs file:font-medium">`, { hint: d.attachment ? `Selected: ${esc(d.attachment)} — prototype keeps the file name only, nothing is uploaded.` : 'PNG, JPG or PDF. Prototype: nothing is uploaded.' })}`,
+      ${field('Issue Type', `<select data-ticket="type" class="${INPUT}">${options([['', 'Select Issue Type'], ...ISSUE_TYPES.map(v => [v, v])], d.type)}</select>`, { required: true, error: formErrors.type })}
+      ${field('Upload Attachment', `<input type="file" data-ticket-file accept=".png,.jpg,.jpeg,.pdf" class="block w-full text-sm text-slate-600 file:mr-3 file:px-3 file:py-1.5 file:rounded file:border-0 file:bg-slate-100 file:text-slate-700 file:text-xs file:font-medium">`, { error: formErrors.attachment, hint: d.attachment ? `Selected: ${esc(d.attachment)} — prototype keeps the file name only, nothing is uploaded.` : 'We accept only PDF, JPG, JPEG, PNG files, and file size should not exceed 2MB.' })}`,
     footer: `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="save-gt" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Submit Ticket</button>`,
+      <button data-action="save-gt" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Submit</button>`,
   });
 }

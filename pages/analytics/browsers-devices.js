@@ -2,7 +2,7 @@
 // Browsers & Devices
 // =====================================================================
 function renderBrowsersDevices() {
-  return analyticsShell('Browsers & Devices', 'What customers use to pay — device, operating system and browser.', (list) => {
+  return analyticsShell('Users Browsers/Devices', 'What customers use to pay — device, operating system and browser.', (list) => {
     const DEVICES = ['Mobile', 'Desktop', 'Tablet'];
     const devices = groupRows(list, 'device', DEVICES);
     const os = groupRows(list, 'os');

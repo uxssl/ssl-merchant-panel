@@ -250,7 +250,7 @@ function cbDrawer(c) {
 }
 
 let drawerReturnFocus = null;
-const FIELD_KEYS = ['id', 'data-link', 'data-link-color', 'data-inv', 'data-inv-item', 'data-mc', 'data-ticket', 'data-user', 'data-group', 'data-other', 'data-pc-row', 'data-mc-row', 'data-pc-on', 'data-mc-on', 'data-group-store', 'data-refund', 'data-store'];
+const FIELD_KEYS = ['id', 'data-link', 'data-link-color', 'data-inv', 'data-inv-item', 'data-mc', 'data-ticket', 'data-user', 'data-group', 'data-other', 'data-pc-row', 'data-mc-row', 'data-pc-on', 'data-mc-on', 'data-refund', 'data-store'];
 // Remembers which field had focus so a re-render (validation, add item…) can put it back.
 function focusKey(el) {
   if (!el || el === document.body) return null;

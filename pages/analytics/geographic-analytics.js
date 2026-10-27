@@ -2,7 +2,7 @@
 // Geographic Analytics
 // =====================================================================
 function renderGeographic() {
-  return analyticsShell('Geographic Analytics', 'Where your customers pay from, by division and district.', (list) => {
+  return analyticsShell('GEO Location', 'Where your customers pay from, by division and district.', (list) => {
     const divisions = groupRows(list, 'division').sort((a, b) => b.sales - a.sales);
     const local = list.filter(t => t.division !== 'International');
     const districts = groupRows(local, 'district').sort((a, b) => b.sales - a.sales);

@@ -280,6 +280,7 @@ function draftError(r) {
   if (daily && r.daily.from === r.daily.to) return 'Start and end time can’t be the same.';
   // Old panel rule for the transaction list: searching from and to must be within 90 days.
   if (TXN_VIEWS[currentPath()] && r.to - r.from > 90 * 864e5) return 'Searching from and to must be within 90 days.';
+  if (currentPath() === SETTLEMENT_PATH && r.to - r.from > 30 * 864e5) return 'The difference between from date and to date cannot exceed 30 days.';
   return '';
 }
 

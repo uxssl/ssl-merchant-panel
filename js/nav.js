@@ -7,6 +7,7 @@ const NAV = [
     key: 'transactions', label: 'Transactions', icon: 'credit-card', children: [
       { label: 'All Transactions', to: '/transactions/all' },
       { label: 'Transaction ID Tracking', to: '/transactions/tracking' },
+      { label: 'Currency Rate Conversion', to: '/transactions/currency-rates' },
       { label: 'Refund Requests', to: '/transactions/refund-requests' },
       { label: 'Chargeback Requests', to: '/transactions/chargeback-requests' },
     ]
@@ -25,11 +26,11 @@ const NAV = [
     key: 'analytics', label: 'Analytics & Reports', icon: 'trending-up', to: '/analytics', pages: [
       { label: 'Business Analytics', to: '/analytics/business-analytics' },
       { label: 'Market Share', to: '/analytics/market-share' },
-      { label: 'Geographic Analytics', to: '/analytics/geographic-analytics' },
+      { label: 'GEO Location', to: '/analytics/geographic-analytics' },
       { label: 'Mobile Operators', to: '/analytics/mobile-operators' },
-      { label: 'Browsers & Devices', to: '/analytics/browsers-devices' },
+      { label: 'Users Browsers/Devices', to: '/analytics/browsers-devices' },
       { label: 'Issuer Location', to: '/analytics/issuer-location' },
-      { label: 'Saved Card Analytics', to: '/analytics/saved-card-analytics' },
+      { label: 'Saved Card', to: '/analytics/saved-card-analytics' },
       { label: 'Google Pay Transaction Report', to: '/analytics/google-pay-report' },
       { label: 'Bangla QR Transaction Report', to: '/analytics/bangla-qr-report' },
       { label: 'Settlement Report', to: '/analytics/settlement-report' },
@@ -62,7 +63,6 @@ const NAV = [
   {
     key: 'others', label: 'Others', icon: 'ellipsis', bottom: true, children: [
       { label: 'Refer & Earn', to: '/others/refer-earn' },
-      { label: 'Currency Conversion Rates', to: '/others/currency-conversion-rates' },
       { label: 'Value Added Services (VAS)', to: '/others/vas' },
       { label: 'SMS Purchase', to: '/others/sms-purchase' },
     ]

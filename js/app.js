@@ -215,7 +215,6 @@ const actions = {
     const { scope, key, value } = el.dataset;
     if (scope === 'dash') dash[key] = value;
     else if (scope === 'an') an[key] = value;
-    else if (scope === 'learn') learn[key] = value;
     else { const s = pageState(); s[key] = value; s.page = 1; }
     openDD = null;
     render();
@@ -433,34 +432,36 @@ const actions = {
     location.hash = '#/transactions/all';
   },
   'close-drawer': () => closeDrawer(),
-  'new-referral': () => { otherDraft = { name: '', mobile: '' }; formErrors = {}; drawer = { kind: 'referral-new', item: null }; renderDrawer(); },
+  'new-referral': () => { otherDraft = { store: '', email: '', phone: '' }; formErrors = {}; drawer = { kind: 'referral-new', item: null }; renderDrawer(); },
   'save-referral': () => {
     const d = otherDraft;
     formErrors = {};
-    if (!d.name.trim()) formErrors.name = 'Enter the business name.';
-    if (!/^01[3-9]\d{8}$/.test(d.mobile.trim())) formErrors.mobile = 'Enter an 11-digit mobile number starting with 01.';
+    if (!d.store) formErrors.store = 'Select your store.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) formErrors.email = 'Enter a valid email address.';
+    if (!/^01[3-9]\d{8}$/.test(d.phone.trim())) formErrors.phone = 'Enter an 11-digit mobile number starting with 01.';
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
-    REFERRALS.unshift({ name: d.name.trim(), status: 'Invited', bonus: 'Not yet eligible', date: new Date(TODAY), contact: `01•••••${d.mobile.trim().slice(-3)}` });
+    const [user, domain] = d.email.trim().split('@');
+    REFERRALS.unshift({ store: d.store, status: 'Referred', disbursement: 'Pending', date: new Date(TODAY), email: `${user[0]}•••@${domain}`, phone: `01•••••${d.phone.trim().slice(-3)}` });
     otherDraft = null; drawer = null; renderDrawer(); render();
-    toast('Invite added — prototype, no SMS was sent', 'success');
+    toast('Referral added — prototype, nothing was sent', 'success');
   },
-  'fx-dir': (el) => { fx.dir = el.dataset.value; render(); },
-  'fx-chart': (el) => { fx.chart = el.dataset.value; render(); },
-  'vas-tab': (el) => { vasTab = el.dataset.value; render(); },
-  'vas-interest': (el) => {
-    VAS_SERVICES.find(v => v.id === el.dataset.value).status = 'Requested';
+  'vas-apply': (el) => {
+    VAS_SERVICES.find(v => v.id === el.dataset.value).applied = true;
     render();
-    toast('Your KAM will contact you (prototype — no lead was created)', 'success');
+    toast('Prototype: no request was sent to the team', 'success');
   },
-  'sms-buy': (el) => { otherDraft = { pkg: el.dataset.value, pay: 'settlement' }; drawer = { kind: 'sms-buy', item: null }; renderDrawer(); },
-  'sms-confirm': () => {
-    otherDraft = null; drawer = null; renderDrawer();
-    toast('Prototype: no purchase was made and no money was charged', 'success');
+  'sms-select': (el) => { otherDraft = { pkg: el.dataset.value, agree: false, letter: '' }; formErrors = {}; drawer = { kind: 'sms-buy', item: null }; renderDrawer(); },
+  'sms-submit': () => {
+    const d = otherDraft;
+    formErrors = {};
+    if (!d.agree) formErrors.agree = 'Agree to the terms and conditions first.';
+    else if (!d.letter) formErrors.letter = 'Upload the signed declaration letter.';
+    if (Object.keys(formErrors).length) { renderDrawer(); return; }
+    SMS_REQUESTS.unshift({ ref: `SMS-${String(SMS_REQUESTS.length + 1).padStart(4, '0')}`, pkg: d.pkg, date: new Date(TODAY), letter: d.letter, status: 'Pending' });
+    otherDraft = null; drawer = null; renderDrawer(); render();
+    toast('Request submitted — prototype, nothing was uploaded or charged', 'success');
   },
-  'dev-tab': (el) => { devTab = el.dataset.value; render(); },
   'faq-toggle': (el) => { faqState.open = faqState.open === el.dataset.value ? null : el.dataset.value; $('#faq-list').innerHTML = faqList(); lucide.createIcons(); },
-  'faq-cat': (el) => { faqState.cat = el.dataset.value; faqState.open = null; render(); },
-  'learn-tab': (el) => { learn.tab = el.dataset.value; render(); },
   'open-video': (el) => { drawer = { kind: 'video', item: VIDEOS.find(v => v.id === el.dataset.value) }; renderDrawer(); },
   'open-store': (el) => { openDD = null; render(); drawer = { kind: 'store', item: accStore(el.dataset.value) }; renderDrawer(); },
   'store-charge': (el) => { openDD = null; render(); drawer = { kind: 'store-charge', item: accStore(el.dataset.value) }; renderDrawer(); },
@@ -493,20 +494,19 @@ const actions = {
     location.hash = '#' + SETTLEMENT_PATH;
   },
   'open-group': (el) => { drawer = { kind: 'group', item: groupOf(el.dataset.value) }; renderDrawer(); },
-  'new-group': () => { groupDraft = { id: null, name: '', description: '', stores: [] }; formErrors = {}; drawer = { kind: 'group-new', item: null }; renderDrawer(); },
-  'edit-group': (el) => { const g = groupOf(el.dataset.value); groupDraft = { id: g.id, name: g.name, description: g.description, stores: [...g.stores] }; formErrors = {}; drawer = { kind: 'group-new', item: null }; renderDrawer(); },
+  'new-group': () => { groupDraft = { id: null, name: '', status: '' }; formErrors = {}; drawer = { kind: 'group-new', item: null }; renderDrawer(); },
+  'edit-group': (el) => { const g = groupOf(el.dataset.value); groupDraft = { id: g.id, name: g.name, status: g.active ? 'Active' : 'Inactive' }; formErrors = {}; drawer = { kind: 'group-new', item: null }; renderDrawer(); },
   'save-group': () => {
     const d = groupDraft;
     formErrors = {};
     if (!d.name.trim()) formErrors.name = 'Enter a group name.';
     else if (STORE_GROUPS.some(g => g.id !== d.id && g.name.toLowerCase() === d.name.trim().toLowerCase())) formErrors.name = 'A group with this name already exists.';
-    if (!d.stores.length) formErrors.stores = 'Choose at least one store.';
+    if (!d.status) formErrors.status = 'Choose a status.';
     if (Object.keys(formErrors).length) { renderDrawer(); return; }
     let g = d.id && groupOf(d.id);
-    if (g) Object.assign(g, { name: d.name.trim(), description: d.description.trim(), stores: [...d.stores] });
-    else { g = { id: `G${STORE_GROUPS.length + 1}${alnum(3)}`, name: d.name.trim(), description: d.description.trim(), stores: [...d.stores], active: true }; STORE_GROUPS.push(g); }
-    groupDraft = null;
-    drawer = { kind: 'group', item: g };
+    if (g) Object.assign(g, { name: d.name.trim(), active: d.status === 'Active' });
+    else { g = { id: `G${STORE_GROUPS.length + 1}${alnum(3)}`, name: d.name.trim(), description: '', stores: [], active: d.status === 'Active', created: new Date(NOW) }; STORE_GROUPS.push(g); }
+    groupDraft = null; drawer = null;
     renderDrawer(); render();
     toast('Store group saved (prototype)', 'success');
   },
@@ -851,6 +851,7 @@ document.addEventListener('input', (e) => {
     $('#search-results').innerHTML = searchResults(); lucide.createIcons();
   }
   if (t.dataset.track) tracking[t.dataset.track] = t.value;
+  if (t.id === 'fx-search') { fxQuery = t.value; $('#fx-table').innerHTML = fxTable(); }
   if (t.id === 'unsettled-search') { unsettledQ = t.value; $('#unsettled-table').innerHTML = unsettledTable(); }
   if (t.id === 'qr-amount') qrGen.amount = t.value;
   if (t.dataset.link && linkDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') {
@@ -867,11 +868,8 @@ document.addEventListener('input', (e) => {
     const cell = draft && t.tagName !== 'SELECT' && t.getAttribute(`data-${scope}-row`);
     if (cell) { const [id, key] = cell.split('|'); draft.rows[id][key] = t.value; }
   }
-  if (t.dataset.group && groupDraft) groupDraft[t.dataset.group] = t.value;
+  if (t.dataset.group && groupDraft && t.tagName !== 'SELECT') groupDraft[t.dataset.group] = t.value;
   if (t.dataset.other && otherDraft) otherDraft[t.dataset.other] = t.value;
-  if (t.id === 'fx-amount') { fx.amount = t.value; $('#fx-result').innerHTML = fxResult(); }
-  if (t.id === 'faq-search') { faqState.q = t.value; faqState.open = null; $('#faq-list').innerHTML = faqList(); lucide.createIcons(); }
-  if (t.id === 'learn-search') { learn.q = t.value; render(); }
   if (t.dataset.user && userDraft && t.tagName !== 'SELECT') userDraft[t.dataset.user] = t.value;
   if (t.dataset.store && storeDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') storeDraft[t.dataset.store] = t.value;
   if (t.id === 'pw-new') syncPasswordRules();
@@ -930,19 +928,27 @@ document.addEventListener('change', (e) => {
   if (t.dataset.calToggle) { cal[t.dataset.calToggle] = t.checked; render(); }
   if (t.dataset.user && userDraft && t.tagName === 'SELECT') userDraft[t.dataset.user] = t.value;
   if (t.dataset.store && storeDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) storeDraft[t.dataset.store] = t.type === 'checkbox' ? t.checked : t.value;
-  if (t.id === 'fx-code') { fx.code = t.value; $('#fx-result').innerHTML = fxResult(); }
   if (t.dataset.otherRadio && otherDraft) { otherDraft[t.dataset.otherRadio] = t.value; renderDrawer(); }
-  if (t.id === 'sms-alert') { sms.lowAlert = t.checked; render(); }
-  if (t.id === 'sms-threshold') { sms.threshold = Number(t.value); render(); }
-  if (t.dataset.groupStore && groupDraft) {
-    const list = groupDraft.stores;
-    t.checked ? list.push(t.dataset.groupStore) : list.splice(list.indexOf(t.dataset.groupStore), 1);
+  if (t.dataset.otherCheck && otherDraft) { otherDraft[t.dataset.otherCheck] = t.checked; formErrors = {}; renderDrawer(); }
+  if (t.hasAttribute('data-other-file') && otherDraft) {
+    const f = t.files[0];
+    const bad = f && (!/\.(pdf|jpe?g|png)$/i.test(f.name) ? 'Only PDF, JPG, JPEG or PNG files.' : f.size > 2 * 1024 * 1024 ? 'File size should not exceed 2MB.' : '');
+    otherDraft.letter = f && !bad ? f.name : '';
+    formErrors = { ...formErrors, letter: bad || undefined };
+    renderDrawer();
   }
+  if (t.dataset.group && groupDraft && t.tagName === 'SELECT') groupDraft[t.dataset.group] = t.value;
   if (t.dataset.ticket && ticketDraft && t.tagName === 'SELECT') { ticketDraft[t.dataset.ticket] = t.value; if (t.hasAttribute('data-rerender')) renderDrawer(); }
   if (t.hasAttribute('data-ticket-query') && ticketDraft) {
     t.checked ? ticketDraft.queries.push(t.value) : ticketDraft.queries.splice(ticketDraft.queries.indexOf(t.value), 1);
   }
-  if (t.hasAttribute('data-ticket-file') && ticketDraft) { ticketDraft.attachment = t.files[0]?.name || null; renderDrawer(); }
+  if (t.hasAttribute('data-ticket-file') && ticketDraft) {
+    const f = t.files[0];
+    const bad = f && (!/\.(pdf|jpe?g|png)$/i.test(f.name) ? 'Only PDF, JPG, JPEG or PNG files.' : f.size > 2 * 1024 * 1024 ? 'File size should not exceed 2MB.' : '');
+    ticketDraft.attachment = f && !bad ? f.name : null;
+    formErrors = { ...formErrors, attachment: bad || undefined };
+    renderDrawer();
+  }
 });
 
 document.addEventListener('keydown', (e) => {

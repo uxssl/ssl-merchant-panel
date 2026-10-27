@@ -15,7 +15,6 @@ function renderTxnTickets() {
   const rows = ttRows(applied(s));
   const { totalPages, start, pageRows } = paginate(s, rows);
   const solved = base.filter(t => t.status === 'Solved');
-  const avgH = solved.length ? solved.reduce((n, t) => n + (t.feedbackOn - t.date) / 3600e3, 0) / solved.length : 0;
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Requested', value: 'Requested' }, { label: 'Solved', value: 'Solved' }];
   const cols = [
     { label: 'Requested On', cell: t => dateCell(t.date) },
@@ -38,11 +37,10 @@ function renderTxnTickets() {
         ${listFilterBar(s, 'Ticket No or Transaction ID', selectPill('list', 'status', 'Status', statusOpts, s.status))}
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            ${metricCard({ title: 'Total Tickets', value: base.length, status: 'all', selected: s.applied.status === 'all' })}
-            ${metricCard({ title: 'Pending Tickets', value: base.filter(t => t.status === 'Requested').length, status: 'Requested', selected: s.applied.status === 'Requested' })}
-            ${metricCard({ title: 'Solved Tickets', value: solved.length, status: 'Solved', selected: s.applied.status === 'Solved' })}
-            ${metricCard({ title: 'Avg. Resolution Time', value: solved.length ? hoursText(avgH) : '—' })}
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${metricCard({ title: 'Total Requests', value: base.length, status: 'all', selected: s.applied.status === 'all' })}
+            ${metricCard({ title: 'Pending Requests', value: base.filter(t => t.status === 'Requested').length, status: 'Requested', selected: s.applied.status === 'Requested' })}
+            ${metricCard({ title: 'Solved', value: solved.length, status: 'Solved', selected: s.applied.status === 'Solved' })}
           </div>
         </div>
         <div class="space-y-4 pt-6">

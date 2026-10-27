@@ -159,33 +159,37 @@ function renderStoreList() {
     </div>`;
 }
 
-// ----- Store Groups ----------------------------------------------------
+// ----- Store Groups (old panel: a list with name, created on and status) -----
+const groupTime = (d) => `${toDateInput(d).split('-').reverse().join('-')} ${fmtTime(d)}`;
 function renderStoreGroups() {
+  const s = pageState();
+  const f = applied(s);
+  const q = f.search.trim().toLowerCase();
+  const rows = STORE_GROUPS.filter(g => !g.system && (!q || g.name.toLowerCase().includes(q)) && (f.status === 'all' || (f.status === 'Active') === g.active))
+    .sort((a, b) => b.created - a.created);
+  const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Active', value: 'Active' }, { label: 'De-active', value: 'Inactive' }];
+  const cols = [
+    { label: 'Group Name', cell: g => `<span class="font-medium text-slate-800">${esc(g.name)}</span>` },
+    { label: 'Stores', cls: 'hidden md:table-cell', cell: g => `<span class="text-xs text-slate-600">${g.stores.length ? g.stores.map(id => esc(accStore(id).name)).join(', ') : '—'}</span>` },
+    { label: 'Created On', cell: g => `<span class="whitespace-nowrap">${groupTime(g.created)}</span>` },
+    { label: 'Status', cell: g => `<span class="${STATUS_BADGE} ${g.active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${g.active ? 'Active' : 'De-active'}</span>` },
+    { label: 'Action', cell: g => `<button data-action="edit-group" data-value="${g.id}" title="Edit" aria-label="Edit ${esc(g.name)}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('square-pen', 'w-3.5 h-3.5')}</button>` },
+  ];
   return `
     <div class="space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900">Store Groups</h1>
-          <p class="text-slate-500 text-sm">Group stores to control which stores each portal user can see.</p>
+          <p class="text-slate-500 text-sm">Groups decide which stores a portal user can see. Add stores to a group from Store List → Set Group.</p>
         </div>
-        <button data-action="new-group" class="${BTN_PRIMARY} shrink-0">${ic('plus', 'w-4 h-4')}Create Group</button>
+        <button data-action="new-group" class="${BTN_PRIMARY} shrink-0">${ic('circle-plus', 'w-4 h-4')}Create Store Group</button>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        ${STORE_GROUPS.map(g => {
-          const users = USERS.filter(u => u.group === g.id);
-          return `
-            <div data-action="open-group" data-value="${g.id}" class="text-left bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all p-5 flex flex-col gap-3 cursor-pointer ${g.active ? '' : 'opacity-70'}">
-              <div class="flex items-start justify-between gap-2">
-                <div><p class="text-sm font-semibold text-slate-900">${esc(g.name)}</p><p class="text-xs text-slate-500 mt-0.5">${esc(g.description || '')}</p></div>
-                <div class="flex items-center gap-1.5 shrink-0">${g.system ? '<span class="px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Default</span>' : ''}${activeBadge(g.active)}</div>
-              </div>
-              <div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>
-              <div class="mt-auto flex items-center justify-between gap-2">
-                <p class="text-xs text-slate-500 flex items-center gap-1.5">${ic('users', 'w-3.5 h-3.5')}${users.length} user${users.length === 1 ? '' : 's'} · ${g.stores.length} store${g.stores.length === 1 ? '' : 's'}</p>
-                ${g.system ? '' : `<button data-action="group-toggle" data-value="${g.id}" class="px-2.5 py-1 rounded-md border text-xs font-semibold ${g.active ? 'border-rose-200 text-rose-600 hover:bg-rose-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}">${g.active ? 'Deactivate' : 'Activate'}</button>`}
-              </div>
-            </div>`;
-        }).join('')}
+      <div class="flex flex-col">
+        ${listFilterBar(s, 'Group Name', selectPill('list', 'status', 'Status', statusOpts, s.status), { noDate: true, noStore: true })}
+        <div class="space-y-4 pt-6">
+          <h2 class="text-sm font-semibold text-slate-900">Store Group List <span class="ml-1 text-xs font-normal text-slate-500">${rows.length} rows</span></h2>
+          ${dataTable({ cols, rows, rowAttrs: g => `data-action="open-group" data-value="${g.id}"`, emptyTitle: 'No store groups match', serial: 1 })}
+        </div>
       </div>
     </div>`;
 }
@@ -210,23 +214,17 @@ function groupDrawer(g) {
 function groupFormDrawer() {
   const d = groupDraft;
   return drawerShell({
-    title: d.id ? 'Edit Store Group' : 'Create Store Group',
-    sub: '<span>Users assigned to this group only see these stores</span>',
+    title: d.id ? 'Update Store Group' : 'Create Store Group',
+    sub: '<span>Add stores to the group from Store List → Set Group</span>',
     body: `
-      ${field('Group Name', `<input data-group="name" value="${esc(d.name)}" placeholder="e.g. Chattogram outlets" class="${INPUT}">`, { required: true, error: formErrors.name })}
-      ${field('Description', `<input data-group="description" value="${esc(d.description)}" placeholder="(optional)" class="${INPUT}">`)}
-      ${section('Stores', `<div class="space-y-2">${ACCOUNT_STORES.map(st => `
-        <label class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
-          <input type="checkbox" data-group-store="${st.id}" ${d.stores.includes(st.id) ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">
-          <span class="flex-1 text-sm text-slate-800">${esc(st.name)}</span>${st.status !== 'Active' ? activeBadge(false) : ''}</label>`).join('')}
-        ${formErrors.stores ? `<p class="text-[11px] font-medium text-rose-600">${formErrors.stores}</p>` : ''}</div>`)}`,
+      ${field('Store Group Name', `<input data-group="name" value="${esc(d.name)}" class="${INPUT}">`, { required: true, error: formErrors.name })}
+      ${field('Status', `<select data-group="status" class="${INPUT}"><option value="">Select status</option>${options([['Active', 'Active'], ['Inactive', 'De-active']], d.status)}</select>`, { required: true, error: formErrors.status })}`,
     footer: `
-      <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="save-group" class="${BTN_PRIMARY}">${ic('save', 'w-4 h-4')}Save Group</button>`,
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
+      <button data-action="save-group" class="${BTN_PRIMARY}">Submit</button>`,
   });
 }
 
-// ----- User Management -------------------------------------------------
 // ----- User Management (old panel "My Users") ------------------------
 const appRoleLabel = (v) => APP_ROLES.find(([k]) => k === v)?.[1] || '—';
 const userStatus = (s) => `<span class="${STATUS_BADGE} ${s === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${s === 'Active' ? 'Active' : 'De-active'}</span>`;

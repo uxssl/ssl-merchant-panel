@@ -150,6 +150,7 @@ function renderSettlements() {
         <h1 class="text-2xl font-bold text-slate-900">Settlement Report</h1>
         <p class="text-slate-500 text-sm">Payouts to your bank account — one settlement per store per business day.</p>
       </div>
+      <p class="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-800">${ic('info', 'w-4 h-4 shrink-0')}Merchant Settlement minimum amount will be ${fmtBDT0(2500)}. Search ranges are limited to 30 days.</p>
 
       ${held.length ? `
         <div class="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">

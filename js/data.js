@@ -649,10 +649,10 @@ const ACCOUNT_STORES = [
   { id: 'demo_popup', name: 'Demo Pop-up Store', type: 'Only QR', baseUrl: '', currency: 'BDT', emi: 'No EMI', status: 'Inactive', created: new Date(2025, 11, 1), address: 'Bashundhara City, Dhaka' },
 ];
 const STORE_GROUPS = [
-  { id: 'G1', name: 'All Stores', description: 'Every store under this merchant account.', stores: ACCOUNT_STORES.map(s => s.id), system: true, active: true },
-  { id: 'G2', name: 'Physical Stores', description: 'Counters that take Bangla QR and cards in person.', stores: ['demo_dhanmondi', 'demo_gulshan', 'demo_popup'], active: true },
-  { id: 'G3', name: 'Online Business', description: 'Web and app checkout stores.', stores: ['demo_online', 'demo_usd'], active: true },
-  { id: 'G4', name: 'Pop-up Events', description: 'Seasonal fair counters.', stores: ['demo_popup'], active: false },
+  { id: 'G1', name: 'All Stores', description: 'Every store under this merchant account.', stores: ACCOUNT_STORES.map(s => s.id), system: true, active: true, created: new Date(2022, 0, 12, 11, 1) },
+  { id: 'G2', name: 'Physical Stores', description: 'Counters that take Bangla QR and cards in person.', stores: ['demo_dhanmondi', 'demo_gulshan'], active: true, created: new Date(2023, 2, 4, 13, 43) },
+  { id: 'G3', name: 'Online Business', description: 'Web and app checkout stores.', stores: ['demo_online', 'demo_usd'], active: true, created: new Date(2024, 8, 1, 10, 10) },
+  { id: 'G4', name: 'Pop-up Events', description: 'Seasonal fair counters.', stores: ['demo_popup'], active: false, created: new Date(2025, 11, 1, 17, 53) },
 ];
 // Old panel user roles and Merchant App roles.
 const USER_ROLES = ['Admin and Finance', 'ESCROW Report View', 'Escrow User - Report and Settlement', 'ECOMMERCE', 'Manage Invoice and View Reports', 'Merchant Admin', 'Merchant View and Settlement', 'QR Merchant Admin', 'Report View', 'Supports', 'Supports and Settlement', 'Transaction Tracking by ID'];
@@ -677,90 +677,93 @@ const STORE_SETTINGS = Object.fromEntries(ACCOUNT_STORES.map(st => [st.id, {
 // Others (mock): referrals, FX rates, value added services, SMS credits, FAQ and learning material.
 const REFERRAL_CODE = 'DEMO-MRC-7Q4K';
 const REFERRAL_BONUS = 1000; // mock bonus per referred merchant that goes live
+// Old panel "Refer & Earn": who you referred (contacts masked), from which store, and the disbursement.
+const DISBURSEMENT_STATUSES = ['Disbursed', 'Pending', 'Not Eligible'];
 const REFERRALS = [
-  ['Dhaka Food Court', 'Live', 'Credited'], ['Style Boutique BD', 'Live', 'Credited'], ['Fresh Grocery BD', 'Live', 'Pending'],
-  ['Sunrise Academy', 'Onboarded', 'Pending'], ['Urban Fashion Hub', 'Signed Up', 'Not yet eligible'], ['Bright Mobile Store', 'Invited', 'Not yet eligible'],
-  ['Cloud Kitchen Express', 'Invited', 'Not yet eligible'], ['Metro Electronics', 'Signed Up', 'Not yet eligible'],
-].map(([name, status, bonus], i) => ({ name, status, bonus, date: addDays(TODAY, -(4 + i * 9)), contact: `01•••••${digits(3)}` }));
+  ['demo_dhanmondi', 'Onboarded', 'Disbursed'], ['demo_online', 'Onboarded', 'Disbursed'], ['demo_online', 'Onboarded', 'Pending'],
+  ['demo_gulshan', 'In Review', 'Not Eligible'], ['demo_dhanmondi', 'Referred', 'Not Eligible'], ['demo_online', 'Referred', 'Not Eligible'],
+].map(([store, status, disbursement], i) => ({ store, status, disbursement, date: addDays(TODAY, -(4 + i * 9)), email: `${'rmbsct'[i]}•••••@example.com`, phone: `01•••••${digits(3)}` }));
 
-// Indicative BDT rates per unit of foreign currency (mock).
+// Currency Rate Conversion (old panel): BDT per 1 unit, when it was last updated and how many
+// payments were converted at it. Indicative mock rates only.
 const FX_RATES = [
-  ['USD', 'US Dollar', 121.50], ['EUR', 'Euro', 131.80], ['GBP', 'British Pound', 154.20], ['AED', 'UAE Dirham', 33.05],
-  ['SAR', 'Saudi Riyal', 32.35], ['SGD', 'Singapore Dollar', 93.40], ['MYR', 'Malaysian Ringgit', 27.60],
-  ['CAD', 'Canadian Dollar', 88.90], ['AUD', 'Australian Dollar', 79.70], ['INR', 'Indian Rupee', 1.45],
-].map(([code, name, mid]) => {
-  const r = mulberry32(idHash(code));
-  const history = Array.from({ length: 30 }, (_, i) => mid * (1 + (Math.sin(i / 4 + r() * 3) * 0.006) + (i - 29) * 0.0002));
-  const change = (history[29] - history[28]) / history[28] * 100;
-  return { code, name, buy: history[29] * 0.995, sell: history[29] * 1.005, mid: history[29], change, history };
-});
+  ['USD', 121.95, 0], ['SGD', 94.25, 0], ['INR', 1.4513, 1], ['AED', 33.2002, 1], ['EUR', 132.3259, 0], ['MYR', 28.3272, 1], ['QAR', 33.4948, 1],
+  ['GBP', 155.5169, 0], ['SAR', 32.5093, 1], ['AUD', 80.0584, 1], ['CAD', 88.3886, 1], ['THB', 3.4718, 1], ['JPY', 0.8059, 1], ['NGN', 0.0795, 1],
+  ['SEK', 11.4484, 1], ['IDR', 0.0074, 1], ['NPR', 0.9040, 1], ['LKR', 0.4029, 1], ['OMR', 316.7602, 1], ['MVR', 7.9200, 1],
+].map(([code, rate, fresh], i) => ({
+  code, rate,
+  updated: new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - (fresh ? 0 : 2), fresh ? 8 : 14, fresh ? 1 : 16),
+  requests: Math.round(4000000 / Math.pow(i + 1, 2.9)) + 13000 - i * 450,
+}));
 
+// Old panel Value Added Services: each has "Apply Now", which asks the team to call you back.
 const VAS_SERVICES = [
-  { id: 'sms', name: 'Bulk SMS', icon: 'message-square-text', desc: 'Send payment confirmations, offers and reminders to your customers.', price: 'From ৳0.30 per SMS', status: 'Subscribed', link: '/others/sms-purchase' },
-  { id: 'domain', name: 'Domain & Hosting', icon: 'globe', desc: 'Get a .com or .com.bd domain with managed hosting for your shop.', price: 'From ৳2,500 / year', status: 'Subscribed' },
-  { id: 'web', name: 'Website Development', icon: 'layout-template', desc: 'A ready e-commerce website with SSLCOMMERZ checkout built in.', price: 'From ৳25,000', status: 'Available' },
-  { id: 'email', name: 'Email Marketing', icon: 'mail', desc: 'Newsletters and campaign emails with open and click tracking.', price: 'From ৳1,500 / month', status: 'Available' },
-  { id: 'pos', name: 'POS Terminal', icon: 'credit-card', desc: 'Card terminal for in-store payments, settled with your online sales.', price: 'Rental from ৳800 / month', status: 'Requested' },
-  { id: 'delivery', name: 'Delivery Integration', icon: 'truck', desc: 'Connect courier partners and collect cash on delivery digitally.', price: 'Per parcel pricing', status: 'Available' },
-  { id: 'finance', name: 'Merchant Financing', icon: 'hand-coins', desc: 'Working-capital offers from partner banks based on your sales history.', price: 'Subject to partner approval', status: 'Available' },
-  { id: 'workspace', name: 'Business Email (Google Workspace)', icon: 'at-sign', desc: 'Professional email on your own domain for your team.', price: 'From ৳650 / user / month', status: 'Available' },
-];
+  ['isms', 'Business SMS (iSMS)', 'message-square-text', 'Upload your customer list with mobile numbers in Excel and send them SMS about your latest products and services, any time of the day.'],
+  ['ibot', 'Chatbot (iBot)', 'bot', 'Have a chatbot ready so customers get automated responses and solutions from you, 24/7 — no need to pay someone to answer every call.'],
+  ['topup', 'Virtual Recharge Platform (Topup)', 'smartphone-charging', 'Earn income and provide mobile airtime / recharge to your customers on a system in use for over a decade.'],
+  ['ngage', 'Ngage 360', 'palette', 'Creative design for your Facebook page, video or copywriting from our sister concern Ngage360 — they call you to understand your needs.'],
+  ['email', 'Email marketing', 'mail', 'Inform your customers about your products with our email marketing service.'],
+  ['web', 'Web development', 'layout-template', 'Create or update your website with a team that has worked in this space for about 15 years.'],
+  ['app', 'APP development', 'app-window', 'Build a mobile app for your business with the same experienced team.'],
+  ['ssl', 'SSL Certificate', 'shield-check', 'Secure your website with an SSL certificate, set up for you.'],
+  ['custom', 'Customized Solution', 'puzzle', 'Need something specific? Tell us what you need and we will plan a solution with you.'],
+  ['voice', 'Voice SMS', 'phone-call', 'Reach customers with recorded voice messages instead of text.'],
+  ['cashbaba', 'Cash Baba', 'wallet', 'List your brand in the Cashbaba wallet Marketplace so its customers can discover and shop from your store with a single tap.'],
+].map(([id, name, icon, desc]) => ({ id, name, icon, desc, applied: false }));
 
+// Old panel Purchase SMS: three packages; after choosing one the merchant agrees to the terms
+// and uploads the signed declaration letter. Prices include VAT & tax.
 const SMS_PACKAGES = [
-  { id: 'p1', sms: 1000, rate: 0.40 }, { id: 'p5', sms: 5000, rate: 0.35 }, { id: 'p10', sms: 10000, rate: 0.32, popular: true }, { id: 'p50', sms: 50000, rate: 0.30 },
+  { id: 'silver', name: 'Silver', sms: 5000, price: 1900 },
+  { id: 'gold', name: 'Gold', sms: 10000, price: 3600 },
+  { id: 'platinum', name: 'Platinum', sms: 25000, price: 8750 },
 ];
-const SMS_VAT = 15; // mock VAT %
-const sms = {
-  balance: 2340,
-  senderId: 'DemoMerchnt',
-  lowAlert: true,
-  threshold: 1000,
-  daily: Array.from({ length: 30 }, (_, i) => Math.round(60 + 40 * Math.sin(i / 3) + (i % 7 === 5 ? 90 : 0) + i * 1.5)),
-  history: [
-    { date: addDays(TODAY, -6), pkg: 'p10' }, { date: addDays(TODAY, -38), pkg: 'p5' }, { date: addDays(TODAY, -71), pkg: 'p10' }, { date: addDays(TODAY, -120), pkg: 'p1' },
-  ].map((h, i) => ({ ...h, ref: `SMS${ymd(h.date)}${digits(4)}`, payment: i % 2 ? 'Deducted from settlement' : 'Paid online', status: 'Completed' })),
-};
+const SMS_REQUESTS = [{ ref: `SMS${ymd(addDays(TODAY, -40))}${digits(4)}`, pkg: 'gold', date: addDays(TODAY, -40), letter: 'declaration-letter-signed.pdf', status: 'Approved' }];
 
-const FAQ_CATEGORIES = ['Getting Started', 'Payments', 'Settlement', 'Refunds & Chargebacks', 'QR & EMI', 'Account & Security'];
-const FAQS = [
-  ['Getting Started', 'How do I start taking payments online?', 'Integrate the hosted checkout or Easy Checkout using the guides under Developer / Technical Information, test in the sandbox, then ask your KAM to switch your store to live.'],
-  ['Getting Started', 'Can I take payments without a website?', 'Yes. Use Payment Links or Digital Invoices from Payment Products — share the link by SMS, WhatsApp or email.'],
-  ['Payments', 'Why did a customer\'s payment fail?', 'Open the transaction — the failure reason is shown (for example insufficient balance or OTP failure). Common causes also appear in Business Analytics.'],
-  ['Payments', 'A customer was charged but the order failed. What should I do?', 'Check the transaction status first. If it shows Success, fulfil the order or refund it. If unsure, raise a Transaction Ticket with the Transaction ID.'],
-  ['Payments', 'Which payment methods can my customers use?', 'Cards (VISA, Mastercard, AMEX, DBBL Nexus), mobile banking (bKash, Nagad, Rocket), internet banking, Bangla QR and wallets — depending on your store setup.'],
-  ['Settlement', 'When will I receive my money?', 'Successful payments are settled to your bank account on the next working day (mock). See Settlement Report for each payout.'],
-  ['Settlement', 'Why is a settlement on hold?', 'Usually because of a bank account mismatch or pending documents. The hold reason is shown on the settlement; the amount is forwarded to the next payout once resolved.'],
-  ['Refunds & Chargebacks', 'How long does a refund take?', 'After approval it is submitted to the bank. Card refunds usually reach the customer in 7–10 working days (mock).'],
-  ['Refunds & Chargebacks', 'What is a chargeback and how do I respond?', 'A customer disputes a card payment through their bank. Open Chargeback Requests and submit evidence (invoice, delivery proof) before the deadline.'],
-  ['QR & EMI', 'How do I get another QR for a new counter?', 'Request it from Payment QR or Service Delivery → QR Standee Delivery.'],
-  ['QR & EMI', 'Who pays the EMI charge?', 'The store rate shown in Digital EMI → EMI Plans & Rates is deducted from your settlement for each EMI payment.'],
-  ['Account & Security', 'How do I add a user for my accounts team?', 'Admins can add users from Account & Settings → User Management and limit their stores with Store Groups.'],
-  ['Account & Security', 'Where is my store password?', 'It is never shown in the portal. Request a reset from Developer / Technical Information — it is sent to your registered email.'],
-  ['Account & Security', 'How often must I change my password?', 'Every 90 days. You get reminders from the 80th day.'],
-].map(([cat, q, a], i) => ({ id: `faq${i}`, cat, q, a }));
+// Old panel Merchant FAQ: lettered categories, one question per row (answers are short mock text).
+const FAQ_GROUPS = [
+  ['Transaction Query', [
+    ['How do I check the status of any transaction?', 'Search the Transaction ID in Transactions → All Transactions or Transaction ID Tracking. The status and every step are in the details.'],
+    ['bKash transaction failed at SSLCOMMERZ, but amount deducted by bKash. What are the next steps?', 'bKash usually reverses the amount automatically. If it has not, raise a Transaction Ticket with the bKash Transaction ID so the team can check with bKash.'],
+    ['My Nagad transaction failed. What should I do?', 'Track it with the Nagad Transaction ID. If the customer was charged, raise a Transaction Ticket from the transaction.'],
+    ['My Rocket/Nexus transaction failed at SSLCOMMERZ. What should I do?', 'Check the failure reason in the transaction details, then raise a Transaction Ticket if the customer was charged.'],
+  ]],
+  ['Settlement Query', [
+    ['Why didn’t I receive my settlement report?', 'Settlement reports go to the email set for the store. Check the Settlement Report page, or ask your KAM to update the email.'],
+    ['Why didn’t I receive my settlement amount?', 'Settlement is paid once the unsettled amount reaches the minimum. Holds, refunds or chargebacks can also reduce or delay it — see Settlement Report.'],
+    ['My settlement is disabled, or bank information is outdated?', 'Contact your KAM with updated bank documents. Settlement resumes once the bank details are verified.'],
+  ]],
+  ['EMI Query', [
+    ['How do I know if a transaction is converted to EMI?', 'EMI payments show the EMI-n mark next to the status in All Transactions, and are listed under Digital EMI → EMI Requests.'],
+    ['Why did the customer receive the full bill instead of EMI?', 'The issuing bank converts the payment to EMI. If the bank declined the conversion, the customer is charged the full amount.'],
+    ['How do I activate/configure EMI for my store?', 'Go to Payment Products → Digital EMI, choose the store, banks and tenures, set the EMI status and update the configuration.'],
+  ]],
+  ['Report Panel Credential', [['How do I reset my store credentials?', 'Use Forgot Password on the login page, or ask an admin of your account to update your user.']]],
+  ['Store Credential', [['How do I reset my store credentials?', 'Store passwords are never shown in the portal. Ask your KAM to reset them — the new password goes to the registered email.']]],
+  ['How to Change Bank Information', [['How do I update my bank information?', 'Send your KAM a signed request with the new bank details and supporting documents.']]],
+  ['Change Store Information', [
+    ['How do I update my store logo?', 'Open Account & Settings → Store List → settings → GW Settings to see the current logo, and raise a ticket with the new one.'],
+    ['How do I update my store URL or SPOC details?', 'Raise a Ticket/Query with the new URL or contact person; the team verifies it before updating.'],
+  ]],
+  ['Gateway Channel Enable Query', [['How do I activate a payment channel?', 'Ask your KAM. Some channels need extra documents or the bank’s approval.']]],
+  ['KAM Name Query', [['How do I find out my KAM?', 'Your KAM is shown on the Dashboard and under Key Contact Details in the header.']]],
+  ['Transaction Validation Query', [
+    ['Why is my transaction held?', 'Payments can be held for risk checks or for documents. The hold shows on the transaction until it is released.'],
+    ['What documents are required for transaction validation?', 'Usually an invoice or delivery proof and the customer’s order details. The team tells you exactly what is needed.'],
+  ]],
+  ['ESCROW Transaction/File Upload Query', [['How do I upload a service delivery file?', 'Go to Service Delivery, use Get Deliverables, fill in the delivery columns and upload it with Upload Delivery File.']]],
+  ['Chargeback Query', [['What documents are needed for a chargeback?', 'Proof of delivery or service, the invoice and any messages with the customer.']]],
+  ['Payment Link Query', [['How do I avail myself of the payment link service?', 'Go to Payment Products → Payment Link and create one. Ask your KAM if the menu is not enabled for your store.']]],
+].map(([title, items], g) => ({ letter: String.fromCharCode(65 + g), title, items: items.map(([q, a], i) => ({ id: `faq${g}-${i}`, q, a })) }));
 
-const LEARN_CATEGORIES = ['Getting Started', 'Integration', 'Payment Products', 'Reports & Settlement', 'Security'];
+// Old panel Instructional Videos/Documents: four videos and two PDF guides.
 const VIDEOS = [
-  ['Getting Started', 'Tour of the merchant portal', '4:12', 'English'],
-  ['Getting Started', 'মার্চেন্ট পোর্টাল পরিচিতি', '5:03', 'Bangla'],
-  ['Integration', 'Hosted checkout in 10 minutes', '9:48', 'English'],
-  ['Integration', 'Validating payments with IPN', '7:21', 'English'],
-  ['Payment Products', 'Create and share a payment link', '3:35', 'English'],
-  ['Payment Products', 'Using Bangla QR at your counter', '4:50', 'Bangla'],
-  ['Reports & Settlement', 'Reading your settlement report', '6:02', 'English'],
-  ['Security', 'Keeping your account secure', '3:58', 'English'],
-].map(([cat, title, duration, lang], i) => ({ id: `vid${i}`, cat, title, duration, lang }));
-const DOCS = [
-  ['Integration', 'Integration Guide (Hosted & Easy Checkout)', 'PDF', '2.4 MB', 'English', -40],
-  ['Integration', 'IPN & Validation API Reference', 'PDF', '1.1 MB', 'English', -95],
-  ['Getting Started', 'Merchant Onboarding Checklist', 'PDF', '320 KB', 'English', -20],
-  ['Getting Started', 'মার্চেন্ট অনবোর্ডিং নির্দেশিকা', 'PDF', '410 KB', 'Bangla', -20],
-  ['Payment Products', 'Payment Links & Invoices — User Guide', 'PDF', '880 KB', 'English', -12],
-  ['Payment Products', 'Bangla QR Standee Print File', 'PDF', '3.2 MB', 'English', -60],
-  ['Reports & Settlement', 'Settlement & Reconciliation Guide', 'PDF', '1.6 MB', 'English', -33],
-  ['Security', 'PCI-DSS Responsibilities for Merchants', 'PDF', '540 KB', 'English', -150],
-  ['Reports & Settlement', 'Monthly Statement Template', 'XLSX', '45 KB', 'English', -8],
-].map(([cat, title, type, size, lang, days], i) => ({ id: `doc${i}`, cat, title, type, size, lang, updated: addDays(TODAY, days) }));
+  ['ব্যাংক একাউন্ট দিয়ে রেজিস্ট্রেশন করার পদ্ধতি', 'Bangla'],
+  ['SSLCOMMERZ Payment Process Using Card Payment', 'English'],
+  ['QR payment process', 'English'],
+  ['EMI Payment Facility', 'English'],
+].map(([title, lang], i) => ({ id: `vid${i}`, title, lang }));
+const DOCS = ['SSLCOMMERZ User Manual', 'SSLCOMMERZ Refund Process'].map((title, i) => ({ id: `doc${i}`, title }));
 
 // Header notifications — built from the records above so each one opens a real drawer.
 const NOTIFICATIONS = [

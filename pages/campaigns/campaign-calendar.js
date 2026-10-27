@@ -16,10 +16,10 @@ function calendarItems() {
 
 function renderCampaignCalendar() {
   const first = cal.month;
-  const offset = (first.getDay() + 1) % 7; // weeks start on Saturday
+  const offset = first.getDay(); // weeks start on Sunday, as in the old panel
   const gridStart = addDays(first, -offset);
   const items = calendarItems();
-  const DAYS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weeks = [];
   for (let w = 0; w < 6; w++) {
     const ws = addDays(gridStart, w * 7), we = endOfDay(addDays(ws, 6));

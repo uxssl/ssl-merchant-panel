@@ -47,6 +47,6 @@ const tracking = { merchant: '', bkash: '', nagad: '', results: null };
 const dash = { preset: '7d' };
 
 // Pages that moved in the menu keep their old links working.
-const MOVED_PATHS = { '/account/my-stores': '/account/store-list', '/transactions/google-pay': '/analytics/google-pay-report', '/transactions/bangla-qr': '/analytics/bangla-qr-report', '/settlements/settlement-report': '/analytics/settlement-report', '/settlements/financial-year-report': '/analytics/financial-year-report' };
+const MOVED_PATHS = { '/others/currency-conversion-rates': '/transactions/currency-rates', '/account/my-stores': '/account/store-list', '/transactions/google-pay': '/analytics/google-pay-report', '/transactions/bangla-qr': '/analytics/bangla-qr-report', '/settlements/settlement-report': '/analytics/settlement-report', '/settlements/financial-year-report': '/analytics/financial-year-report' };
 const currentPath = () => { const p = (location.hash || '#/dashboard').slice(1); return MOVED_PATHS[p] || p; };
 const activeParent = (path) => NAV.find(n => n.children?.some(c => c.to === path))?.key || null;

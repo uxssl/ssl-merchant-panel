@@ -13,11 +13,11 @@ const REPORT_GROUPS = [
   },
   {
     title: 'Customer Insights', tone: 'bg-violet-50 text-violet-600', items: [
-      { icon: 'map', to: AN.geo, title: 'Geographic Analytics', text: 'Where your customers pay from, by division and district.' },
+      { icon: 'map', to: AN.geo, title: 'GEO Location', text: 'Where your customers pay from, by division and district.' },
       { icon: 'landmark', to: AN.issuer, title: 'Issuer Location', text: 'Card payments by where the card was issued — local or foreign.' },
       { icon: 'smartphone', to: AN.operators, title: 'Mobile Operators', text: 'Customers\' mobile networks and how OTP delivery affects success.' },
-      { icon: 'monitor-smartphone', to: AN.devices, title: 'Browsers & Devices', text: 'Device, operating system and browser your customers pay with.' },
-      { icon: 'credit-card', to: AN.saved, title: 'Saved Card Analytics', text: 'How saved (tokenized) cards speed up checkout for returning customers.' },
+      { icon: 'monitor-smartphone', to: AN.devices, title: 'Users Browsers/Devices', text: 'Device, operating system and browser your customers pay with.' },
+      { icon: 'credit-card', to: AN.saved, title: 'Saved Card', text: 'How saved (tokenized) cards speed up checkout for returning customers.' },
     ],
   },
   {
