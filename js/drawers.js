@@ -1,14 +1,14 @@
 // =====================================================================
 // Refund & chargeback statuses (labels as in the KAM panel)
 // =====================================================================
-const REFUND_STATUSES = ['Initiate', 'Processing', 'Submit To Bank', 'Success', 'Cancelled'];
+const REFUND_STATUSES = ['Initiate', 'Processing', 'Submit To Bank', 'Success', 'Cancel'];
 const REFUND_OPEN = new Set(['Initiate', 'Processing', 'Submit To Bank']);
 const REFUND_CLS = {
   'Initiate': 'bg-blue-50 text-blue-600',
   'Processing': 'bg-amber-50 text-amber-600',
   'Submit To Bank': 'bg-slate-100 text-slate-600',
   'Success': 'bg-emerald-50 text-emerald-600',
-  'Cancelled': 'bg-rose-50 text-rose-600',
+  'Cancel': 'bg-rose-50 text-rose-600',
 };
 const CB_STATUSES = ['Initial', 'Waiting', 'Processing', 'Submit To Bank', 'Success', 'Cancel'];
 const CB_OPEN = new Set(['Initial', 'Waiting']); // the merchant still has to respond

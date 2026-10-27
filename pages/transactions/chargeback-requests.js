@@ -11,7 +11,10 @@ function cbRows(s, withStatus = true) {
     inStores(c.store) &&
     (s.bstatus === 'all' || c.myStatus === s.bstatus) &&
     inRange(c, s.range) &&
-    (!q || [c.ref, c.txn.id, c.merchantRef].some(v => v.toLowerCase().includes(q)) || (/^\d{3,4}$/.test(q) && c.txn.account.endsWith(q))) &&
+    (!q || c.txn.id.toLowerCase().includes(q)) &&
+    (!s.refId.trim() || c.ref.toLowerCase().includes(s.refId.trim().toLowerCase())) &&
+    (!s.mref.trim() || c.merchantRef.toLowerCase().includes(s.mref.trim().toLowerCase())) &&
+    (!s.card.replace(/\D/g, '') || c.txn.account.replace(/\D/g, '').endsWith(s.card.replace(/\D/g, ''))) &&
     (!withStatus || statusOk(c))
   );
 }
@@ -38,6 +41,7 @@ function renderChargebacks() {
     { label: 'Chargeback Amount', right: true, cell: c => { const rb = respondBy(c); return `<div class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(c.amount)}</div>${rb ? `<div class="text-[11px] font-semibold whitespace-nowrap ${rb.cls}">Respond: ${rb.text}</div>` : ''}`; } },
     { label: 'Request Status', cell: c => cbBadge(c.status) },
     { label: 'Approval Status', cell: c => myCbBadge(c.myStatus) },
+    { label: 'Action', cell: c => `<button data-action="open-cb" data-value="${c.ref}" title="Details" aria-label="Details of ${c.ref}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
   ];
 
   return `
@@ -58,9 +62,10 @@ function renderChargebacks() {
         </div>` : ''}
 
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Transaction ID, Chargeback Ref. Id, Merchant Ref. Code or card last 4',
+        ${listFilterBar(s, 'Transaction ID',
           selectPill('list', 'bstatus', 'My Status', myOpts, s.bstatus) +
-          selectPill('list', 'status', 'SSL Status', sslOpts, s.status))}
+          selectPill('list', 'status', 'SSL Status', sslOpts, s.status),
+          { fields: [['refId', 'Chargeback Reference Id'], ['mref', 'Merchant Ref. Code'], ['card', 'Card No. (last digits)']] })}
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
@@ -74,7 +79,7 @@ function renderChargebacks() {
 
         <div class="space-y-4 pt-6">
           ${listToolbar(rows.length, 'chargebacks', applied(s))}
-          ${dataTable({ cols, rows: pageRows, rowAttrs: c => `data-action="open-cb" data-value="${c.ref}"`, emptyTitle: 'No chargebacks found' })}
+          ${dataTable({ cols, rows: pageRows, rowAttrs: c => `data-action="open-cb" data-value="${c.ref}"`, emptyTitle: 'No chargebacks found', serial: start + 1 })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>
       </div>

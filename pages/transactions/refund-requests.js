@@ -9,7 +9,10 @@ function refundRows(s, withStatus = true) {
   return REFUNDS.filter(r =>
     inStores(r.store) &&
     inRange(r, s.range) &&
-    (!q || [r.ref, r.txn.id, r.merchantRef].some(v => v.toLowerCase().includes(q)) || (/^\d{3,4}$/.test(q) && r.txn.account.endsWith(q))) &&
+    (!q || r.txn.id.toLowerCase().includes(q)) &&
+    (!s.refId.trim() || r.ref.toLowerCase().includes(s.refId.trim().toLowerCase())) &&
+    (!s.mref.trim() || r.merchantRef.toLowerCase().includes(s.mref.trim().toLowerCase())) &&
+    (!s.card.replace(/\D/g, '') || r.txn.account.replace(/\D/g, '').endsWith(s.card.replace(/\D/g, ''))) &&
     (s.bstatus === 'all' || r.requestStatus === s.bstatus) &&
     (!withStatus || s.status === 'all' || (s.status === 'pending' ? REFUND_OPEN.has(r.status) : r.status === s.status))
   );
@@ -45,9 +48,10 @@ function renderRefunds() {
       </div>
 
       <div class="flex flex-col">
-        ${listFilterBar(s, 'Transaction ID, Refund Ref. Id, Merchant Ref. Code or card last 4',
+        ${listFilterBar(s, 'Transaction ID',
           selectPill('list', 'bstatus', 'Refund Request Status', requestOpts, s.bstatus) +
-          selectPill('list', 'status', 'Refund Approval Status', approvalOpts, s.status))}
+          selectPill('list', 'status', 'Refund Approval Status', approvalOpts, s.status),
+          { fields: [['refId', 'Refund Reference Id'], ['mref', 'Merchant Ref. Code'], ['card', 'Card No. (last digits)']] })}
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
@@ -62,7 +66,7 @@ function renderRefunds() {
 
         <div class="space-y-4 pt-6">
           ${listToolbar(rows.length, 'refund requests', applied(s))}
-          ${dataTable({ cols, rows: pageRows, rowAttrs: r => `data-action="open-refund" data-value="${r.ref}"`, emptyTitle: 'No refund requests found' })}
+          ${dataTable({ cols, rows: pageRows, rowAttrs: r => `data-action="open-refund" data-value="${r.ref}"`, emptyTitle: 'No refund requests found', serial: start + 1 })}
           ${pager(s, rows.length, start, pageRows.length, totalPages)}
         </div>
       </div>
@@ -83,7 +87,7 @@ const newRefundDraft = (txnId = '') => ({ txnId, txn: null, looked: false, open:
 const refundBlock = (t) => {
   if (!['success', 'refunded'].includes(t.status)) return 'Only successful transactions can be refunded.';
   const rf = REFUND_BY_TXN.get(t.id);
-  if (rf && rf.status !== 'Cancelled') return `This transaction already has refund request <button data-action="open-refund" data-value="${rf.ref}" class="font-mono text-primary-600 hover:underline">${rf.ref}</button> (${rf.status}).`;
+  if (rf && rf.status !== 'Cancel') return `This transaction already has refund request <button data-action="open-refund" data-value="${rf.ref}" class="font-mono text-primary-600 hover:underline">${rf.ref}</button> (${rf.status}).`;
   return '';
 };
 

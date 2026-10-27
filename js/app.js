@@ -132,6 +132,10 @@ function renderPage() {
   } else {
     page.innerHTML = renderComingSoon(path);
   }
+  // Every report opened from the Analytics & Reports landing gets a way back to it.
+  if (NAV.find(n => n.key === 'analytics').pages.some(p => p.to === path)) {
+    page.insertAdjacentHTML('afterbegin', `<a href="#${AN.home}" class="inline-flex items-center gap-1.5 mb-3 text-sm font-medium text-slate-500 hover:text-primary-600">${ic('arrow-left', 'w-4 h-4')}Analytics &amp; Reports</a>`);
+  }
   lucide.createIcons();
   if (path === '/dashboard') mountDashboardCharts();
   if (window.Chart && chartQueue.length) {
@@ -270,7 +274,8 @@ const actions = {
   'clear-filters': () => {
     const s = pageState();
     Object.assign(s, { search: '', range: makeRange(s.defaultPreset), method: 'all', page: 1 });
-    LIST_FILTER_KEYS.forEach(k => { s[k] = 'all'; });
+    LIST_FILTER_KEYS.forEach(k => { s[k] = k === 'status' && s.defaultStatus ? s.defaultStatus : 'all'; });
+    TEXT_FILTER_KEYS.forEach(k => { s[k] = ''; });
     if ($('#page [data-store-pill]')) s.storeDraft = [];
     commitFilters(s); // as on the KAM reports page, Clear resets and applies at once
     render();
@@ -390,7 +395,7 @@ const actions = {
   },
   'refund-cancel': (el) => {
     const rf = REFUNDS.find(r => r.ref === el.dataset.value);
-    Object.assign(rf, { status: 'Cancelled', requestStatus: 'Cancel', approvedOn: new Date(), approvedBy: 'demo_merchant', approvalRemarks: 'Cancelled at merchant request' });
+    Object.assign(rf, { status: 'Cancel', requestStatus: 'Cancel', approvedOn: new Date(), approvedBy: 'demo_merchant', approvalRemarks: 'Cancelled at merchant request' });
     renderDrawer(); render();
     toast('Refund request cancelled (prototype)', 'success');
   },
@@ -884,6 +889,7 @@ document.addEventListener('input', (e) => {
     pageState().search = e.target.value;
     syncApplyButton();
   }
+  if (t.dataset.filter) { pageState()[t.dataset.filter] = t.value; syncApplyButton(); }
 });
 
 document.addEventListener('change', (e) => {
@@ -946,7 +952,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveSearchActive(e.key === 'ArrowDown' ? 1 : -1); return; }
     if (e.key === 'Enter') { e.preventDefault(); document.querySelector(`[data-search-item="${search.active}"]`)?.click(); return; }
   }
-  if (e.key === 'Enter' && (t.id === 'txn-search' || t.id === 'list-search')) { commitFilters(pageState()); render(); return; }
+  if (e.key === 'Enter' && (t.id === 'txn-search' || t.id === 'list-search' || t.dataset?.filter)) { commitFilters(pageState()); render(); return; }
   if (e.key === 'Enter' && t.dataset.track) { runTracking(); render(); return; }
   if (e.key === 'Enter' && t.id === 'refund-txn' && refundDraft) { e.preventDefault(); lookupRefundTxn(); renderDrawer(); return; }
   if (e.key === 'Enter' && t.id === 'mc-bin' && mcDraft) { e.preventDefault(); addMcBin(); return; }

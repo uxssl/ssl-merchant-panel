@@ -17,12 +17,15 @@ function paginate(s, rows) {
   return { totalPages, start, pageRows: rows.slice(start, start + s.pageSize) };
 }
 
-const LIST_FILTER_KEYS = ['status', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role'];
+const LIST_FILTER_KEYS = ['status', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role', 'ref', 'issuer'];
+const TEXT_FILTER_KEYS = ['last4', 'holder', 'refId', 'mref', 'card'];
 // Same order as the KAM report filters: text filter, date, pills, then Apply Filters / Clear.
-function listFilterBar(s, placeholder, pills, { noDate = false, noStore = false } = {}) {
+// fields: [[key, placeholder]] extra text filters shown after the main search.
+function listFilterBar(s, placeholder, pills, { noDate = false, noStore = false, fields = [] } = {}) {
   return `
     <div class="filter-bar-container flex items-center gap-3 flex-wrap">
       ${filterSearch('list-search', placeholder, s.search)}
+      ${fields.map(([key, label]) => filterText(key, label, s[key])).join('')}
       ${noDate ? '' : dtPill(s.range, s.defaultPreset)}
       ${pills}
       ${noStore ? '' : storePill('list', 'Store')}
@@ -63,12 +66,14 @@ function cardList(cols, rows, rowAttrs, cellOf) {
 }
 
 // menus: rows hold dropdown menus, so the table must not clip them.
-function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false }) {
+// serial: the row number of the first row, to show the old panel's "#" column.
+function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false, serial }) {
+  if (serial !== undefined) cols = [{ label: '#', cls: 'hidden md:table-cell w-10 text-slate-400', num: true }, ...cols];
   const cellCls = (c) => `${c.right ? 'text-right' : ''} ${c.cls || ''}`;
   if (!rows.length) return `<div class="rounded-md border border-slate-200 bg-white shadow-sm">${emptyBlock(emptyTitle, emptyHint)}</div>`;
   return `
     <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-hidden'}">
-      ${cardList(cols, rows, rowAttrs, (c, r) => c.cell(r))}
+      ${cardList(cols.filter(c => !c.num), rows, rowAttrs, (c, r) => c.cell(r))}
       <table class="hidden md:table w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
@@ -79,7 +84,7 @@ function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false 
         <tbody class="divide-y divide-slate-100">
           ${rows.map(r => `
             <tr ${rowAttrs(r)} class="${rowAttrs(r) ? 'hover:bg-slate-50 cursor-pointer' : ''} transition-colors">
-              ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${cellCls(c)}">${c.cell(r)}</td>`).join('')}
+              ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${cellCls(c)}">${c.num ? serial + rows.indexOf(r) : c.cell(r)}</td>`).join('')}
               <td class="px-3 py-2 text-slate-400">${rowAttrs(r) ? ic('chevron-right', 'w-4 h-4') : ''}</td>
             </tr>`).join('')}
         </tbody>

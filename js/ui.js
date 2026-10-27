@@ -142,6 +142,12 @@ function filterSearch(id, placeholder, value) {
     </div>`;
 }
 
+// Extra text filters next to the main search (old panel search options), e.g. card last 4.
+function filterText(key, placeholder, value) {
+  return `<input id="f-${key}" data-filter="${key}" type="text" placeholder="${placeholder}" aria-label="${placeholder}" value="${esc(value)}"
+    class="px-3 py-1.5 bg-white border ${value ? 'border-primary-300' : 'border-slate-200'} hover:border-slate-300 rounded-full text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-500 w-44">`;
+}
+
 // "Apply Filters" (enabled once something changed) and "Clear", as on the KAM reports page.
 function filterActions(s) {
   const dirty = filtersDirty(s);
@@ -272,6 +278,8 @@ function draftError(r) {
   if (!r.from || !r.to || (daily && !r.daily)) return daily ? 'Pick both dates and both times.' : 'Pick a date and time for both From and To.';
   if (r.from > r.to) return daily ? 'The start date must be on or before the end date.' : '“From” must be earlier than “To”.';
   if (daily && r.daily.from === r.daily.to) return 'Start and end time can’t be the same.';
+  // Old panel rule for the transaction list: searching from and to must be within 90 days.
+  if (TXN_VIEWS[currentPath()] && r.to - r.from > 90 * 864e5) return 'Searching from and to must be within 90 days.';
   return '';
 }
 

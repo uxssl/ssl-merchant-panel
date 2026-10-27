@@ -21,7 +21,7 @@ const inStores = (id) => !storeFilter.length || storeFilter.includes(id);
 
 // List filters are edited as a draft on the list state itself; `applied` holds what the table
 // shows, and "Apply Filters" copies the draft across (KAM reports page behaviour).
-const FILTER_KEYS = ['search', 'range', 'status', 'method', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role', 'ref', 'issuer'];
+const FILTER_KEYS = ['search', 'range', 'status', 'method', 'stage', 'stype', 'bstatus', 'bank', 'currency', 'emi', 'role', 'ref', 'issuer', 'last4', 'holder', 'refId', 'mref', 'card'];
 const snapshotFilters = (s) => Object.fromEntries(FILTER_KEYS.map(k => [k, s[k]]));
 const applied = (s) => ({ ...s, ...s.applied });
 const sameStores = (a, b) => a.length === b.length && a.every(id => b.includes(id));
@@ -29,11 +29,12 @@ const filtersDirty = (s) => JSON.stringify(snapshotFilters(s)) !== JSON.stringif
 
 const listStates = {};
 const defaultListState = (preset) => {
-  const s = { defaultPreset: preset, search: '', range: makeRange(preset), status: 'all', method: 'all', stage: 'all', stype: 'all', bstatus: 'all', bank: 'all', currency: 'all', emi: 'all', role: 'all', ref: 'all', issuer: 'all', page: 1, pageSize: 20, sort: { key: 'date', dir: 'desc' }, hidden: new Set(), storeDraft: null };
+  const s = { defaultPreset: preset, search: '', range: makeRange(preset), status: 'all', method: 'all', stage: 'all', stype: 'all', bstatus: 'all', bank: 'all', currency: 'all', emi: 'all', role: 'all', ref: 'all', issuer: 'all', last4: '', holder: '', refId: '', mref: '', card: '', page: 1, pageSize: 20, sort: { key: 'date', dir: 'desc' }, hidden: new Set(), storeDraft: null };
   s.applied = snapshotFilters(s);
   return s;
 };
-const txnState = (key) => (listStates[key] ||= defaultListState('7d'));
+// The transaction list opens on "Success Only", as in the old panel; Clear returns to it.
+const txnState = (key) => (listStates[key] ||= (() => { const s = defaultListState('7d'); Object.assign(s, { status: 'success', defaultStatus: 'success' }); s.applied = snapshotFilters(s); return s; })());
 // Links and invoices live longer than a month, so their lists open on All Time.
 const LIST_DEFAULT_PRESET = { '/products/payment-links': 'all', '/products/digital-invoices': 'all', '/campaigns/partnership-campaigns': 'all', '/campaigns/merchant-campaigns': 'all', '/support/tickets-queries': 'all', '/support/service-delivery': 'all' };
 // Filter state of whichever list page is open (transactions, refunds or chargebacks).

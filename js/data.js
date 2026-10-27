@@ -114,7 +114,7 @@ for (const t of TXNS) {
   if (!refunded && !(t.status === 'success' && rng() < 0.025)) continue;
   const date = new Date(Math.min(NOW.getTime() - 60000, t.date.getTime() + (1 + rng() * 96) * 3600e3));
   const ageH = (NOW - date) / 3600e3;
-  const status = refunded ? 'Success' : ageH < 24 ? pick(['Initiate', 'Processing']) : ageH < 96 ? pick(['Processing', 'Submit To Bank']) : 'Cancelled';
+  const status = refunded ? 'Success' : ageH < 24 ? pick(['Initiate', 'Processing']) : ageH < 96 ? pick(['Processing', 'Submit To Bank']) : 'Cancel';
   const full = rng() < 0.7;
   REFUNDS.push({
     ref: `RF${alnum(10)}`, txn: t, date, status,
@@ -485,12 +485,12 @@ const MERCHANT_NAME = 'Demo Merchant Ltd.';
   const rd = (n) => Array.from({ length: n }, () => Math.floor(r() * 10)).join('');
   const later = (d, h) => new Date(Math.min(NOW.getTime(), d.getTime() + h * 3600e3));
   for (const x of REFUNDS) {
-    x.requestStatus = x.status === 'Initiate' ? 'Processing' : x.status === 'Cancelled' && r() < 0.5 ? 'Cancel' : 'Success';
+    x.requestStatus = x.status === 'Initiate' ? 'Processing' : x.status === 'Cancel' && r() < 0.5 ? 'Cancel' : 'Success';
     x.merchantRef = r() < 0.4 ? `MR-${rd(6)}` : '';
-    if (['Submit To Bank', 'Success', 'Cancelled'].includes(x.status)) {
+    if (['Submit To Bank', 'Success', 'Cancel'].includes(x.status)) {
       x.approvedOn = later(x.date, 2 + r() * 20);
       x.approvedBy = 'SSL Operations';
-      x.approvalRemarks = x.status === 'Success' ? `Refund Trans ID- R${rd(10)}` : x.status === 'Cancelled' ? (x.requestStatus === 'Cancel' ? 'Cancelled at merchant request' : 'Refund window expired for this channel') : 'Submitted to the issuing bank';
+      x.approvalRemarks = x.status === 'Success' ? `Refund Trans ID- R${rd(10)}` : x.status === 'Cancel' ? (x.requestStatus === 'Cancel' ? 'Cancelled at merchant request' : 'Refund window expired for this channel') : 'Submitted to the issuing bank';
     }
   }
   for (const c of CHARGEBACKS) {

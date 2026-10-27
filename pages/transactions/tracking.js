@@ -36,6 +36,7 @@ function renderTracking() {
     { label: 'Store', cls: 'hidden xl:table-cell', cell: t => esc(t.storeName) },
     { label: 'Amount', right: true, cell: t => `<span class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(t.amount)}</span>` },
     { label: 'Status', cell: t => badge(t.status === 'refunded' ? 'success' : t.status) },
+    { label: 'Action', cell: t => `<button data-action="open-txn" data-value="${t.id}" title="Details" aria-label="Details of ${t.id}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
   ];
   return `
     <div class="space-y-6">
@@ -63,7 +64,7 @@ function renderTracking() {
             <h2 class="text-sm font-semibold text-slate-900">Transaction Details <span class="ml-1 text-xs font-normal text-slate-500">${r.txns.length} row${r.txns.length === 1 ? '' : 's'}</span></h2>
           </div>
           ${r.missing.length ? `<div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">${ic('circle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span>Not found in your stores: <span class="font-mono">${r.missing.map(esc).join(', ')}</span></span></div>` : ''}
-          ${dataTable({ cols, rows: r.txns, rowAttrs: t => `data-action="open-txn" data-value="${t.id}"`, emptyTitle: 'No transaction found', emptyHint: 'Check the ID and try again.' })}
+          ${dataTable({ cols, rows: r.txns, rowAttrs: t => `data-action="open-txn" data-value="${t.id}"`, emptyTitle: 'No transaction found', emptyHint: 'Check the ID and try again.', serial: 1 })}
           ${r.txns.length ? PCI_NOTE : ''}
         </section>` : ''}
     </div>`;
