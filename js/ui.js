@@ -1,6 +1,14 @@
 // =====================================================================
 // Shared UI pieces (ported from KAM panel components)
 // =====================================================================
+// Table actions share the reference's light outline icon + visible label.
+// Keep action identifiers and record values with the existing delegated handlers.
+function rowAction(action, value, icon, label, { title = label, disabled = false, message } = {}) {
+  return `<button type="button" data-action="${esc(action)}" data-value="${esc(value)}"${message === undefined ? '' : ` data-msg="${esc(message)}"`} title="${esc(title)}" aria-label="${esc(title)}" class="row-action"${disabled ? ' disabled' : ''}>
+    ${ic(icon, 'row-action-icon')}<span class="row-action-label">${esc(label)}</span>
+  </button>`;
+}
+
 const PILL_ACTIVE = 'bg-[#295cab21] text-primary-600 border-primary-600 font-semibold';
 const PILL_IDLE = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300 font-medium';
 const STATUS_BADGE = 'px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap inline-block';
