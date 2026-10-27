@@ -41,7 +41,7 @@ function renderChargebacks() {
     { label: 'Chargeback Amount', right: true, cell: c => { const rb = respondBy(c); return `<div class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(c.amount)}</div>${rb ? `<div class="text-[11px] font-semibold whitespace-nowrap ${rb.cls}">Respond: ${rb.text}</div>` : ''}`; } },
     { label: 'Request Status', cell: c => cbBadge(c.status) },
     { label: 'Approval Status', cell: c => myCbBadge(c.myStatus) },
-    { label: 'Action', cell: c => `<button data-action="open-cb" data-value="${c.ref}" title="Details" aria-label="Details of ${c.ref}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
+    { label: 'Action', cell: c => rowAction('open-cb', c.ref, 'eye', 'Details', { title: `Details of ${c.ref}` }) },
   ];
 
   return `

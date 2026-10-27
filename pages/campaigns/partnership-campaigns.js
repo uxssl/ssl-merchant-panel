@@ -26,7 +26,7 @@ function renderPartnerCampaigns() {
     { label: 'End Date', cell: c => `<span class="whitespace-nowrap">${fmtDate(c.end)}</span>` },
     { label: 'Status', cell: c => `${campaignBadge(c.status)}${partnerEditable(c) ? `<div class="text-[11px] text-amber-600 mt-1 whitespace-nowrap">Update by ${fmtDate(c.last)}</div>` : ''}` },
     { label: 'Action', cell: c => `<div class="flex flex-wrap gap-1.5">
-      ${partnerEditable(c) ? actionBtn('edit-partner', c.id, 'pencil', 'Update', 'border-primary-200 bg-white text-primary-600 hover:bg-primary-50') : ''}
+      ${partnerEditable(c) ? actionBtn('edit-partner', c.id, 'pencil', 'Update') : ''}
       ${actionBtn('open-partner', c.id, 'eye', 'View')}
     </div>` },
   ];

@@ -30,9 +30,9 @@ function renderMerchantCampaigns() {
     { label: 'End Date', cell: c => `<span class="whitespace-nowrap">${fmtDate(c.end)}</span>` },
     { label: 'Status', cell: c => campaignBadge(c.status) },
     { label: 'Action', cell: c => `<div class="flex flex-wrap gap-1.5">
-      ${mcEditable(c) ? actionBtn('edit-mc', c.id, 'pencil', 'Edit', 'border-primary-200 bg-white text-primary-600 hover:bg-primary-50') : ''}
+      ${mcEditable(c) ? actionBtn('edit-mc', c.id, 'pencil', 'Edit') : ''}
       ${actionBtn('open-mc', c.id, 'eye', 'View')}
-      ${mcEditable(c) ? actionBtn('mc-cancel', c.id, 'circle-x', 'Cancel', 'border-rose-200 bg-white text-rose-600 hover:bg-rose-50') : ''}
+      ${mcEditable(c) ? actionBtn('mc-cancel', c.id, 'circle-x', 'Cancel') : ''}
     </div>` },
   ];
   return `

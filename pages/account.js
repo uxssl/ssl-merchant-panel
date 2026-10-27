@@ -16,9 +16,12 @@ let storeDraft = null; // { kind: 'group' | 'ipn' | 'gw', id, ...fields }
 
 const STORE_VIEW_MENU = [['store-charge', 'Gateway Charge'], ['open-store', 'Store Details'], ['store-bank', 'Settlement Bank Details']];
 const STORE_SET_MENU = [['store-set-group', 'Set Group'], ['store-ipn', 'IPN Settings'], ['store-gw', 'GW Settings']];
-const rowMenu = (key, icon, cls, items, id, label) => `
+const rowMenu = (key, icon, items, id, label, title) => `
   <div class="relative" data-dd-root>
-    <button data-action="dd-toggle" data-key="${key}" aria-haspopup="menu" aria-expanded="${openDD === key}" aria-label="${label}" title="${label}" class="inline-flex items-center gap-0.5 px-2 py-1 rounded text-white ${cls}">${ic(icon, 'w-3.5 h-3.5')}${ic('chevron-down', 'w-3 h-3')}</button>
+    <button type="button" data-action="dd-toggle" data-key="${key}" aria-haspopup="menu" aria-expanded="${openDD === key}" aria-label="${esc(title)}" title="${esc(title)}" class="row-action">
+      <span class="row-action-graphic">${ic(icon, 'row-action-icon')}${ic('chevron-down', 'row-action-chevron')}</span>
+      <span class="row-action-label">${esc(label)}</span>
+    </button>
     ${openDD === key ? `<div role="menu" class="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-50 py-1 anim-pop">
       ${items.map(([action, text]) => `<button role="menuitem" data-action="${action}" data-value="${id}" class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50">${text}</button>`).join('')}
     </div>` : ''}
@@ -136,8 +139,8 @@ function renderStoreList() {
     { label: 'Group', cell: st => storeGroupOf(st.id) ? `<span class="text-xs text-slate-700">${esc(storeGroupOf(st.id).name)}</span>` : '<span class="text-slate-400">—</span>' },
     { label: 'Status', cell: st => activeBadge(st.status === 'Active') },
     { label: 'Action', cell: st => `<div class="flex items-center gap-1">
-      ${rowMenu(`store-view:${st.id}`, 'eye', 'bg-[#0b3a63] hover:opacity-90', STORE_VIEW_MENU, st.id, `View menu for ${st.id}`)}
-      ${rowMenu(`store-set:${st.id}`, 'settings', 'bg-cyan-600 hover:bg-cyan-700', STORE_SET_MENU, st.id, `Settings menu for ${st.id}`)}
+      ${rowMenu(`store-view:${st.id}`, 'eye', STORE_VIEW_MENU, st.id, 'View', `View menu for ${st.id}`)}
+      ${rowMenu(`store-set:${st.id}`, 'settings', STORE_SET_MENU, st.id, 'Settings', `Settings menu for ${st.id}`)}
     </div>` },
   ];
   return `
@@ -173,7 +176,7 @@ function renderStoreGroups() {
     { label: 'Stores', cls: 'hidden md:table-cell', cell: g => `<span class="text-xs text-slate-600">${g.stores.length ? g.stores.map(id => esc(accStore(id).name)).join(', ') : '—'}</span>` },
     { label: 'Created On', cell: g => `<span class="whitespace-nowrap">${groupTime(g.created)}</span>` },
     { label: 'Status', cell: g => `<span class="${STATUS_BADGE} ${g.active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${g.active ? 'Active' : 'De-active'}</span>` },
-    { label: 'Action', cell: g => `<button data-action="edit-group" data-value="${g.id}" title="Edit" aria-label="Edit ${esc(g.name)}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('square-pen', 'w-3.5 h-3.5')}</button>` },
+    { label: 'Action', cell: g => rowAction('edit-group', g.id, 'pencil', 'Edit', { title: `Edit ${g.name}` }) },
   ];
   return `
     <div class="space-y-6">
@@ -246,8 +249,8 @@ function renderUsers() {
     { label: 'Allowed Store', cls: 'hidden xl:table-cell', cell: u => `<span class="text-xs text-slate-600">${esc(groupOf(u.group)?.name || '—')}</span>` },
     { label: 'Status', cell: u => userStatus(u.status) },
     { label: 'Action', cell: u => `<div class="flex items-center gap-1">
-      <button data-action="open-user" data-value="${u.login}" title="Details" aria-label="Details of ${u.login}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>
-      <button data-action="edit-user" data-value="${u.login}" title="Update" aria-label="Update ${u.login}" class="p-1.5 rounded bg-cyan-600 text-white hover:bg-cyan-700">${ic('square-pen', 'w-3.5 h-3.5')}</button>
+      ${rowAction('open-user', u.login, 'eye', 'Details', { title: `Details of ${u.login}` })}
+      ${rowAction('edit-user', u.login, 'pencil', 'Update', { title: `Update ${u.login}` })}
     </div>` },
   ];
   return `
@@ -302,7 +305,7 @@ function userDrawer(u) {
       ${g ? section('Stores this user can see', `<div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>`) : ''}`,
     footer: isSelf ? '<span class="text-xs text-slate-500">This is your own account — change your password from Change Password.</span>' : `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
-      <button data-action="edit-user" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('square-pen', 'w-4 h-4')}Update</button>`,
+      <button data-action="edit-user" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('pencil', 'w-4 h-4')}Update</button>`,
   });
 }
 

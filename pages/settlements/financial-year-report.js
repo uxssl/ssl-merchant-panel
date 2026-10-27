@@ -27,8 +27,8 @@ function fyCard(y) {
   const downloadCell = (status, storeId) => status === 'Processing'
     ? `<span class="inline-flex items-center gap-1.5 text-xs text-amber-600 font-medium">${ic('loader', 'w-3.5 h-3.5')}Generating…</span>`
     : `<div class="inline-flex flex-wrap justify-end gap-1.5">
-        <button data-action="toast" data-msg="Prototype: ${status === 'In Progress' ? 'provisional ' : ''}PDF statement is not wired up." class="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded hover:bg-slate-50 inline-flex items-center gap-1">${ic('file-down', 'w-3.5 h-3.5')}${status === 'In Progress' ? 'Provisional PDF' : 'PDF'}</button>
-        ${status === 'Generated' ? `<button data-action="toast" data-msg="Prototype: Excel statement is not wired up." class="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded hover:bg-slate-50 inline-flex items-center gap-1">${ic('sheet', 'w-3.5 h-3.5')}Excel</button>` : ''}
+        ${rowAction('toast', '', 'file-down', status === 'In Progress' ? 'Provisional PDF' : 'PDF', { title: `${status === 'In Progress' ? 'Provisional PDF' : 'PDF'} statement for ${storeId === 'all' ? 'all stores' : storeId}, FY ${fyLabel(y)}`, message: `Prototype: ${status === 'In Progress' ? 'provisional ' : ''}PDF statement is not wired up.` })}
+        ${status === 'Generated' ? rowAction('toast', '', 'sheet', 'Excel', { title: `Excel statement for ${storeId === 'all' ? 'all stores' : storeId}, FY ${fyLabel(y)}`, message: 'Prototype: Excel statement is not wired up.' }) : ''}
       </div>`;
   const row = (storeId, name, sub, status) => `
     <tr class="hover:bg-slate-50/50 transition-colors">

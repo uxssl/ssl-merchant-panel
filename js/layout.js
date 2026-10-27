@@ -8,21 +8,21 @@ function navItem(item, path) {
     const active = item.to === path || !!item.pages?.some(p => p.to === path);
     const cls = active ? 'bg-white text-primary-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100';
     if (navCollapsed) {
-      return `<div class="relative group"><a href="#${item.to}" class="w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-200 ${cls}">${ic(item.icon, 'w-5 h-5')}</a>${tip(item.label)}</div>`;
+      return `<div class="relative group"><a href="#${item.to}" aria-label="${esc(item.label)}" class="w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-200 ${cls}">${ic(item.icon, `w-5 h-5 ${active ? '' : 'portal-icon-control'}`)}</a>${tip(item.label)}</div>`;
     }
-    return `<a href="#${item.to}" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${cls}">${ic(item.icon, 'w-5 h-5 min-w-[20px]')}<span class="truncate">${item.label}</span></a>`;
+    return `<a href="#${item.to}" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${cls}">${ic(item.icon, `w-5 h-5 min-w-[20px] ${active ? '' : 'portal-icon-muted'}`)}<span class="truncate">${item.label}</span></a>`;
   }
 
   const parentActive = item.children.some(c => c.to === path);
   const open = expanded === item.key;
   if (navCollapsed) {
     const cls = parentActive ? 'bg-white text-primary-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-slate-100';
-    return `<div class="relative group"><button data-action="nav-parent" data-key="${item.key}" class="w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-200 ${cls}">${ic(item.icon, 'w-5 h-5')}</button>${tip(item.label)}</div>`;
+    return `<div class="relative group"><button data-action="nav-parent" data-key="${item.key}" aria-label="${esc(item.label)}" class="w-full flex items-center justify-center p-2.5 rounded-md transition-all duration-200 ${cls}">${ic(item.icon, `w-5 h-5 ${parentActive ? '' : 'portal-icon-control'}`)}</button>${tip(item.label)}</div>`;
   }
   return `
     <div>
       <button data-action="nav-parent" data-key="${item.key}" class="w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-slate-100 ${open || parentActive ? 'text-slate-900' : 'text-slate-600'}">
-        <span class="flex items-center gap-3 min-w-0">${ic(item.icon, `w-5 h-5 min-w-[20px] ${parentActive ? 'text-primary-600' : ''}`)}<span class="text-left leading-snug">${item.label}</span></span>
+        <span class="flex items-center gap-3 min-w-0">${ic(item.icon, `w-5 h-5 min-w-[20px] ${parentActive ? 'text-primary-600' : 'portal-icon-muted'}`)}<span class="text-left leading-snug">${item.label}</span></span>
         ${ic('chevron-down', `w-4 h-4 shrink-0 ${open ? 'rotate-180' : ''}`)}
       </button>
       ${open ? `
@@ -94,7 +94,7 @@ function searchResults() {
   const row = (kind, value, icon, title, sub, right = '') => `
     <button data-action="search-go" data-kind="${kind}" data-value="${esc(value)}" data-search-item="${i}" role="option"
       class="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-slate-50 ${i++ === search.active ? 'bg-slate-100' : ''}">
-      <span class="w-8 h-8 shrink-0 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">${ic(icon, 'w-4 h-4')}</span>
+      <span class="w-8 h-8 shrink-0 flex items-center justify-center">${ic(icon, 'w-5 h-5 portal-icon-muted')}</span>
       <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${title}</span>${sub ? `<span class="block text-xs text-slate-500 truncate">${sub}</span>` : ''}</span>
       ${right ? `<span class="text-xs font-medium text-slate-600 whitespace-nowrap">${right}</span>` : ''}
     </button>`;

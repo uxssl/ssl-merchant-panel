@@ -36,7 +36,7 @@ function renderTracking() {
     { label: 'Store', cls: 'hidden xl:table-cell', cell: t => esc(t.storeName) },
     { label: 'Amount', right: true, cell: t => `<span class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(t.amount)}</span>` },
     { label: 'Status', cell: t => badge(t.status === 'refunded' ? 'success' : t.status) },
-    { label: 'Action', cell: t => `<button data-action="open-txn" data-value="${t.id}" title="Details" aria-label="Details of ${t.id}" class="p-1.5 rounded bg-[#0b3a63] text-white hover:opacity-90">${ic('eye', 'w-3.5 h-3.5')}</button>` },
+    { label: 'Action', cell: t => rowAction('open-txn', t.id, 'eye', 'Details', { title: `Details of ${t.id}` }) },
   ];
   return `
     <div class="space-y-6">

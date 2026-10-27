@@ -1,4 +1,71 @@
 body { font-size: 14px; }
+
+/* Shared Lucide styling. Scope to UI icons so logos and payment QR SVGs stay intact. */
+:root {
+  --icon-stroke-width: 1.65;
+  --icon-color-muted: #96a2b1;
+  --icon-color-control: #7e8b9b;
+  --icon-label-color: #647184;
+  --icon-hover-color: #475569;
+  --icon-hover-surface: #f1f5f9;
+  --icon-pressed-surface: #e2e8f0;
+}
+.portal-icon {
+  flex-shrink: 0;
+  stroke-width: var(--icon-stroke-width);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.portal-icon-muted { color: var(--icon-color-muted); }
+.portal-icon-control { color: var(--icon-color-control); }
+
+/* A 20px glyph sits inside a comfortable, labeled 44px action target. */
+.row-action {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--icon-label-color);
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease;
+}
+.row-action-icon { width: 20px; height: 20px; color: var(--icon-color-muted); }
+.row-action-graphic { display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-height: 20px; }
+.row-action-chevron { width: 12px; height: 12px; color: var(--icon-color-muted); }
+.row-action-label { font-size: 11px; line-height: 14px; }
+.row-action:hover:not(:disabled),
+.row-action:focus-visible,
+.row-action[aria-expanded="true"] {
+  background: var(--icon-hover-surface);
+  color: var(--icon-hover-color);
+}
+.row-action:hover:not(:disabled) .portal-icon,
+.row-action:focus-visible .portal-icon,
+.row-action[aria-expanded="true"] .portal-icon { color: var(--icon-hover-color); }
+.row-action:active:not(:disabled) { background: var(--icon-pressed-surface); }
+.row-action:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .row-action { transition: none; }
+}
+@media (forced-colors: active) {
+  .portal-icon-muted, .portal-icon-control, .row-action .portal-icon { color: ButtonText; }
+  .row-action { color: ButtonText; }
+  .row-action:disabled, .row-action:disabled .portal-icon { color: GrayText; opacity: 1; }
+}
+
 .anim-pop { animation: pop .16s ease-out; }
 .anim-fade { animation: fade .2s ease-out; }
 .anim-drawer { animation: drawer-in .28s cubic-bezier(.2, .8, .2, 1); }
