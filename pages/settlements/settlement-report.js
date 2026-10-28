@@ -4,9 +4,9 @@
 // Both settlement reports sit under Analytics & Reports (old /settlements/* links still open them, see state.js).
 const SETTLEMENT_PATH = '/analytics/settlement-report';
 const FY_PATH = '/analytics/financial-year-report';
-const SETTLE_STATUSES = ['Paid', 'Pending', 'On Hold'];
+const SETTLE_STATUSES = ['Paid', 'Pending', 'On Hold', 'Bounced'];
 const SETTLE_TYPES = ['Online', 'Physical', 'Qr Payment', 'Both'];
-const SETTLE_CLS = { 'Paid': 'bg-emerald-50 text-emerald-600', 'Pending': 'bg-amber-50 text-amber-600', 'On Hold': 'bg-rose-50 text-rose-600' };
+const SETTLE_CLS = { 'Paid': 'bg-emerald-50 text-emerald-600', 'Pending': 'bg-amber-50 text-amber-600', 'On Hold': 'bg-rose-50 text-rose-600', 'Bounced': 'bg-orange-50 text-orange-700' };
 const settleBadge = (s) => `<span class="${STATUS_BADGE} ${SETTLE_CLS[s]}">${s}</span>`;
 const fmtBDT0 = (n) => `৳${Math.round(n).toLocaleString('en-US')}`;
 
@@ -30,7 +30,7 @@ function settlementRows(s, withStatus = true) {
     // Scheduled payouts are dated in the future, so match them on their business day instead.
     (inRange(x, s.range) || (x.status === 'Pending' && inRange({ date: x.day }, s.range))) &&
     (!q || x.ref.toLowerCase().includes(q) || String(x.batch).includes(q)) &&
-    (!withStatus || s.status === 'all' || (s.status === 'bounce' ? x.bounce : x.status === s.status))
+    (!withStatus || s.status === 'all' || x.status === s.status)
   );
 }
 
@@ -127,8 +127,8 @@ function renderSettlements() {
   const paid = base.filter(x => x.status === 'Paid');
   const pending = base.filter(x => x.status === 'Pending');
   const held = base.filter(x => x.status === 'On Hold');
-  const bounced = base.filter(x => x.bounce);
-  const statusOpts = [{ label: 'All Status', value: 'all' }, ...SETTLE_STATUSES.map(v => ({ label: v, value: v })), { label: 'Bounced', value: 'bounce' }];
+  const bounced = base.filter(x => x.status === 'Bounced');
+  const statusOpts = [{ label: 'All Status', value: 'all' }, ...SETTLE_STATUSES.map(v => ({ label: v, value: v }))];
   const typeOpts = [{ label: 'All Settlement Type', value: 'all' }, ...SETTLE_TYPES.map(v => ({ label: v, value: v }))];
   const cols = [
     { label: 'Settlement Date', cell: x => dateCell(x.date) },
@@ -139,9 +139,9 @@ function renderSettlements() {
     {
       label: 'Amount', right: true, cell: x => `
         <div class="font-semibold text-slate-900 whitespace-nowrap">${fmtBDT(x.settle)}</div>
-        <div class="text-xs whitespace-nowrap ${x.status === 'Paid' ? 'text-emerald-600' : 'text-amber-600'}">${x.status === 'Paid' ? `Paid ${fmtBDT(x.paid)}` : x.status === 'On Hold' ? `Fwd ${fmtBDT(x.fwd)}` : 'Scheduled'}</div>`
+        <div class="text-xs whitespace-nowrap ${x.status === 'Paid' ? 'text-emerald-600' : x.status === 'Bounced' ? 'text-orange-700' : 'text-amber-600'}">${x.status === 'Paid' ? `Paid ${fmtBDT(x.paid)}` : x.status === 'Pending' ? 'Scheduled' : `Fwd ${fmtBDT(x.fwd)}`}</div>`
     },
-    { label: 'Status', cell: x => `${settleBadge(x.status)}${x.bounce ? `<div class="text-[11px] font-semibold text-rose-600 mt-0.5">Bounced</div>` : ''}` },
+    { label: 'Status', cell: x => settleBadge(x.status) },
   ];
 
   return `
@@ -151,6 +151,16 @@ function renderSettlements() {
         <p class="text-slate-500 text-sm">Payouts to your bank account — one settlement per store per business day.</p>
       </div>
       <p class="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-800">${ic('info', 'w-4 h-4 shrink-0')}Merchant Settlement minimum amount will be ${fmtBDT0(2500)}. Search ranges are limited to 30 days.</p>
+
+      ${bounced.length ? `
+        <div class="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <span class="w-8 h-8 rounded-full bg-white text-orange-700 flex items-center justify-center shrink-0 ring-1 ring-orange-200">${ic('undo-2', 'w-4 h-4')}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-orange-900">${fmtBDT(sum(bounced, 'fwd'))} bounced across ${bounced.length} settlement${bounced.length > 1 ? 's' : ''}</p>
+            <p class="text-xs text-orange-800 mt-0.5">The bank returned these payouts. Check the bounce reason and the settlement bank account details, or contact your KAM before the next settlement cycle.</p>
+          </div>
+          <button data-action="overview-status" data-value="Bounced" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-orange-900 bg-white border border-orange-200 rounded-full hover:bg-orange-100">View bounced settlements</button>
+        </div>` : ''}
 
       ${held.length ? `
         <div class="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
@@ -173,7 +183,7 @@ function renderSettlements() {
             ${metricCard({ title: 'Settled Amount', value: fmtBDTShort(sum(paid, 'paid')), sub: `${paid.length} paid settlements`, status: 'Paid', selected: s.applied.status === 'Paid' })}
             ${metricCard({ title: 'Pending Settlement', value: fmtBDTShort(sum(pending, 'settle')), sub: `${pending.length} scheduled`, status: 'Pending', selected: s.applied.status === 'Pending' })}
             ${metricCard({ title: 'On Hold', value: fmtBDTShort(sum(held, 'fwd')), sub: `${held.length} held`, status: 'On Hold', selected: s.applied.status === 'On Hold' })}
-            ${metricCard({ title: 'Bounce Count', value: bounced.length.toLocaleString(), sub: `Bounce amount ${fmtBDT(sum(bounced, 'fwd'))}`, status: 'bounce', selected: s.applied.status === 'bounce' })}
+            ${metricCard({ title: 'Bounce Count', value: bounced.length.toLocaleString(), sub: `Bounce amount ${fmtBDT(sum(bounced, 'fwd'))}`, status: 'Bounced', selected: s.applied.status === 'Bounced' })}
           </div>
         </div>
 
@@ -201,7 +211,7 @@ function settlementDrawer(x) {
         ${statBox('Paid Amount', fmtBDT(x.paid), 'text-emerald-600')}
         ${statBox('Forwarded', fmtBDT(x.fwd), x.fwd ? 'text-amber-600' : 'text-slate-900')}
       </div>
-      ${x.holdReason ? `<div class="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700">${ic('circle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span><span class="font-semibold">${x.bounce ? 'Bounced' : 'On hold'}:</span> ${x.holdReason}. The amount will be forwarded to the next settlement.</span></div>` : ''}
+      ${x.holdReason && x.status !== 'Pending' ? `<div class="flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${x.bounce ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-rose-100 bg-rose-50 text-rose-700'}">${ic('circle-alert', 'w-4 h-4 mt-0.5 shrink-0')}<span><span class="font-semibold">${x.bounce ? 'Bounced' : 'On hold'}:</span> ${x.holdReason}. ${x.bounce ? 'Check the settlement bank account details with your KAM; the' : 'The'} amount will be forwarded to the next settlement.</span></div>` : ''}
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
         ${section('General Information', `<dl class="grid grid-cols-1 gap-y-3 text-sm">

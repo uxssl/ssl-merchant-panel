@@ -151,7 +151,8 @@ const REFUND_BY_TXN = new Map(REFUNDS.map(r => [r.txn.id, r]));
 const CB_BY_TXN = new Map(CHARGEBACKS.map(c => [c.txn.id, c]));
 
 // Settlements: one payout per store per business day, paid next day at 11:00 AM (mock rule).
-// Held payouts are forwarded and added to the store's next settlement.
+// Held payouts are forwarded and added to the store's next settlement. A payout the bank returned
+// (e.g. account name mismatch) is "Bounced": it is forwarded the same way, but the bank details need fixing first.
 const SETTLE_TYPE = { demo_dhanmondi: 'Both', demo_gulshan: 'Qr Payment', demo_online: 'Online' };
 const STORE_CODE = { demo_dhanmondi: 'DHN', demo_gulshan: 'GUL', demo_online: 'ONL' };
 const STORE_BANK = {
@@ -194,9 +195,9 @@ const SETTLEMENTS = [];
     const settle = opening + payable;
     const date = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 11, 0);
     const hold = date <= NOW && rng() < 0.04 ? HOLD_REASONS[rng() < 0.35 ? 0 : 1] : null;
-    const status = date > NOW ? 'Pending' : hold ? 'On Hold' : 'Paid';
+    const status = date > NOW ? 'Pending' : hold ? (hold.bounce ? 'Bounced' : 'On Hold') : 'Paid';
     const paid = status === 'Paid' ? settle : 0;
-    const fwd = status === 'On Hold' ? settle : 0;
+    const fwd = hold && status !== 'Pending' ? settle : 0;
     carry[store] = fwd;
     const bank = STORE_BANK[store];
     SETTLEMENTS.push({
@@ -790,6 +791,10 @@ const NOTIFICATIONS = [
   ...CHARGEBACKS.filter(c => ['Initial', 'Waiting'].includes(c.status)).slice(0, 2).map(c => ({
     kind: 'cb', value: c.ref, icon: 'shield-alert', tone: 'rose', date: c.date,
     title: 'Chargeback raised', text: `${fmtBDT(c.amount)} · ${c.reason}. Respond by ${fmtDate(c.respondBy)}.`,
+  })),
+  ...[...SETTLEMENTS].sort((a, b) => b.date - a.date).filter(x => x.status === 'Bounced').slice(0, 1).map(x => ({
+    kind: 'settlement', value: x.ref, icon: 'undo-2', tone: 'rose', date: x.date,
+    title: 'Settlement bounced', text: `${fmtBDT(x.fwd)} · ${x.storeName} · ${x.holdReason}`,
   })),
   ...[...SETTLEMENTS].sort((a, b) => b.date - a.date).filter(x => x.status === 'On Hold').slice(0, 1).map(x => ({
     kind: 'settlement', value: x.ref, icon: 'circle-pause', tone: 'amber', date: x.date,

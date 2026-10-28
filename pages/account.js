@@ -172,7 +172,7 @@ function storeCard(st) {
   const fact = (label, value) => `<div class="min-w-0"><dt class="text-[11px] text-slate-500">${label}</dt><dd class="text-[13px] font-medium text-slate-800 truncate">${value || '<span class="font-normal text-slate-400">Not set</span>'}</dd></div>`;
   const chip = (on, yes, no) => `<span class="${STATUS_BADGE} ${on ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">${on ? yes : no}</span>`;
   return `
-    <article class="bg-white rounded-lg border shadow-sm ${live ? 'border-slate-200' : 'border-slate-200 border-l-2 border-l-rose-300'}">
+    <article class="bg-white rounded-lg border shadow-sm border-slate-200">
       <div class="flex items-start justify-between gap-3 px-3 pt-3">
         <div class="flex items-start gap-2 min-w-0">
           ${ic(storeTypeIcon(st.type), 'w-4 h-4 mt-0.5 shrink-0 portal-icon-muted')}

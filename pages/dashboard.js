@@ -89,7 +89,7 @@ const cardHead = (title, sub, right = '') => `
 // Dashboard cards use a tighter header than the shared cardHead (also used by the analytics pages).
 const dashHead = (title, sub, right = '') => `
   <div class="px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
-    <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500 mt-0.5 truncate">${sub}</p>` : ''}</div>${right}
+    <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500 mt-0.5">${sub}</p>` : ''}</div>${right}
   </div>`;
 
 // Merchant app download QR — a real, scannable code with the SSLCOMMERZ logo in the middle.
@@ -144,12 +144,15 @@ function renderDashboard() {
   const escrowHeld = pendingDeliverables().length;
   const attention = [
     // Escrow money stays held until delivery is confirmed, so it leads the list while any is waiting.
-    { icon: 'package-check', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds on hold until you confirm delivery', value: escrowHeld, action: `data-action="go" data-value="${SUP.service}"`, priority: escrowHeld > 0 },
+    { icon: 'wallet', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds currently on hold before release or settlement', value: escrowHeld, action: `data-action="go" data-value="${SUP.service}"`, priority: escrowHeld > 0 },
     { icon: 'circle-x', tone: 'text-rose-600 bg-rose-50', title: 'Failed transactions', sub: 'In the selected period', value: failedCount, action: `data-action="goto-txn" data-status="failed"` },
     { icon: 'clock', tone: 'text-amber-600 bg-amber-50', title: 'Pending transactions', sub: 'Waiting for provider confirmation', value: pendingCount, action: `data-action="goto-txn" data-status="pending"` },
-    { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open — in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
+    { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open, in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
     { icon: 'shield-alert', tone: 'text-slate-600 bg-slate-100', title: 'Chargebacks to respond', sub: 'Waiting for your evidence', value: CHARGEBACKS.filter(c => CB_OPEN.has(c.status)).length, action: `data-action="goto-list" data-path="${CB_PATH}" data-status="action"` },
   ];
+  // Bounced payouts stay listed until the bank details are fixed, so count them across all time.
+  const bouncedSettlements = SETTLEMENTS.filter(x => x.status === 'Bounced' && inStores(x.store)).length;
+  attention.splice(1, 0, { icon: 'undo-2', tone: 'text-orange-700 bg-orange-50', title: 'Bounced settlements', sub: 'Returned by the bank', value: bouncedSettlements, action: `data-action="goto-list" data-path="${SETTLEMENT_PATH}" data-status="Bounced"` });
   const toReview = attention.reduce((s, a) => s + a.value, 0);
   // Each action opens its create form straight away rather than the product's list.
   const quick = [
@@ -252,12 +255,12 @@ function renderDashboard() {
 
         <div class="order-first lg:order-none flex flex-col gap-4 min-w-0">
           <div class="${DASH_CARD}">
-            ${dashHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
+            ${dashHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
             <div class="divide-y divide-slate-100">
               ${attention.map(a => `
-                <button ${a.action} class="w-full flex items-center gap-2.5 px-4 py-2 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
-                  <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-3.5 h-3.5')}</span>
-                  <span class="flex-1 min-w-0"><span class="flex items-center gap-1.5 min-w-0"><span class="text-sm font-medium text-slate-800 truncate">${a.title}</span>${a.priority ? '<span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-[11px] text-slate-500 truncate">${a.sub}</span></span>
+                <button ${a.action} class="w-full flex items-center gap-3 px-4 py-3 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
+                  <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-4 h-4')}</span>
+                  <span class="flex-1 min-w-0"><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="text-sm font-semibold text-slate-900">${a.title}</span>${a.priority ? '<span class="rounded-full px-2 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-xs text-slate-500 mt-0.5">${a.sub}</span></span>
                   <span class="min-w-[2rem] text-right text-sm font-bold ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
                 </button>`).join('')}
             </div>
