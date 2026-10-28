@@ -843,6 +843,7 @@ const actions = {
   },
   'dash-preset': (el) => { dash.preset = el.dataset.value; render(); },
   'open-contacts': () => { drawer = { kind: 'contacts', item: null }; renderDrawer(); },
+  'open-app-qr': () => { drawer = { kind: 'app-qr', item: null }; renderDrawer(); },
   // Dashboard quick action: open Payment QR with the generator's amount field ready.
   'quick-qr': () => { pendingFocus = '#qr-amount'; location.hash = '#/products/payment-qr'; },
   'goto-txn': (el) => {

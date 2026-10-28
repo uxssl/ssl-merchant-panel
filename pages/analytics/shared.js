@@ -83,7 +83,8 @@ function rankBars(rows, { value, label, sub, max }) {
 }
 
 // Donut + legend list. Colour follows the entity's slot in the fixed order, never its rank.
-function donut(id, rows, order, { value = r => r.count, label = r => fmtPct(r.share), sub = r => `${r.count.toLocaleString()} txns` } = {}) {
+// `bars` adds a share bar to each legend row, so a wide card uses its width instead of leaving it empty.
+function donut(id, rows, order, { value = r => r.count, label = r => fmtPct(r.share), sub = r => `${r.count.toLocaleString()} txns`, bars = false } = {}) {
   const colorOf = (name) => SERIES[order.indexOf(name)];
   queueChart(id, {
     type: 'doughnut',
@@ -94,13 +95,14 @@ function donut(id, rows, order, { value = r => r.count, label = r => fmtPct(r.sh
     },
   });
   return `
-    <div class="flex items-center gap-6 flex-wrap">
+    <div class="flex items-center gap-6 flex-wrap ${bars ? 'w-full' : ''}">
       <div class="w-36 h-36 shrink-0"><canvas id="${id}" role="img" aria-label="Share chart; values listed alongside"></canvas></div>
       <ul class="flex-1 min-w-[170px] space-y-2.5">
         ${rows.map(r => `<li class="flex items-center gap-2 text-sm">
           <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${colorOf(r.name)}"></span>
-          <span class="flex-1 min-w-0"><span class="block text-slate-700 truncate">${esc(r.name)}</span><span class="block text-[11px] text-slate-500">${sub(r)}</span></span>
-          <span class="font-semibold text-slate-900 tabular-nums">${label(r)}</span>
+          <span class="${bars ? 'w-32 shrink-0' : 'flex-1'} min-w-0"><span class="block text-slate-700 truncate">${esc(r.name)}</span><span class="block text-[11px] text-slate-500">${sub(r)}</span></span>
+          ${bars ? `<span class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden"><span class="block h-full rounded-full" style="width:${Math.max(r.share, 1)}%;background:${colorOf(r.name)}"></span></span>` : ''}
+          <span class="${bars ? 'w-12 text-right' : ''} font-semibold text-slate-900 tabular-nums">${label(r)}</span>
         </li>`).join('')}
       </ul>
     </div>`;

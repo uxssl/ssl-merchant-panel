@@ -110,6 +110,21 @@ function appQr(cls) {
     </svg>`;
 }
 
+// The dashboard QR is small to keep the contacts strip compact; this shows it large enough to scan.
+function appQrDrawer() {
+  return drawerShell({
+    title: 'SSLCOMMERZ Merchant App',
+    sub: '<span>Scan with your phone camera to download</span>',
+    body: `
+      <div class="flex flex-col items-center gap-4 py-4 text-center">
+        <div class="p-3 rounded-2xl border border-slate-200 bg-white shadow-sm">${appQr('w-64 h-64')}</div>
+        <p class="text-sm text-slate-600 max-w-xs">Manage your stores, check payments and settlements, and get alerts on the go.</p>
+        <a href="${MERCHANT_APP_URL}" target="_blank" rel="noopener" class="text-sm font-medium text-primary-600 hover:underline inline-flex items-center gap-1">Or open the download page${ic('external-link', 'w-3.5 h-3.5')}</a>
+      </div>`,
+    footer: `<button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>`,
+  });
+}
+
 function contactsDrawer() {
   const k = SUPPORT_CONTACTS.kam;
   const group = (n, title, icon, text, rows) => section(`${n}. ${title}`, `
@@ -148,74 +163,66 @@ function renderDashboard() {
   const bouncedSettlements = SETTLEMENTS.filter(x => x.status === 'Bounced' && inStores(x.store)).length;
   attention.splice(1, 0, { icon: 'undo-2', tone: 'text-orange-700 bg-orange-50', title: 'Bounced settlements', sub: 'Returned by the bank', value: bouncedSettlements, action: `data-action="goto-list" data-path="${SETTLEMENT_PATH}" data-status="Bounced"` });
   const toReview = attention.reduce((s, a) => s + a.value, 0);
-  // Each action opens its create form straight away rather than the product's list.
+  // Shortcuts to the screens merchants open most; Refund Request opens its create form straight away.
   const quick = [
-    // Pinned first and lightly highlighted: merchants check payouts more often than they create products.
-    { icon: 'landmark', label: 'Settlement Report', hint: 'See payouts to your bank account', action: `data-action="go" data-value="${SETTLEMENT_PATH}"`, featured: true },
-    { icon: 'link', label: 'Create Payment Link', hint: 'Share a link and get paid', action: 'data-action="new-link"' },
-    { icon: 'qr-code', label: 'Generate Payment QR', hint: 'Bangla QR for a store and amount', action: 'data-action="quick-qr"' },
-    { icon: 'file-text', label: 'Create Digital Invoice', hint: 'Bill a customer online', action: 'data-action="new-invoice"' },
+    { icon: 'banknote', label: 'Settlement', hint: 'Day-by-day payouts to your bank account', action: 'data-action="go" data-value="/settlements"', featured: true },
+    { icon: 'credit-card', label: 'Transactions', hint: 'Search all payments across your stores', action: 'data-action="go" data-value="/transactions/all"' },
+    { icon: 'undo-2', label: 'Refund Request', hint: 'Start a refund for a transaction', action: 'data-action="new-refund"' },
+    { icon: 'wallet', label: 'Escrow Hold Transactions', hint: 'Payments held until delivery is confirmed', action: `data-action="go" data-value="${ESCROW_HOLD_PATH}"` },
   ];
-  // One panel per contact: who they are and what to ask them, then call and email.
+  // Contact row: who, then the phone number and email written out as links.
   const contactLink = (icon, value, href) => `
-    <a href="${href}" title="${value}" class="min-w-0 flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-xs font-medium text-slate-700 hover:bg-white hover:text-primary-700 transition-colors">
-      ${ic(icon, 'w-4 h-4 portal-icon-muted shrink-0')}<span class="truncate">${value}</span>
-    </a>`;
-  const contactPanel = ({ role, avatar, name, sub, phone, email }) => `
-    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 flex flex-col gap-2 min-w-0">
-      <div class="flex items-start gap-3 min-w-0">
-        ${avatar}
-        <div class="min-w-0">
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-primary-700">${role}</p>
-          <p class="text-sm font-semibold text-slate-900">${name}</p>
-          <p class="text-xs text-slate-500">${sub}</p>
+    <a href="${href}" title="${value}" class="flex items-center gap-2 min-w-0 text-xs text-slate-600 hover:text-primary-700 hover:underline">${ic(icon, 'w-3.5 h-3.5 text-primary-500 shrink-0')}<span class="truncate">${value}</span></a>`;
+  const contactRow = ({ role, avatar, name, phone, email }) => `
+    <div class="flex items-center gap-3.5 px-5 py-3.5 min-w-0">
+      ${avatar}
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-primary-600">${role}</p>
+        <p class="text-sm font-semibold text-slate-900 truncate">${name}</p>
+        <div class="mt-1.5 flex flex-col gap-1">
+          ${contactLink('phone', phone, `tel:${phone.replace(/[^\d+]/g, '')}`)}
+          ${contactLink('mail', email, `mailto:${email}`)}
         </div>
-      </div>
-      <div class="pt-2 border-t border-slate-200/80 flex flex-col">
-        ${contactLink('phone', phone, `tel:${phone.replace(/[^\d+]/g, '')}`)}
-        ${contactLink('mail', email, `mailto:${email}`)}
       </div>
     </div>`;
 
   return `
     <div class="space-y-4">
-      <div class="flex items-end justify-between gap-4 flex-wrap">
-        <div class="min-w-0">
-          <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p class="text-slate-500 text-sm mt-0.5">Welcome back, Demo Merchant. Here's how your stores are performing.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
+      <!-- One header line; section titles and helper subtitles are left out to keep the page quiet. -->
+      <div class="flex items-center justify-between gap-x-4 gap-y-2 flex-wrap">
+        <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <div class="flex items-center gap-3 flex-wrap">
+          <p class="inline-flex items-center gap-1.5 text-xs text-slate-500" title="Changes compare ${d.prevLabel.replace('vs ', 'with the ')}">${ic('calendar', 'w-3.5 h-3.5')}${fmtDate(d.from)}, ${fmtHM(d.from)} – ${fmtDate(d.to)}, ${fmtHM(d.to)}</p>
           <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
             ${DASH_PRESETS.map(p => `<button data-action="dash-preset" data-value="${p.value}" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${dash.preset === p.value ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">${p.label}</button>`).join('')}
           </div>
         </div>
       </div>
 
-      <section aria-label="Help and apps" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="${DASH_CARD} lg:col-span-2 p-4 flex flex-col gap-3">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-slate-900">Your Contacts</h3>
-            <button data-action="open-contacts" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 whitespace-nowrap">All contacts${ic('arrow-right', 'w-3.5 h-3.5')}</button>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            ${contactPanel({ role: 'Key Account Manager', avatar: `<img src="${k.photo}" alt="Photo of ${esc(k.name)}, your Key Account Manager" class="w-11 h-11 rounded-full object-cover ring-2 ring-white shadow shrink-0">`, name: esc(k.name), sub: 'Business, campaigns &amp; products', phone: k.phone, email: k.email })}
-            ${contactPanel({ role: 'Operations Team', avatar: `<span class="w-11 h-11 rounded-full bg-primary-100 ring-2 ring-white shadow flex items-center justify-center shrink-0">${ic(ops.icon, 'w-5 h-5 text-primary-700')}</span>`, name: 'Operations Desk', sub: 'Transactions, refunds, chargebacks, EMI &amp; settlements', phone: opsRow('Telephone No'), email: opsRow('Email Address') })}
-          </div>
-        </div>
-        <div class="${DASH_CARD} p-4 flex items-center gap-4">
-          ${appQr('w-20 h-20 shrink-0')}
-          <div class="min-w-0">
-            <h3 class="text-sm font-semibold text-slate-900">Merchant App</h3>
-            <p class="text-xs text-slate-500 mt-1">Scan to download the app and manage your store on the go.</p>
-          </div>
+      <!-- Who to reach, as one compact strip: KAM, Operations and the app side by side.
+           What each one handles stays one click away under All contacts. -->
+      <section aria-label="Your contacts">
+        <div class="${DASH_CARD} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto] divide-y md:divide-y-0 lg:divide-x divide-slate-100">
+          ${contactRow({ role: 'Key Account Manager', avatar: `<img src="${k.photo}" alt="Photo of ${esc(k.name)}, your Key Account Manager" class="w-12 h-12 rounded-full object-cover ring-4 ring-primary-50 shrink-0">`, name: esc(k.name), phone: k.phone, email: k.email })}
+          ${contactRow({ role: 'Operations Team', avatar: `<span class="w-12 h-12 rounded-full bg-primary-100 ring-4 ring-primary-50 flex items-center justify-center shrink-0">${ic(ops.icon, 'w-5 h-5 text-primary-700')}</span>`, name: 'Operations Desk', phone: opsRow('Telephone No'), email: opsRow('Email Address') })}
+          <!-- Click opens the QR at full size, so it scans easily from a phone. -->
+          <button data-action="open-app-qr" class="group flex items-center gap-3.5 px-5 py-3 min-w-0 text-left md:col-span-2 lg:col-span-1 md:border-t lg:border-t-0 border-slate-100 hover:bg-primary-50/40 transition-colors">
+            <span class="p-1 rounded-lg border border-slate-200 bg-white shrink-0 group-hover:border-primary-300 transition-colors">${appQr('w-16 h-16 block')}</span>
+            <span class="min-w-0">
+              <span class="block text-[10px] font-semibold uppercase tracking-wider text-primary-600">Merchant App</span>
+              <span class="block text-sm font-semibold text-slate-900">Scan to download</span>
+              <span class="mt-1 inline-flex items-center gap-1.5 text-xs text-slate-600 group-hover:text-primary-700">${ic('maximize-2', 'w-3.5 h-3.5 text-primary-500')}Enlarge QR</span>
+            </span>
+          </button>
+          <button data-action="open-contacts" class="md:col-span-2 lg:col-span-1 flex lg:flex-col items-center justify-center gap-1.5 px-5 py-2.5 lg:w-28 text-xs font-medium text-primary-700 bg-slate-50/80 hover:bg-primary-50 md:border-t lg:border-t-0 border-slate-100 rounded-b-xl lg:rounded-bl-none lg:rounded-r-xl transition-colors whitespace-nowrap focus-visible:outline-offset-[-2px]">
+            <span class="w-8 h-8 rounded-full bg-white border border-slate-200 hidden lg:flex items-center justify-center">${ic('users', 'w-4 h-4 text-primary-600')}</span>
+            <span class="inline-flex items-center gap-1">All contacts${ic('arrow-right', 'w-3.5 h-3.5')}</span>
+          </button>
         </div>
       </section>
 
-      <section aria-labelledby="dash-overview" class="space-y-2">
-        <div class="flex items-center justify-between gap-3 flex-wrap">
-          <h2 id="dash-overview" class="text-sm font-semibold text-slate-900">Overview <span class="ml-1 text-xs font-normal text-slate-500">Change ${d.prevLabel}</span></h2>
-          <p class="inline-flex items-center gap-1.5 text-xs text-slate-500">${ic('calendar', 'w-3.5 h-3.5')}${fmtDate(d.from)}, ${fmtHM(d.from)} – ${fmtDate(d.to)}, ${fmtHM(d.to)}</p>
-        </div>
+      <!-- Performance first: the numbers, then the trend beside what needs action. -->
+      <section aria-label="Overview">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           ${statCard({ title: 'Successful Payment Value', value: fmtBDTShort(d.now.sales), cur: d.now.sales, prev: d.prev.sales, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'href="#/analytics/business-analytics"' })}
           ${statCard({ title: 'Successful Transactions', value: d.now.success.toLocaleString(), cur: d.now.success, prev: d.prev.success, vs: d.prevLabel, empty: !d.now.total, prevEmpty: !d.prev.total, link: 'data-action="goto-txn" data-status="success"' })}
@@ -224,72 +231,63 @@ function renderDashboard() {
         </div>
       </section>
 
-      <!-- Two independent columns; the sales chart takes any spare height so both end on one line.
-           On phones the action column comes first: quick actions and open issues before charts. -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 flex flex-col gap-4 min-w-0">
-          <div class="${DASH_CARD} flex-1 flex flex-col">
-            ${dashHead('Successful Transactions &amp; Amount', `${dash.preset === 'today' ? 'Hourly' : 'Daily'} successful payment value and count · Select a ${dash.preset === 'today' ? 'bar' : 'day'} to see its transactions`)}
-            <!-- The canvas sits absolutely, so the chart fills spare height without pushing the row taller. -->
-            <div class="px-4 py-3 flex-1 min-h-64 flex flex-col"><div class="relative flex-1"><canvas id="chart-sales" class="absolute inset-0"></canvas></div></div>
-          </div>
+      <!-- Quick actions as one strip of buttons rather than a card. -->
+      <nav aria-label="Quick actions" class="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+        ${quick.map(q => `
+          <button ${q.action} title="${q.hint}" class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs sm:text-sm font-medium shadow-sm transition-colors ${q.featured ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700' : 'bg-white border-slate-200 text-slate-700 hover:border-primary-300 hover:text-primary-700'}">
+            ${ic(q.icon, `w-4 h-4 shrink-0 ${q.featured ? '' : 'portal-icon-muted'}`)}${q.label}
+          </button>`).join('')}
+      </nav>
 
-          <div class="${DASH_CARD}">
-            ${dashHead('Payment Channels', 'Share of successful transactions', linkMore('#/analytics/market-share', 'Details'))}
-            <!-- Same donut and channel colours as Market Share, so a channel reads the same everywhere. -->
-            <div class="px-4 py-3">
-              ${d.channels.length ? donut('chart-channels', d.channels, CHANNELS, { sub: c => `${c.count.toLocaleString()} txns` }) : '<p class="text-sm text-slate-500">No successful payments in this period yet.</p>'}
-            </div>
+      <!-- The chart's canvas sits absolutely, so Needs Attention sets the row height and the chart fills it.
+           On phones Needs Attention comes first. -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="${DASH_CARD} lg:col-span-2 flex flex-col min-w-0">
+          ${dashHead('Successful Payments')}
+          <div class="px-4 py-3 flex-1 min-h-64 flex flex-col"><div class="relative flex-1"><canvas id="chart-sales" class="absolute inset-0"></canvas></div></div>
+        </div>
+
+        <div class="${DASH_CARD} order-first lg:order-none min-w-0 flex flex-col">
+          ${dashHead('Needs Attention', '', `<span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
+          <div class="flex-1 flex flex-col divide-y divide-slate-100">
+            ${attention.map(a => `
+              <button ${a.action} title="${a.sub}" class="flex-1 w-full flex items-center gap-2.5 px-4 py-2.5 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
+                <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-4 h-4')}</span>
+                <span class="flex-1 min-w-0"><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="text-sm font-semibold text-slate-900">${a.title}</span>${a.priority ? '<span class="rounded-full px-2 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span></span>
+                <span class="min-w-[2rem] text-right text-sm font-bold tabular-nums ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
+              </button>`).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Supporting detail in one row: channels and money on its way. -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="${DASH_CARD} flex flex-col min-w-0">
+          ${dashHead('Payment Channels', '', linkMore('#/analytics/market-share', 'Details'))}
+          <!-- Same donut and channel colours as Market Share, so a channel reads the same everywhere. -->
+          <div class="px-5 py-4 flex-1 flex items-center">
+            ${d.channels.length ? donut('chart-channels', d.channels, CHANNELS, { sub: c => `${c.count.toLocaleString()} txns`, bars: true }) : '<p class="text-sm text-slate-500">No successful payments in this period yet.</p>'}
           </div>
         </div>
 
-        <div class="order-first lg:order-none flex flex-col gap-4 min-w-0">
-          <div class="${DASH_CARD}">
-            ${dashHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
-            <div class="divide-y divide-slate-100">
-              ${attention.map(a => `
-                <button ${a.action} class="w-full flex items-center gap-2.5 px-4 py-2 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
-                  <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-3.5 h-3.5')}</span>
-                  <span class="flex-1 min-w-0"><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="text-sm font-semibold text-slate-900">${a.title}</span>${a.priority ? '<span class="rounded-full px-2 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-xs text-slate-500">${a.sub}</span></span>
-                  <span class="min-w-[2rem] text-right text-sm font-bold ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
-                </button>`).join('')}
+        <div class="${DASH_CARD} flex flex-col min-w-0">
+          ${dashHead('Settlement', '', linkMore('#/analytics/settlement-report', 'Report'))}
+          <div class="p-3 flex-1 flex flex-col gap-2">
+            <div class="flex-1 flex flex-col justify-center rounded-lg bg-primary-50/60 border border-primary-100 px-4 py-3">
+              <p class="text-xs font-semibold text-primary-700">Pending Settlement</p>
+              <p class="text-2xl font-bold tracking-tight text-slate-900 my-0.5">${fmtBDT(d.pendingSettlement)}</p>
+              <p class="text-xs text-slate-500 inline-flex items-center gap-1.5">${ic('calendar-clock', 'w-3.5 h-3.5')}Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Last Settled</p><p class="text-sm font-bold text-slate-900">${fmtBDTShort(d.lastSettled)}</p><p class="text-[11px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
+              <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Settlement Account</p><p class="text-sm font-bold text-slate-900 font-mono whitespace-nowrap">A/C •••• ••••</p></div>
             </div>
           </div>
-
-          <div class="${DASH_CARD}">
-            ${dashHead('Quick Actions', 'Start a payment in a few clicks')}
-            <div class="p-1.5 flex flex-col">
-              ${quick.map(q => `
-                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors ${q.featured ? 'bg-primary-50/70 hover:bg-primary-50 mb-0.5' : 'hover:bg-primary-50/60'}">
-                  <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic(q.icon, `w-5 h-5 ${q.featured ? 'text-primary-600' : 'portal-icon-muted'}`)}</span>
-                  <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-slate-800 truncate">${q.label}</span><span class="block text-xs text-slate-500 truncate">${q.hint}</span></span>
-                  ${ic('chevron-right', 'w-4 h-4 text-slate-300 group-hover:text-primary-600 shrink-0 transition-colors')}
-                </button>`).join('')}
-            </div>
-          </div>
-
-          <div class="${DASH_CARD}">
-            ${dashHead('Settlement', 'Estimated, mock values', linkMore('#/analytics/settlement-report', 'Report'))}
-            <div class="p-3 space-y-2">
-              <div class="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2">
-                <p class="text-xs font-semibold text-primary-700">Pending Settlement</p>
-                <p class="text-lg font-bold tracking-tight text-slate-900">${fmtBDT(d.pendingSettlement)}</p>
-                <p class="text-xs text-slate-500 inline-flex items-center gap-1.5">${ic('calendar-clock', 'w-3.5 h-3.5')}Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Last Settled</p><p class="text-sm font-bold text-slate-900">${fmtBDTShort(d.lastSettled)}</p><p class="text-[11px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
-                <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Settlement Account</p><p class="text-sm font-bold text-slate-900 font-mono whitespace-nowrap">A/C •••• ••••</p><p class="text-[11px] text-slate-400 mt-0.5">Primary bank (masked)</p></div>
-              </div>
-            </div>
-            <a href="#/account/store-list" class="flex items-center gap-2.5 px-4 py-2 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
-              <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic('store', 'w-5 h-5 portal-icon-muted')}</span>
-              <span class="flex-1 min-w-0">
-                <span class="block text-sm font-semibold text-slate-900">Stores</span>
-                <span class="block text-xs text-slate-500">${ACCOUNT_STORES.length} total · <span class="text-emerald-600 font-medium">${activeStores} active</span> · ${ACCOUNT_STORES.length - activeStores} inactive</span>
-              </span>
-              ${ic('chevron-right', 'w-4 h-4 text-slate-300')}
-            </a>
-          </div>
+          <a href="#/account/store-list" class="flex items-center gap-2.5 px-4 py-2 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
+            ${ic('store', 'w-4 h-4 portal-icon-muted shrink-0')}
+            <span class="flex-1 min-w-0 text-xs text-slate-500"><span class="font-semibold text-slate-900">Stores</span> · ${ACCOUNT_STORES.length} total · <span class="text-emerald-600 font-medium">${activeStores} active</span> · ${ACCOUNT_STORES.length - activeStores} inactive</span>
+            ${ic('chevron-right', 'w-4 h-4 text-slate-300')}
+          </a>
         </div>
       </div>
     </div>`;
@@ -328,8 +326,8 @@ function mountDashboardCharts() {
       },
       scales: {
         x: { grid: { display: false } },
-        y: { grid, beginAtZero: true, title: { display: true, text: 'Amount (BDT)' }, ticks: { callback: (v) => v >= 1e5 ? `${v / 1e5}L` : v >= 1e3 ? `${v / 1e3}k` : v } },
-        y1: { position: 'right', beginAtZero: true, grid: { display: false }, title: { display: true, text: 'Transactions' }, ticks: { precision: 0 } },
+        y: { grid, beginAtZero: true, grace: '8%', title: { display: true, text: 'Amount (BDT)' }, ticks: { callback: (v) => v >= 1e5 ? `${v / 1e5}L` : v >= 1e3 ? `${v / 1e3}k` : v } },
+        y1: { position: 'right', beginAtZero: true, grace: '8%', grid: { display: false }, title: { display: true, text: 'Transactions' }, ticks: { precision: 0 } },
       },
     },
   }));
