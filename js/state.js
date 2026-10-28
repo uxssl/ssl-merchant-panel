@@ -36,7 +36,7 @@ const defaultListState = (preset) => {
 // The transaction list opens on "Success Only", as in the old panel; Clear returns to it.
 const txnState = (key) => (listStates[key] ||= (() => { const s = defaultListState('7d'); Object.assign(s, { status: 'success', defaultStatus: 'success' }); s.applied = snapshotFilters(s); return s; })());
 // Links and invoices live longer than a month, so their lists open on All Time.
-const LIST_DEFAULT_PRESET = { '/products/payment-links': 'all', '/products/digital-invoices': 'all', '/campaigns/partnership-campaigns': 'all', '/campaigns/merchant-campaigns': 'all', '/support/tickets-queries': 'all', '/support/service-delivery': 'all' };
+const LIST_DEFAULT_PRESET = { '/products/payment-links': 'all', '/products/digital-invoices': 'all', '/campaigns/partnership-campaigns': 'all', '/campaigns/merchant-campaigns': 'all', '/support/tickets-queries': 'all', '/escrow/service-delivery': 'all' };
 // Filter state of whichever list page is open (transactions, refunds or chargebacks).
 const pageState = () => {
   const path = currentPath();
@@ -47,6 +47,6 @@ const tracking = { merchant: '', bkash: '', nagad: '', results: null };
 const dash = { preset: '7d' };
 
 // Pages that moved in the menu keep their old links working.
-const MOVED_PATHS = { '/transactions/currency-rates': '/others/currency-conversion-rates', '/account/my-stores': '/account/store-list', '/transactions/google-pay': '/analytics/google-pay-report', '/transactions/bangla-qr': '/analytics/bangla-qr-report', '/settlements/settlement-report': '/analytics/settlement-report', '/settlements/financial-year-report': '/analytics/financial-year-report' };
+const MOVED_PATHS = { '/transactions/currency-rates': '/others/currency-conversion-rates', '/account/my-stores': '/account/store-list', '/transactions/google-pay': '/analytics/google-pay-report', '/transactions/bangla-qr': '/analytics/bangla-qr-report', '/settlements/settlement-report': '/analytics/settlement-report', '/settlements/financial-year-report': '/analytics/financial-year-report', '/transactions/refund-requests': '/dispute/refund-requests', '/transactions/chargeback-requests': '/dispute/chargeback-requests', '/support/service-delivery': '/escrow/service-delivery' };
 const currentPath = () => { const p = (location.hash || '#/dashboard').slice(1); return MOVED_PATHS[p] || p; };
 const activeParent = (path) => NAV.find(n => n.children?.some(c => c.to === path))?.key || null;

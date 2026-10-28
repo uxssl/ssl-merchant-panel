@@ -63,7 +63,7 @@ const PAGE_LINKS = NAV.flatMap(n => [
   ...(n.to ? [{ label: n.label, to: n.to, icon: n.icon }] : []),
   ...(n.children || n.pages || []).map(c => ({ ...c, parent: n.label, icon: n.icon })),
 ]);
-const QUICK_PAGES = ['/transactions/all', '/transactions/refund-requests', '/analytics/settlement-report', '/products/payment-links', '/products/digital-invoices', '/support/transaction-tickets'];
+const QUICK_PAGES = ['/transactions/all', '/dispute/refund-requests', '/analytics/settlement-report', '/products/payment-links', '/products/digital-invoices', '/support/transaction-tickets'];
 
 const timeAgo = (d) => {
   const mins = Math.round((NOW - d) / 60000);
@@ -185,5 +185,20 @@ function renderHeader() {
             </div>
           </div>` : ''}
       </div>
+    </div>`;
+}
+
+// Portal-wide alert: a store still takes payments but SSL has switched its settlement off.
+function settlementBanner() {
+  const stores = ACCOUNT_STORES.filter(st => st.status === 'Active' && SETTLEMENT_DISABLED.has(st.id));
+  if (!stores.length) return '';
+  return `
+    <div role="alert" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
+      <span class="w-8 h-8 rounded-full bg-white text-rose-600 flex items-center justify-center shrink-0 ring-1 ring-rose-200">${ic('circle-alert', 'w-4 h-4')}</span>
+      <div class="flex-1 min-w-[220px] text-sm">
+        <p class="font-semibold text-rose-900">Your settlement is currently disabled. Please contact your KAM.</p>
+        <p class="text-xs text-rose-800 mt-0.5">Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but they won't be paid out until settlement is enabled again.</p>
+      </div>
+      <button data-action="open-contacts" class="${BTN_SECONDARY} shrink-0">${ic('headset', 'w-4 h-4')}Contact KAM</button>
     </div>`;
 }

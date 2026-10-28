@@ -674,6 +674,26 @@ const STORE_SETTINGS = Object.fromEntries(ACCOUNT_STORES.map(st => [st.id, {
   gw: { primaryWeb: '#295cab', activeWeb: '#1d4a91', primarySdk: '#295cab', activeSdk: '#1d4a91', payGroup: '', chargeCustomer: 'Disabled' },
 }]));
 
+// Settlement switched off by SSL while the store still takes payments (mock). Drives the
+// portal-wide banner and the Transaction Profile; only the KAM can turn it back on.
+const SETTLEMENT_DISABLED = new Set(['demo_gulshan']);
+
+// Transaction Profile (mock, read-only): what SSL has configured for each store.
+// Limits and channels are illustrative; the real profile comes from onboarding / KAM setup.
+const TXN_PROFILES = Object.fromEntries(ACCOUNT_STORES.map((st, i) => {
+  const qr = st.type !== 'Only Online', online = st.type !== 'Only QR', usd = st.currency === 'USD';
+  return [st.id, {
+    mid: `MID-${1002450 + i * 7}`, business: ['Retail / Electronics', 'Retail / Grocery', 'E-commerce / Fashion', 'Export / Garments', 'Retail / Events'][i],
+    mode: st.status === 'Active' ? 'Live' : 'Sandbox', frequency: usd ? 'T+3' : 'T+1',
+    channels: METHODS.filter(m => (online || m.type === 'QR') && (qr || m.type !== 'QR') && !(m.name === 'AMEX' && !usd) && !(m.name === 'Google Pay' && i > 0)).map(m => m.name),
+    limits: { minTxn: usd ? 1 : 10, maxTxn: usd ? 5000 : qr && !online ? 50000 : 500000, daily: usd ? 25000 : 2000000, monthly: usd ? 300000 : 30000000 },
+    caps: {
+      'Regular Payment': online, 'Refund': true, 'Partial Refund': online, 'Digital EMI': st.emi === 'EMI Enabled', 'Payment Link': online,
+      'Digital Invoice': online, 'Payment QR': qr, 'Saved Card': st.id === 'demo_online', 'Escrow': st.id === 'demo_online',
+    },
+  }];
+}));
+
 // Others (mock): referrals, FX rates, value added services, SMS credits, FAQ and learning material.
 const REFERRAL_CODE = 'DEMO-MRC-7Q4K';
 const REFERRAL_BONUS = 1000; // mock bonus per referred merchant that goes live

@@ -1,7 +1,7 @@
 // =====================================================================
 // Account & Settings
 // =====================================================================
-const ACC = { storeList: '/account/store-list', groups: '/account/store-groups', users: '/account/user-management', password: '/account/change-password' };
+const ACC = { storeList: '/account/store-list', groups: '/account/store-groups', users: '/account/user-management', password: '/account/change-password', profile: '/account/transaction-profile' };
 const accStore = (id) => ACCOUNT_STORES.find(s => s.id === id);
 const groupOf = (id) => STORE_GROUPS.find(g => g.id === id);
 const storeTypeIcon = (type) => type === 'Only QR' ? 'qr-code' : type === 'Only Online' ? 'globe' : 'store';
@@ -459,4 +459,84 @@ function setPwError(id, msg) {
   const el = $(`#${id}-error`);
   el.textContent = msg;
   el.classList.toggle('hidden', !msg);
+}
+
+// ----- Transaction Profile (read-only) ---------------------------------
+// What SSL has configured for one store. Merchants can't edit any of it here:
+// changes go through a support ticket or the KAM.
+const onOff = (on, yes = 'Enabled', no = 'Disabled') => `<span class="${STATUS_BADGE} ${on ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}">${on ? yes : no}</span>`;
+const profileTile = (label, value) => `<div class="rounded-lg border border-slate-200 px-3 py-2.5"><p class="text-[11px] font-medium text-slate-500">${label}</p><p class="mt-1 text-sm font-semibold text-slate-900 break-words">${value}</p></div>`;
+const capTile = (name, sub, on) => `<div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2.5 ${on ? '' : 'bg-slate-50'}"><div class="min-w-0"><p class="text-sm font-semibold ${on ? 'text-slate-900' : 'text-slate-500'}">${name}</p><p class="text-[11px] text-slate-500">${sub}</p></div>${onOff(on, 'On', 'Off')}</div>`;
+const CAP_DESC = {
+  'Regular Payment': 'Standard gateway checkout', 'Refund': 'Merchant-initiated refund', 'Partial Refund': 'Refund part of the amount', 'Digital EMI': 'Card instalments',
+  'Payment Link': 'Shareable payment links', 'Digital Invoice': 'Invoice-based collection', 'Payment QR': 'Bangla QR collection', 'Saved Card': 'Tokenised card for returning customers', 'Escrow': 'Held until delivery is confirmed',
+};
+
+function renderTxnProfile() {
+  const s = pageState();
+  const st = accStore(s.store && s.store !== 'all' ? s.store : ACCOUNT_STORES[0].id);
+  const p = TXN_PROFILES[st.id];
+  const bank = STORE_BANK[st.id];
+  const settleOn = !SETTLEMENT_DISABLED.has(st.id) && !!bank;
+  const live = st.status === 'Active';
+  const amt = (n) => st.currency === 'BDT' ? fmtBDT(n) : `${st.currency} ${n.toLocaleString()}`;
+  const ipn = storeCfg(st.id).ipn;
+  return `
+    <div class="space-y-6">
+      ${pageHeader('Transaction Profile', 'Payment channels, limits, settlement and gateway settings SSLCOMMERZ has set up for this store. This page is view only.', `
+        <div class="flex flex-wrap gap-2">
+          <button data-action="new-gt" class="${BTN_SECONDARY}">${ic('message-square', 'w-4 h-4')}Request Change</button>
+          <button data-action="open-contacts" class="${BTN_PRIMARY}">${ic('headset', 'w-4 h-4')}Contact KAM</button>
+        </div>`)}
+      <div class="filter-bar-container flex items-center gap-3 flex-wrap">
+        ${selectPill('list', 'store', 'Store', ACCOUNT_STORES.map(a => ({ label: a.name, value: a.id })), st.id)}
+        <span class="inline-flex items-center gap-1.5 text-xs text-slate-500">${ic('lock', 'w-3.5 h-3.5')}Read only</span>
+      </div>
+      ${anCard('Profile Overview', 'Store and merchant-level transaction configuration', `
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          ${profileTile('Store Name', esc(st.name))}
+          ${profileTile('Store ID', `<span class="font-mono">${st.id}</span>`)}
+          ${profileTile('Merchant ID', `<span class="font-mono">${p.mid}</span>`)}
+          ${profileTile('Business Type', esc(p.business))}
+          ${profileTile('Currency', st.currency)}
+          ${profileTile('Store Type', esc(st.type))}
+          ${profileTile('Transaction Status', onOff(live))}
+          ${profileTile('Settlement Status', settleOn ? onOff(true) : `<span class="${STATUS_BADGE} bg-rose-50 text-rose-600">Disabled</span>`)}
+        </div>`, '', live ? onOff(true, 'Active Store') : onOff(false, '', 'Inactive Store'))}
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        ${anCard('Payment Channels', 'Channels this store accepts payments through', `
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${METHODS.map(m => capTile(m.name, m.type, p.channels.includes(m.name))).join('')}</div>`, 'xl:col-span-2')}
+        ${anCard('Settlement Profile', 'Where and how often payouts are made', `
+          <div class="space-y-3">
+            ${detailList([
+              ['Status', settleOn ? onOff(true) : `<span class="${STATUS_BADGE} bg-rose-50 text-rose-600">Disabled</span>`],
+              ['Frequency', p.frequency], ['Currency', st.currency],
+              ['Settlement Bank', bank ? esc(`${bank.bank} — ${bank.branch}`) : ''],
+              ['Account No', bank ? `<span class="font-mono">${bank.account}</span>` : ''],
+            ])}
+            ${!settleOn ? `<p class="text-xs text-rose-700">${bank ? 'Settlement is disabled for this store. Payments are held until your KAM enables it again.' : 'No settlement account yet — your KAM sets it up after KYC.'}</p>` : ''}
+          </div>`)}
+      </div>
+      ${anCard('Transaction Limits', 'Per-payment and cumulative limits for this store', miniTable(['Limit', 'Amount'], [
+        ['Minimum per transaction', amt(p.limits.minTxn)], ['Maximum per transaction', amt(p.limits.maxTxn)],
+        ['Daily limit', amt(p.limits.daily)], ['Monthly limit', amt(p.limits.monthly)],
+      ], { right: [1] }))}
+      ${anCard('Transaction Capabilities', 'Services and features available for this store', `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">${Object.entries(p.caps).map(([k, on]) => capTile(k, CAP_DESC[k], on)).join('')}</div>`)}
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        ${anCard('Gateway Configuration', 'Payment processing settings', miniTable(['Configuration', 'Current Value', 'Status'], [
+          ['Processing Mode', p.mode, onOff(live, 'Active', 'Inactive')],
+          ['IPN Listener', ipn.listener ? 'Configured' : 'Not set', onOff(ipn.listenerOn, 'Active', 'Off')],
+          ['Gateway Charge (TDR)', `As per agreement · <button data-action="store-charge" data-value="${st.id}" class="font-semibold text-primary-600 hover:underline">View</button>`, '<span class="' + STATUS_BADGE + ' bg-slate-100 text-slate-600">View only</span>'],
+          ['Charge to Customer', esc(storeCfg(st.id).gw.chargeCustomer), onOff(storeCfg(st.id).gw.chargeCustomer !== 'Disabled')],
+        ]))}
+        ${anCard('Dispute &amp; Risk Profile', 'Capability-level status only', miniTable(['Item', 'Status', 'Remarks'], [
+          ['Refund', onOff(p.caps.Refund), `Handled under <a href="#${REFUND_PATH}" class="text-primary-600 hover:underline">Dispute Management</a>`],
+          ['Chargeback', onOff(true, 'Applicable'), `Handled under <a href="#${CB_PATH}" class="text-primary-600 hover:underline">Dispute Management</a>`],
+          ['Escrow', onOff(p.caps.Escrow), p.caps.Escrow ? `Confirm delivery in <a href="#${SUP.service}" class="text-primary-600 hover:underline">Escrow Management</a>` : 'Not used by this store'],
+          ['Card Data Display', '<span class="' + STATUS_BADGE + ' bg-slate-100 text-slate-600">Masked</span>', 'Full card numbers are never shown'],
+        ]))}
+      </div>
+      <p class="flex items-start gap-1.5 text-[11px] text-slate-400">${ic('shield-check', 'w-3.5 h-3.5 shrink-0 mt-px')}Gateway, settlement and bank settings can't be edited here. Request a change by ticket or through your KAM; it is applied after SSLCOMMERZ approval. Limits and channels shown are mock data.</p>
+    </div>`;
 }

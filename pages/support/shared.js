@@ -1,7 +1,7 @@
 // =====================================================================
 // Support & Tickets — shared
 // =====================================================================
-const SUP = { txn: '/support/transaction-tickets', general: '/support/tickets-queries', service: '/support/service-delivery' };
+const SUP = { txn: '/support/transaction-tickets', general: '/support/tickets-queries', service: '/escrow/service-delivery' };
 const TT_CLS = { Requested: 'bg-amber-50 text-amber-600', Solved: 'bg-emerald-50 text-emerald-600' };
 const GT_CLS = { Pending: 'bg-amber-50 text-amber-600', Processing: 'bg-blue-50 text-blue-600', Declined: 'bg-rose-50 text-rose-600', Completed: 'bg-emerald-50 text-emerald-600' };
 const SR_CLS = { Requested: 'bg-slate-100 text-slate-600', Approved: 'bg-blue-50 text-blue-600', 'In Progress': 'bg-amber-50 text-amber-600', Delivered: 'bg-emerald-50 text-emerald-600', Cancelled: 'bg-rose-50 text-rose-600' };

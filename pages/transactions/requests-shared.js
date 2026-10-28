@@ -2,8 +2,8 @@
 // Shared list-page pieces (Refund & Chargeback Requests)
 // =====================================================================
 const TRACKING_PATH = '/transactions/tracking';
-const REFUND_PATH = '/transactions/refund-requests';
-const CB_PATH = '/transactions/chargeback-requests';
+const REFUND_PATH = '/dispute/refund-requests';
+const CB_PATH = '/dispute/chargeback-requests';
 
 const dateCell = (d) => `<div class="text-slate-800 font-medium whitespace-nowrap">${fmtDate(d)}</div><div class="text-xs text-slate-500">${fmtTime(d, true)}</div>`;
 const idCell = (id, sub) => `

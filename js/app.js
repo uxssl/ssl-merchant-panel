@@ -111,6 +111,8 @@ function renderPage() {
     page.innerHTML = renderStoreList();
   } else if (path === ACC.groups) {
     page.innerHTML = renderStoreGroups();
+  } else if (path === ACC.profile) {
+    page.innerHTML = renderTxnProfile();
   } else if (path === ACC.users) {
     page.innerHTML = renderUsers();
   } else if (path === ACC.password) {
@@ -136,6 +138,7 @@ function renderPage() {
   if (NAV.find(n => n.key === 'analytics').pages.some(p => p.to === path)) {
     page.insertAdjacentHTML('afterbegin', `<a href="#${AN.home}" class="inline-flex items-center gap-1.5 mb-3 text-sm font-medium text-slate-500 hover:text-primary-600">${ic('arrow-left', 'w-4 h-4')}Analytics &amp; Reports</a>`);
   }
+  page.insertAdjacentHTML('afterbegin', settlementBanner());
   lucide.createIcons();
   if (path === '/dashboard') mountDashboardCharts();
   if (window.Chart && chartQueue.length) {
