@@ -4,6 +4,19 @@
 const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard', to: '/dashboard' },
   {
+    // Escrow payments are held until delivery is confirmed; more escrow screens will sit here.
+    key: 'escrow', label: 'Escrow Management', icon: 'package-check', children: [
+      { label: 'Service Delivery', to: '/escrow/service-delivery' },
+      { label: 'Escrow Hold Transactions', to: '/escrow/hold-transactions' },
+    ]
+  },
+  {
+    key: 'dispute', label: 'Dispute Management', icon: 'scale', children: [
+      { label: 'Refund Requests', to: '/dispute/refund-requests' },
+      { label: 'Chargeback Requests', to: '/dispute/chargeback-requests' },
+    ]
+  },
+  {
     key: 'transactions', label: 'Transactions', icon: 'credit-card', children: [
       { label: 'All Transactions', to: '/transactions/all' },
       { label: 'Transaction ID Tracking', to: '/transactions/tracking' },
@@ -12,16 +25,12 @@ const NAV = [
   // Payouts as a day-by-day list; the detailed Settlement Report stays under Analytics & Reports.
   { key: 'settlements', label: 'Settlements', icon: 'banknote', to: '/settlements' },
   {
-    key: 'dispute', label: 'Dispute Management', icon: 'scale', children: [
-      { label: 'Refund Requests', to: '/dispute/refund-requests' },
-      { label: 'Chargeback Requests', to: '/dispute/chargeback-requests' },
-    ]
-  },
-  {
-    // Escrow payments are held until delivery is confirmed; more escrow screens will sit here.
-    key: 'escrow', label: 'Escrow Management', icon: 'package-check', children: [
-      { label: 'Service Delivery', to: '/escrow/service-delivery' },
-      { label: 'Escrow Hold Transactions', to: '/escrow/hold-transactions' },
+    key: 'account', label: 'Account & Settings', icon: 'settings', children: [
+      { label: 'Store List', to: '/account/store-list' },
+      { label: 'Store Groups', to: '/account/store-groups' },
+      { label: 'Transaction Profile', to: '/account/transaction-profile' },
+      { label: 'User Management', to: '/account/user-management' },
+      { label: 'Change Password', to: '/account/change-password' },
     ]
   },
   {
@@ -60,15 +69,6 @@ const NAV = [
     key: 'support', label: 'Support & Tickets', icon: 'message-square', children: [
       { label: 'Transaction Tickets', to: '/support/transaction-tickets' },
       { label: 'Tickets & Queries', to: '/support/tickets-queries' },
-    ]
-  },
-  {
-    key: 'account', label: 'Account & Settings', icon: 'settings', children: [
-      { label: 'Store List', to: '/account/store-list' },
-      { label: 'Store Groups', to: '/account/store-groups' },
-      { label: 'Transaction Profile', to: '/account/transaction-profile' },
-      { label: 'User Management', to: '/account/user-management' },
-      { label: 'Change Password', to: '/account/change-password' },
     ]
   },
   // Pinned to the bottom of the sidebar: extras, help and integration rather than daily work.

@@ -44,7 +44,7 @@ function rptPage({ key, title, sub, method, cols, row, chart }) {
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         ${metricCard({ title: 'Total Transactions', value: sum('n').toLocaleString() })}
-        ${metricCard({ title: 'Total Amount', value: fmtBDTShort(sum('amount')), sub: fmtBDT(sum('amount')) })}
+        ${metricCard({ title: 'Total Amount', value: fmtBDT(sum('amount')) })}
         ${metricCard({ title: 'Days With Payments', value: days.length.toLocaleString() })}
       </div>
       <section class="bg-white rounded-lg border border-slate-200 shadow-sm">

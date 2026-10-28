@@ -74,7 +74,7 @@ function renderChargebacks() {
             ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
             ${metricCard({ title: 'Total Pending Requests', value: base.filter(c => CB_PENDING.has(c.status)).length.toLocaleString(), status: 'pending', selected: s.applied.status === 'pending' })}
             ${metricCard({ title: 'Total Successful Chargebacks', value: success.length.toLocaleString(), status: 'Success', selected: s.applied.status === 'Success' })}
-            ${metricCard({ title: 'Chargeback Amount', value: fmtBDTShort(cbAmount), sub: fmtBDT(cbAmount) })}
+            ${metricCard({ title: 'Chargeback Amount', value: fmtBDT(cbAmount) })}
           </div>
         </div>
 

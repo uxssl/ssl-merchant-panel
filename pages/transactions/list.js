@@ -159,7 +159,6 @@ function renderTransactions(view) {
   const cols = TXN_COLS.filter(c => !s.hidden.has(c.key));
 
   const success = base.filter(t => t.status === 'success');
-  const failed = base.filter(t => t.status === 'failed');
   const successAmount = success.reduce((sum, t) => sum + t.amount, 0);
 
   return `
@@ -185,11 +184,11 @@ function renderTransactions(view) {
 
         <div class="flex flex-col gap-4 pt-4">
           <h2 class="text-sm font-semibold text-slate-900">Overview</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Failed and pending get no summary card; they stay one Status filter away in the list. -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             ${metricCard({ title: 'Total Transactions', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
             ${metricCard({ title: 'Success Transactions', value: success.length.toLocaleString(), status: 'success', selected: s.applied.status === 'success' })}
-            ${metricCard({ title: 'Failed Transactions', value: failed.length.toLocaleString(), status: 'failed', selected: s.applied.status === 'failed' })}
-            ${metricCard({ title: 'Total Amount (Success)', value: fmtBDTShort(successAmount), sub: fmtBDT(successAmount) })}
+            ${metricCard({ title: 'Total Amount (Success)', value: fmtBDT(successAmount) })}
           </div>
         </div>
 

@@ -59,8 +59,8 @@ function renderRefunds() {
             ${metricCard({ title: 'Total Requests', value: base.length.toLocaleString(), status: 'all', selected: s.applied.status === 'all' })}
             ${metricCard({ title: 'Total Pending Requests', value: base.filter(r => REFUND_OPEN.has(r.status)).length.toLocaleString(), status: 'pending', selected: s.applied.status === 'pending' })}
             ${metricCard({ title: 'Total Successful Refunds', value: success.length.toLocaleString(), status: 'Success', selected: s.applied.status === 'Success' })}
-            ${metricCard({ title: 'Requested Amount', value: fmtBDTShort(sum(base)), sub: fmtBDT(sum(base)) })}
-            ${metricCard({ title: 'Refunded Amount', value: fmtBDTShort(sum(success)), sub: fmtBDT(sum(success)) })}
+            ${metricCard({ title: 'Requested Amount', value: fmtBDT(sum(base)) })}
+            ${metricCard({ title: 'Refunded Amount', value: fmtBDT(sum(success)) })}
           </div>
         </div>
 

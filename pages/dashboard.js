@@ -36,12 +36,11 @@ function dashData() {
 
   const success = cur.filter(t => t.status === 'success');
   const channelTypes = [...new Set(METHODS.map(m => m.type))];
-  const totalSales = success.reduce((s, t) => s + t.amount, 0) || 1;
+  // Shares by transaction count: the dashboard shows no taka amounts per channel.
   const channels = channelTypes.map(type => {
-    const list = success.filter(t => t.type === type);
-    const amount = list.reduce((s, t) => s + t.amount, 0);
-    return { name: type, amount, count: list.length, share: amount / totalSales * 100 };
-  }).filter(c => c.amount).sort((a, b) => b.amount - a.amount);
+    const count = success.filter(t => t.type === type).length;
+    return { name: type, count, share: count / (success.length || 1) * 100 };
+  }).filter(c => c.count).sort((a, b) => b.count - a.count);
 
   const stl = SETTLEMENTS.filter(x => inStore(x));
   const pending = stl.filter(x => x.status === 'Pending');
@@ -131,8 +130,9 @@ function contactsDrawer() {
 
 function renderDashboard() {
   const d = dashData();
-  const recent = d.cur.slice(0, 5);
   const k = SUPPORT_CONTACTS.kam;
+  const ops = SUPPORT_CONTACTS.teams.find(t => t.title === 'Operations Team');
+  const opsRow = (label) => ops.rows.find(r => r[0] === label)[1];
   const activeStores = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
 
   const escrowHeld = pendingDeliverables().length;
@@ -156,11 +156,26 @@ function renderDashboard() {
     { icon: 'qr-code', label: 'Generate Payment QR', hint: 'Bangla QR for a store and amount', action: 'data-action="quick-qr"' },
     { icon: 'file-text', label: 'Create Digital Invoice', hint: 'Bill a customer online', action: 'data-action="new-invoice"' },
   ];
-  const contactBtn = (icon, label, value, href, wrap = false) => `
-    <a href="${href}" class="min-w-0 flex items-center gap-2.5 rounded-lg border border-slate-200 px-3 py-2 hover:border-primary-300 hover:bg-primary-50/40 transition-colors">
-      <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic(icon, 'w-5 h-5 portal-icon-muted')}</span>
-      <span class="min-w-0"><span class="block text-xs font-semibold text-slate-800">${label}</span><span class="block text-xs ${wrap ? 'text-slate-700 font-medium whitespace-nowrap' : 'text-slate-500 truncate'}">${value}</span></span>
+  // One panel per contact: who they are and what to ask them, then call and email.
+  const contactLink = (icon, value, href) => `
+    <a href="${href}" title="${value}" class="min-w-0 flex items-center gap-2 rounded-md px-2 py-1 -mx-2 text-xs font-medium text-slate-700 hover:bg-white hover:text-primary-700 transition-colors">
+      ${ic(icon, 'w-4 h-4 portal-icon-muted shrink-0')}<span class="truncate">${value}</span>
     </a>`;
+  const contactPanel = ({ role, avatar, name, sub, phone, email }) => `
+    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 flex flex-col gap-2 min-w-0">
+      <div class="flex items-start gap-3 min-w-0">
+        ${avatar}
+        <div class="min-w-0">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-primary-700">${role}</p>
+          <p class="text-sm font-semibold text-slate-900">${name}</p>
+          <p class="text-xs text-slate-500">${sub}</p>
+        </div>
+      </div>
+      <div class="pt-2 border-t border-slate-200/80 flex flex-col">
+        ${contactLink('phone', phone, `tel:${phone.replace(/[^\d+]/g, '')}`)}
+        ${contactLink('mail', email, `mailto:${email}`)}
+      </div>
+    </div>`;
 
   return `
     <div class="space-y-4">
@@ -179,16 +194,12 @@ function renderDashboard() {
       <section aria-label="Help and apps" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="${DASH_CARD} lg:col-span-2 p-4 flex flex-col gap-3">
           <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold text-slate-900">Key Account Manager</h3>
+            <h3 class="text-sm font-semibold text-slate-900">Your Contacts</h3>
             <button data-action="open-contacts" class="text-xs font-medium text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 whitespace-nowrap">All contacts${ic('arrow-right', 'w-3.5 h-3.5')}</button>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 md:items-center">
-            <div class="flex items-center gap-3 min-w-0">
-              <img src="${k.photo}" alt="Photo of ${esc(k.name)}, your Key Account Manager" class="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow shrink-0">
-              <div class="min-w-0"><p class="text-sm font-semibold text-slate-900 truncate">${esc(k.name)}</p><p class="text-xs text-slate-500">Business, campaigns &amp; products</p></div>
-            </div>
-            ${contactBtn('phone', 'Call', k.phone, `tel:${k.phone.replace(/[^\d+]/g, '')}`, true)}
-            ${contactBtn('mail', 'Email', k.email, `mailto:${k.email}`)}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            ${contactPanel({ role: 'Key Account Manager', avatar: `<img src="${k.photo}" alt="Photo of ${esc(k.name)}, your Key Account Manager" class="w-11 h-11 rounded-full object-cover ring-2 ring-white shadow shrink-0">`, name: esc(k.name), sub: 'Business, campaigns &amp; products', phone: k.phone, email: k.email })}
+            ${contactPanel({ role: 'Operations Team', avatar: `<span class="w-11 h-11 rounded-full bg-primary-100 ring-2 ring-white shadow flex items-center justify-center shrink-0">${ic(ops.icon, 'w-5 h-5 text-primary-700')}</span>`, name: 'Operations Desk', sub: 'Transactions, refunds, chargebacks, EMI &amp; settlements', phone: opsRow('Telephone No'), email: opsRow('Email Address') })}
           </div>
         </div>
         <div class="${DASH_CARD} p-4 flex items-center gap-4">
@@ -219,27 +230,15 @@ function renderDashboard() {
         <div class="lg:col-span-2 flex flex-col gap-4 min-w-0">
           <div class="${DASH_CARD} flex-1 flex flex-col">
             ${dashHead('Successful Transactions &amp; Amount', `${dash.preset === 'today' ? 'Hourly' : 'Daily'} successful payment value and count · Select a ${dash.preset === 'today' ? 'bar' : 'day'} to see its transactions`)}
-            <div class="px-4 py-3 flex-1 min-h-44"><canvas id="chart-sales"></canvas></div>
+            <!-- The canvas sits absolutely, so the chart fills spare height without pushing the row taller. -->
+            <div class="px-4 py-3 flex-1 min-h-64 flex flex-col"><div class="relative flex-1"><canvas id="chart-sales" class="absolute inset-0"></canvas></div></div>
           </div>
 
-          <div class="${DASH_CARD} overflow-hidden">
-            ${dashHead('Recent Transactions', 'Latest payments in the selected period', linkMore('#/transactions/all', 'View all'))}
-            <div>
-              <table data-fit class="w-full text-left text-sm">
-                <thead class="bg-slate-50 border-b border-slate-200"><tr>
-                  ${['Date & Time', 'Transaction ID', 'Payment Method', 'Amount', 'Status'].map((h, i) => `<th class="h-9 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 1 ? 'fit-drop' : ''}">${h}</th>`).join('')}
-                </tr></thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${recent.length ? recent.map(t => `
-                    <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
-                      <td data-label="Date &amp; Time" class="px-4 py-2">${txnCell('date', t)}</td>
-                      <td data-label="Transaction ID" class="px-4 py-2 fit-drop"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
-                      <td data-label="Payment Method" class="px-4 py-2 text-sm text-slate-700">${esc(t.method)}</td>
-                      <td data-label="Amount" class="px-4 py-2 text-right">${txnCell('amount', t)}</td>
-                      <td data-label="Status" class="px-4 py-2">${badge(t.status)}</td>
-                    </tr>`).join('') : `<tr><td colspan="5" class="h-24 text-center text-slate-500">No transactions in this period yet.</td></tr>`}
-                </tbody>
-              </table>
+          <div class="${DASH_CARD}">
+            ${dashHead('Payment Channels', 'Share of successful transactions', linkMore('#/analytics/market-share', 'Details'))}
+            <!-- Same donut and channel colours as Market Share, so a channel reads the same everywhere. -->
+            <div class="px-4 py-3">
+              ${d.channels.length ? donut('chart-channels', d.channels, CHANNELS, { sub: c => `${c.count.toLocaleString()} txns` }) : '<p class="text-sm text-slate-500">No successful payments in this period yet.</p>'}
             </div>
           </div>
         </div>
@@ -290,14 +289,6 @@ function renderDashboard() {
               </span>
               ${ic('chevron-right', 'w-4 h-4 text-slate-300')}
             </a>
-          </div>
-
-          <div class="${DASH_CARD} flex-1">
-            ${dashHead('Payment Channels', 'Share of successful sales', linkMore('#/analytics/market-share', 'Details'))}
-            <!-- Same donut and channel colours as Market Share, so a channel reads the same everywhere. -->
-            <div class="px-4 py-3">
-              ${d.channels.length ? donut('chart-channels', d.channels, CHANNELS, { value: c => c.amount, sub: c => `${fmtBDTShort(c.amount)} · ${c.count.toLocaleString()} txns` }) : '<p class="text-sm text-slate-500">No successful payments in this period yet.</p>'}
-            </div>
           </div>
         </div>
       </div>
