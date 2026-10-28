@@ -141,7 +141,10 @@ function renderDashboard() {
   const k = SUPPORT_CONTACTS.kam;
   const activeStores = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
 
+  const escrowHeld = pendingDeliverables().length;
   const attention = [
+    // Escrow money stays held until delivery is confirmed, so it leads the list while any is waiting.
+    { icon: 'package-check', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds on hold until you confirm delivery', value: escrowHeld, action: `data-action="go" data-value="${SUP.service}"`, priority: escrowHeld > 0 },
     { icon: 'circle-x', tone: 'text-rose-600 bg-rose-50', title: 'Failed transactions', sub: 'In the selected period', value: failedCount, action: `data-action="goto-txn" data-status="failed"` },
     { icon: 'clock', tone: 'text-amber-600 bg-amber-50', title: 'Pending transactions', sub: 'Waiting for provider confirmation', value: pendingCount, action: `data-action="goto-txn" data-status="pending"` },
     { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open — in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
@@ -252,9 +255,9 @@ function renderDashboard() {
             ${dashHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
             <div class="divide-y divide-slate-100">
               ${attention.map(a => `
-                <button ${a.action} class="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-slate-50 last:rounded-b-xl transition-colors">
+                <button ${a.action} class="w-full flex items-center gap-2.5 px-4 py-2 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
                   <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-3.5 h-3.5')}</span>
-                  <span class="flex-1 min-w-0"><span class="block text-sm font-medium text-slate-800 truncate">${a.title}</span><span class="block text-[11px] text-slate-500 truncate">${a.sub}</span></span>
+                  <span class="flex-1 min-w-0"><span class="flex items-center gap-1.5 min-w-0"><span class="text-sm font-medium text-slate-800 truncate">${a.title}</span>${a.priority ? '<span class="shrink-0 rounded px-1.5 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-[11px] text-slate-500 truncate">${a.sub}</span></span>
                   <span class="min-w-[2rem] text-right text-sm font-bold ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
                 </button>`).join('')}
             </div>

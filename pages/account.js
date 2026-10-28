@@ -127,26 +127,32 @@ function renderStoreList() {
   const groupOpts = [{ label: 'All Store Groups', value: 'all' }, ...STORE_GROUPS.filter(g => !g.system).map(g => ({ label: g.name, value: g.id }))];
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }];
   const active = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
+  // Compact counts that double as quick status filters (same handler as the overview cards).
+  const stat = (label, value, status) => `
+    <button data-action="overview-status" data-value="${status}" aria-pressed="${f.status === status}"
+      class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border bg-white text-sm transition-colors ${f.status === status ? 'border-primary-600 ring-1 ring-primary-100' : 'border-slate-200 hover:border-slate-300'}">
+      <span class="text-slate-500">${label}</span><span class="font-semibold text-slate-900 tabular-nums">${value}</span>
+    </button>`;
   return `
-    <div class="space-y-6">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">Store List</h1>
-        <p class="text-slate-500 text-sm">All stores under your merchant account, including inactive ones.</p>
-      </div>
-      <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">
-        ${metricCard({ title: 'Total Stores', value: ACCOUNT_STORES.length, status: 'all', selected: f.status === 'all' })}
-        ${metricCard({ title: 'Active', value: active, status: 'Active', selected: f.status === 'Active' })}
-        ${metricCard({ title: 'Inactive', value: ACCOUNT_STORES.length - active, status: 'Inactive', selected: f.status === 'Inactive' })}
+    <div class="space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">Store List</h1>
+          <p class="text-slate-500 text-sm">All stores under your merchant account, including inactive ones.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${stat('Total', ACCOUNT_STORES.length, 'all')}${stat('Active', active, 'Active')}${stat('Inactive', ACCOUNT_STORES.length - active, 'Inactive')}
+        </div>
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Store ID, Store Name or Base URL',
           selectPill('list', 'stype', 'Store Group', groupOpts, s.stype) +
           selectPill('list', 'status', 'Status', statusOpts, s.status),
           { noDate: true, noStore: true })}
-        <div class="space-y-4 pt-6">
+        <div class="space-y-3 pt-4">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
-          ${rows.length ? `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">${rows.map(storeCard).join('')}</div>` : `
-            <div class="bg-white rounded-lg border border-slate-200 px-4 py-12 text-center">
+          ${rows.length ? `<div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">${rows.map(storeCard).join('')}</div>` : `
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-10 text-center">
               <p class="text-sm font-medium text-slate-700">No stores match these filters</p>
               <p class="text-xs text-slate-500 mt-1">Try clearing some filters.</p>
             </div>`}
@@ -162,32 +168,34 @@ function storeCard(st) {
   const ipnOn = storeCfg(st.id).ipn.listenerOn;
   const channels = TXN_PROFILES[st.id].channels.length;
   const settleOn = !!bank && !SETTLEMENT_DISABLED.has(st.id);
-  const fact = (label, value) => `<div class="min-w-0 rounded-lg border border-slate-200 px-3 py-2"><p class="text-[11px] font-medium text-slate-500">${label}</p><p class="mt-0.5 text-sm font-medium text-slate-800 truncate">${value || '<span class="text-slate-400">Not set</span>'}</p></div>`;
+  const live = st.status === 'Active';
+  const fact = (label, value) => `<div class="min-w-0"><dt class="text-[11px] text-slate-500">${label}</dt><dd class="text-[13px] font-medium text-slate-800 truncate">${value || '<span class="font-normal text-slate-400">Not set</span>'}</dd></div>`;
   const chip = (on, yes, no) => `<span class="${STATUS_BADGE} ${on ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">${on ? yes : no}</span>`;
   return `
-    <article class="bg-white rounded-lg border border-slate-200 shadow-sm">
-      <div class="flex items-start justify-between gap-3 px-4 pt-4">
-        <div class="flex items-start gap-3 min-w-0">
-          <span class="w-9 h-9 shrink-0 flex items-center justify-center">${ic(storeTypeIcon(st.type), 'w-5 h-5 portal-icon-muted')}</span>
+    <article class="bg-white rounded-lg border shadow-sm ${live ? 'border-slate-200' : 'border-slate-200 border-l-2 border-l-rose-300'}">
+      <div class="flex items-start justify-between gap-3 px-3 pt-3">
+        <div class="flex items-start gap-2 min-w-0">
+          ${ic(storeTypeIcon(st.type), 'w-4 h-4 mt-0.5 shrink-0 portal-icon-muted')}
           <div class="min-w-0">
-            <h2 class="text-base font-semibold text-slate-900 truncate">${esc(st.name)}</h2>
-            <p class="text-xs text-slate-500">Store ID: <span class="font-mono">${st.id}</span></p>
+            <h2 class="text-sm font-semibold text-slate-900 truncate">${esc(st.name)}</h2>
+            <p class="text-[11px] text-slate-500 font-mono">${st.id}</p>
           </div>
         </div>
-        ${activeBadge(st.status === 'Active')}
+        ${live ? activeBadge(true) : `<span class="${STATUS_BADGE} inline-flex items-center gap-1 bg-rose-50 text-rose-600">${ic('circle-pause', 'w-3 h-3')}Inactive</span>`}
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 px-4 pt-4">
+      ${live ? '' : `<p class="px-3 pt-1.5 text-[11px] text-rose-600">Not accepting payments. Contact your KAM to reactivate this store.</p>`}
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-2 px-3 pt-2.5">
         ${fact('Base URL', st.baseUrl ? `<span class="font-mono text-xs">${esc(st.baseUrl.replace(/^https?:\/\//, ''))}</span>` : '')}
         ${fact('Store Group', esc(storeGroupOf(st.id)?.name || ''))}
         ${fact('Store Type', `${esc(st.type)} · ${st.currency}`)}
         ${fact('Settlement Bank', bank ? `${esc(bank.bank)} <span class="font-mono text-xs text-slate-500">•••• ${bank.account.slice(-4)}</span>` : '')}
-      </div>
-      <div class="flex flex-wrap gap-1.5 px-4 pt-3">
+      </dl>
+      <div class="flex flex-wrap gap-1.5 px-3 pt-2.5">
         ${chip(ipnOn, 'IPN Configured', 'IPN Not Configured')}
         <span class="${STATUS_BADGE} bg-primary-50 text-primary-600">${channels} Payment Channel${channels === 1 ? '' : 's'}</span>
         ${bank ? chip(settleOn, 'Settlement Enabled', 'Settlement Disabled') : chip(false, '', 'No Settlement Bank')}
       </div>
-      <div class="flex flex-wrap items-center gap-1 px-2 py-2 mt-3 border-t border-slate-100">
+      <div class="flex flex-wrap items-center gap-0.5 px-1.5 py-1 mt-2.5 border-t border-slate-100">
         ${STORE_ACTIONS.map(([action, icon, label, title]) => rowAction(action, st.id, icon, label, { title: `${title} of ${st.id}` })).join('')}
         ${rowAction('store-profile', st.id, 'file-text', 'Profile', { title: `Transaction Profile of ${st.id}` })}
       </div>

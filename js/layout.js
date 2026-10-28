@@ -193,12 +193,12 @@ function settlementBanner() {
   const stores = ACCOUNT_STORES.filter(st => st.status === 'Active' && SETTLEMENT_DISABLED.has(st.id));
   if (!stores.length) return '';
   return `
-    <div role="alert" class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3">
-      <span class="w-8 h-8 rounded-full bg-white text-rose-600 flex items-center justify-center shrink-0 ring-1 ring-rose-200">${ic('circle-alert', 'w-4 h-4')}</span>
-      <div class="flex-1 min-w-[220px] text-sm">
-        <p class="font-semibold text-rose-900">Your settlement is currently disabled. Please contact your KAM.</p>
-        <p class="text-xs text-rose-800 mt-0.5">Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but they won't be paid out until settlement is enabled again.</p>
-      </div>
-      <button data-action="open-contacts" class="${BTN_SECONDARY} shrink-0">${ic('headset', 'w-4 h-4')}Contact KAM</button>
+    <div role="alert" class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+      ${ic('circle-alert', 'w-4 h-4 shrink-0 text-rose-600')}
+      <p class="flex-1 min-w-[220px] text-xs text-rose-800">
+        <span class="text-sm font-semibold text-rose-900">Your settlement is currently disabled. Please contact your KAM.</span>
+        Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but won't be paid out until settlement is enabled again.
+      </p>
+      <button data-action="open-contacts" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('headset', 'w-3.5 h-3.5')}Contact KAM</button>
     </div>`;
 }
