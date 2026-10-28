@@ -43,13 +43,13 @@ function renderServiceDelivery() {
           <button data-action="upload-delivery" class="${BTN_PRIMARY}">${ic('circle-plus', 'w-4 h-4')}Upload Delivery File</button>
         </div>
       </div>
-      ${alertSnoozed('escrow-delivery') ? '' : `<div class="flex items-start gap-3 rounded-xl border border-lime-200 bg-lime-50 px-4 py-3">
+      ${alertSnoozed('escrow-delivery') ? '' : `<div class="flex items-center gap-3 rounded-xl border border-lime-200 bg-lime-50 px-4 py-3">
         <span class="w-8 h-8 rounded-full bg-white text-lime-700 flex items-center justify-center shrink-0 ring-1 ring-lime-200">${ic('package-check', 'w-4 h-4')}</span>
         <div class="flex-1 min-w-0 text-sm">
           <p class="font-semibold text-lime-900">${pending.length ? `${pending.length} escrow payment${pending.length > 1 ? 's' : ''} (${fmtBDT(held)}) waiting for delivery confirmation` : 'No escrow payment is waiting for delivery confirmation'}</p>
           <p class="text-xs text-lime-800 mt-0.5">Get Deliverables downloads them as a file. Fill in the delivery columns, then upload it.</p>
         </div>
-        <span class="text-lime-800">${alertClose('escrow-delivery')}</span>
+        <span class="flex text-lime-800">${alertClose('escrow-delivery')}</span>
       </div>`}
       <div class="flex flex-col">
         <div class="filter-bar-container flex items-center gap-3 flex-wrap">

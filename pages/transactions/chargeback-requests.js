@@ -52,14 +52,14 @@ function renderChargebacks() {
       </div>
 
       ${needAction.length && !alertSnoozed('cb-response') ? `
-        <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div class="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <span class="w-8 h-8 rounded-full bg-white text-amber-600 flex items-center justify-center shrink-0 ring-1 ring-amber-200">${ic('triangle-alert', 'w-4 h-4')}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-amber-900">${needAction.length} chargeback${needAction.length > 1 ? 's need' : ' needs'} your response</p>
             <p class="text-xs text-amber-800 mt-0.5">Earliest deadline: ${fmtDate(needAction[0].respondBy)}, ${fmtTime(needAction[0].respondBy)} (mock rule).</p>
           </div>
           <button data-action="cb-needs-response" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-white border border-amber-200 rounded-full hover:bg-amber-100">Show them</button>
-          <span class="text-amber-800">${alertClose('cb-response')}</span>
+          <span class="flex text-amber-800">${alertClose('cb-response')}</span>
         </div>` : ''}
 
       <div class="flex flex-col">

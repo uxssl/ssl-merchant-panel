@@ -151,7 +151,7 @@ function renderStoreList() {
           { noDate: true, noStore: true })}
         <div class="space-y-3 pt-4">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
-          ${rows.length ? `<div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">${rows.map(storeCard).join('')}</div>` : `
+          ${rows.length ? `<div class="store-grid grid grid-cols-1 lg:grid-cols-2 gap-3">${rows.map(storeCard).join('')}</div>` : `
             <div class="bg-white rounded-lg border border-slate-200 px-4 py-10 text-center">
               <p class="text-sm font-medium text-slate-700">No stores match these filters</p>
               <p class="text-xs text-slate-500 mt-1">Try clearing some filters.</p>
@@ -161,45 +161,60 @@ function renderStoreList() {
     </div>`;
 }
 
-// One store as a card: key facts, setup status chips and the same actions the table had.
-// Store status is set by SSLCOMMERZ, so the card shows it but has no on/off switch.
+// One store as a card, kept light: name and type, group and bank, chips only for what needs
+// attention, every store action and the Active switch.
 function storeCard(st) {
   const bank = STORE_BANK[st.id];
-  const ipnOn = storeCfg(st.id).ipn.listenerOn;
-  const channels = TXN_PROFILES[st.id].channels.length;
-  const settleOn = !!bank && !SETTLEMENT_DISABLED.has(st.id);
   const live = st.status === 'Active';
+  const issues = [
+    !storeCfg(st.id).ipn.listenerOn && 'IPN Not Configured',
+    !bank ? 'No Settlement Bank' : SETTLEMENT_DISABLED.has(st.id) && 'Settlement Disabled',
+  ].filter(Boolean);
   const fact = (label, value) => `<div class="min-w-0"><dt class="text-[11px] text-slate-500">${label}</dt><dd class="text-[13px] font-medium text-slate-800 truncate">${value || '<span class="font-normal text-slate-400">Not set</span>'}</dd></div>`;
-  const chip = (on, yes, no) => `<span class="${STATUS_BADGE} ${on ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">${on ? yes : no}</span>`;
   return `
-    <article class="bg-white rounded-lg border shadow-sm border-slate-200">
-      <div class="flex items-start justify-between gap-3 px-3 pt-3">
-        <div class="flex items-start gap-2 min-w-0">
-          ${ic(storeTypeIcon(st.type), 'w-4 h-4 mt-0.5 shrink-0 portal-icon-muted')}
-          <div class="min-w-0">
-            <h2 class="text-sm font-semibold text-slate-900 truncate">${esc(st.name)}</h2>
-            <p class="text-[11px] text-slate-500 font-mono">${st.id}</p>
-          </div>
+    <article class="bg-white rounded-lg border shadow-sm border-slate-200 flex flex-col">
+      <div class="flex items-start gap-2 px-3 pt-3">
+        ${ic(storeTypeIcon(st.type), 'w-4 h-4 mt-0.5 shrink-0 portal-icon-muted')}
+        <div class="min-w-0">
+          <h2 class="text-sm font-semibold text-slate-900 truncate">${esc(st.name)}</h2>
+          <p class="text-[11px] text-slate-500"><span class="font-mono">${st.id}</span> · ${esc(st.type)} · ${st.currency}</p>
         </div>
-        ${live ? activeBadge(true) : `<span class="${STATUS_BADGE} inline-flex items-center gap-1 bg-rose-50 text-rose-600">${ic('circle-pause', 'w-3 h-3')}Inactive</span>`}
       </div>
       ${live ? '' : `<p class="px-3 pt-1.5 text-[11px] text-rose-600">Not accepting payments. Contact your KAM to reactivate this store.</p>`}
-      <dl class="grid grid-cols-2 gap-x-4 gap-y-2 px-3 pt-2.5">
-        ${fact('Base URL', st.baseUrl ? `<span class="font-mono text-xs">${esc(st.baseUrl.replace(/^https?:\/\//, ''))}</span>` : '')}
+      <dl class="grid grid-cols-2 gap-x-4 px-3 pt-2.5">
         ${fact('Store Group', esc(storeGroupOf(st.id)?.name || ''))}
-        ${fact('Store Type', `${esc(st.type)} · ${st.currency}`)}
         ${fact('Settlement Bank', bank ? `${esc(bank.bank)} <span class="font-mono text-xs text-slate-500">•••• ${bank.account.slice(-4)}</span>` : '')}
       </dl>
-      <div class="flex flex-wrap gap-1.5 px-3 pt-2.5">
-        ${chip(ipnOn, 'IPN Configured', 'IPN Not Configured')}
-        <span class="${STATUS_BADGE} bg-primary-50 text-primary-600">${channels} Payment Channel${channels === 1 ? '' : 's'}</span>
-        ${bank ? chip(settleOn, 'Settlement Enabled', 'Settlement Disabled') : chip(false, '', 'No Settlement Bank')}
-      </div>
-      <div class="flex flex-wrap items-center gap-0.5 px-1.5 py-1 mt-2.5 border-t border-slate-100">
+      ${issues.length ? `<div class="flex flex-wrap gap-1.5 px-3 pt-2">${issues.map(t => `<span class="${STATUS_BADGE} bg-amber-50 text-amber-700">${t}</span>`).join('')}</div>` : ''}
+      <div class="h-2.5"></div>
+      <!-- Pinned to the bottom so action bars line up across a row, whether or not a card has chips. -->
+      <div class="flex flex-wrap items-center gap-0.5 px-1.5 py-1 mt-auto rounded-b-lg border-t border-primary-100 bg-primary-50/60">
         ${STORE_ACTIONS.map(([action, icon, label, title]) => rowAction(action, st.id, icon, label, { title: `${title} of ${st.id}` })).join('')}
         ${rowAction('store-profile', st.id, 'file-text', 'Profile', { title: `Transaction Profile of ${st.id}` })}
+        <span class="ml-auto mr-2 inline-flex items-center gap-2">
+          <span class="text-xs font-medium ${live ? 'text-emerald-700' : 'text-slate-500'}">${live ? 'Active' : 'Inactive'}</span>
+          <button type="button" role="switch" aria-checked="${live}" data-action="store-status" data-value="${st.id}" title="${live ? 'Deactivate' : 'Activate'} ${st.id}" aria-label="${esc(st.name)} active"
+            class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${live ? 'bg-emerald-500' : 'bg-slate-300'}">
+            <span class="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${live ? 'translate-x-5' : 'translate-x-0.5'}"></span>
+          </button>
+        </span>
       </div>
     </article>`;
+}
+
+// Turning a store on or off changes whether it can take payments, so the switch asks first.
+function storeStatusDrawer(st) {
+  const live = st.status === 'Active';
+  return drawerShell({
+    title: live ? 'Deactivate store?' : 'Activate store?',
+    sub: `<span class="font-mono text-xs">${st.id}</span><span>${esc(st.name)}</span>`,
+    body: live
+      ? `<p class="text-sm text-slate-700">Customers won't be able to pay this store while it is inactive. Payments already made are still settled as usual.</p>`
+      : `<p class="text-sm text-slate-700">The store starts taking payments again on its configured channels.</p>`,
+    footer: `
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
+      <button data-action="store-status-confirm" data-value="${st.id}" class="${live ? 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded shadow-sm hover:bg-rose-700' : BTN_PRIMARY}">${ic(live ? 'circle-pause' : 'circle-play', 'w-4 h-4')}${live ? 'Deactivate' : 'Activate'}</button>`,
+  });
 }
 
 // ----- Store Groups (old panel: a list with name, created on and status) -----

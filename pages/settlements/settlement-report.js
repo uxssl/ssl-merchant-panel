@@ -154,25 +154,25 @@ function renderSettlements() {
       ${alertSnoozed('settle-min') ? '' : `<div class="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-800">${ic('info', 'w-4 h-4 shrink-0')}<p class="flex-1">Merchant Settlement minimum amount will be ${fmtBDT0(2500)}. Search ranges are limited to 30 days.</p>${alertClose('settle-min')}</div>`}
 
       ${bounced.length && !alertSnoozed('settle-bounced') ? `
-        <div class="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+        <div class="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
           <span class="w-8 h-8 rounded-full bg-white text-orange-700 flex items-center justify-center shrink-0 ring-1 ring-orange-200">${ic('undo-2', 'w-4 h-4')}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-orange-900">${fmtBDT(sum(bounced, 'fwd'))} bounced across ${bounced.length} settlement${bounced.length > 1 ? 's' : ''}</p>
             <p class="text-xs text-orange-800 mt-0.5">The bank returned these payouts. Check the bounce reason and the settlement bank account details, or contact your KAM before the next settlement cycle.</p>
           </div>
           <button data-action="overview-status" data-value="Bounced" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-orange-900 bg-white border border-orange-200 rounded-full hover:bg-orange-100">View bounced settlements</button>
-          <span class="text-orange-800">${alertClose('settle-bounced')}</span>
+          <span class="flex text-orange-800">${alertClose('settle-bounced')}</span>
         </div>` : ''}
 
       ${held.length && !alertSnoozed('settle-hold') ? `
-        <div class="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+        <div class="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
           <span class="w-8 h-8 rounded-full bg-white text-rose-600 flex items-center justify-center shrink-0 ring-1 ring-rose-200">${ic('circle-pause', 'w-4 h-4')}</span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-rose-900">${fmtBDT(sum(held, 'fwd'))} is on hold across ${held.length} settlement${held.length > 1 ? 's' : ''}</p>
             <p class="text-xs text-rose-800 mt-0.5">Held amounts are forwarded to the store's next settlement once the issue is resolved. Check the bank account details or contact your KAM.</p>
           </div>
           <button data-action="overview-status" data-value="On Hold" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-rose-900 bg-white border border-rose-200 rounded-full hover:bg-rose-100">Show them</button>
-          <span class="text-rose-800">${alertClose('settle-hold')}</span>
+          <span class="flex text-rose-800">${alertClose('settle-hold')}</span>
         </div>` : ''}
 
       <div class="flex flex-col">

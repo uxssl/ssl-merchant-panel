@@ -479,6 +479,13 @@ const actions = {
   'faq-toggle': (el) => { faqState.open = faqState.open === el.dataset.value ? null : el.dataset.value; $('#faq-list').innerHTML = faqList(); lucide.createIcons(); },
   'open-video': (el) => { drawer = { kind: 'video', item: VIDEOS.find(v => v.id === el.dataset.value) }; renderDrawer(); },
   'open-store': (el) => { openDD = null; render(); drawer = { kind: 'store', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'store-status': (el) => { drawer = { kind: 'store-status', item: accStore(el.dataset.value) }; renderDrawer(); },
+  'store-status-confirm': (el) => {
+    const st = accStore(el.dataset.value);
+    st.status = st.status === 'Active' ? 'Inactive' : 'Active';
+    drawer = null; renderDrawer(); render();
+    toast(`${st.name} is now ${st.status.toLowerCase()} (prototype)`, 'success');
+  },
   'store-charge': (el) => { openDD = null; render(); drawer = { kind: 'store-charge', item: accStore(el.dataset.value) }; renderDrawer(); },
   'store-bank': (el) => { openDD = null; render(); drawer = { kind: 'store-bank', item: accStore(el.dataset.value) }; renderDrawer(); },
   'store-set-group': (el) => openStoreSettings('group', el.dataset.value, { group: storeGroupOf(el.dataset.value)?.id || '' }),

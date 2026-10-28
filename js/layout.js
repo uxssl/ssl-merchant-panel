@@ -200,6 +200,6 @@ function settlementBanner() {
         Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but won't be paid out until settlement is enabled again.
       </p>
       <button data-action="open-contacts" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('headset', 'w-3.5 h-3.5')}Contact KAM</button>
-      <span class="text-rose-700">${alertClose('settlement-disabled')}</span>
+      <span class="flex text-rose-700">${alertClose('settlement-disabled')}</span>
     </div>`;
 }

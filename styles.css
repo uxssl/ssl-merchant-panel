@@ -99,3 +99,5 @@ table.is-stacked td::before { content: attr(data-label); flex: 0 0 auto; max-wid
 table.is-stacked td[data-label=""]::before, table.is-stacked td:not([data-label])::before { display: none; }
 table.is-stacked td[data-label=""] { justify-content: flex-start; text-align: left !important; font-weight: 600; }
 table.is-stacked td > input:not([type="checkbox"]), table.is-stacked td > select { flex: 1 1 auto; min-width: 0; max-width: 60%; }
+/* Store List: three cards per row only when each card is wide enough for its whole action bar. */
+@media (min-width: 1800px) { .grid.store-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
