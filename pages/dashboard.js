@@ -163,6 +163,7 @@ function renderDashboard() {
   const bouncedSettlements = SETTLEMENTS.filter(x => x.status === 'Bounced' && inStores(x.store)).length;
   attention.splice(1, 0, { icon: 'undo-2', tone: 'text-orange-700 bg-orange-50', title: 'Bounced settlements', sub: 'Returned by the bank', value: bouncedSettlements, action: `data-action="goto-list" data-path="${SETTLEMENT_PATH}" data-status="Bounced"` });
   const toReview = attention.reduce((s, a) => s + a.value, 0);
+  const offers = svcOffers().length;
   // Shortcuts to the screens merchants open most; Refund Request opens its create form straight away.
   const quick = [
     { icon: 'banknote', label: 'Settlement', hint: 'Day-by-day payouts to your bank account', action: 'data-action="go" data-value="/settlements"', featured: true },
@@ -237,6 +238,11 @@ function renderDashboard() {
           <button ${q.action} title="${q.hint}" class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs sm:text-sm font-medium shadow-sm transition-colors ${q.featured ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700' : 'bg-white border-slate-200 text-slate-700 hover:border-primary-300 hover:text-primary-700'}">
             ${ic(q.icon, `w-4 h-4 shrink-0 ${q.featured ? '' : 'portal-icon-muted'}`)}${q.label}
           </button>`).join('')}
+        ${offers ? `
+          <!-- Self-service activation opens only from here; it never pops up on its own. -->
+          <button data-action="svc-open" title="Services your stores qualify for — activate them yourself" aria-label="Activate Services, ${offers} available" class="inline-flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-left text-xs sm:text-sm font-medium text-primary-700 shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-100 sm:ml-auto">
+            ${ic('package-plus', 'w-4 h-4 shrink-0')}Activate Services<span class="min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-white text-[11px] font-semibold inline-flex items-center justify-center">${offers}</span>
+          </button>` : ''}
       </nav>
 
       <!-- The chart's canvas sits absolutely, so Needs Attention sets the row height and the chart fills it.

@@ -4,7 +4,8 @@ Existing merchants can buy and switch on add-on services (Digital EMI with a fix
 limit, Instant Settlement…) from the portal. Today the KAM / Operations team checks
 the merchant's work order by hand before enabling a feature. Digital mapping replaces
 that check: the system already knows each store's profile, so it decides what the
-store may buy and shows it as a pop-up offer.
+store may buy and offers it behind an **Activate Services** button on the dashboard. The
+dialog opens only when the merchant clicks it — never on its own.
 
 ## Actors
 
@@ -21,12 +22,11 @@ store may buy and shows it as a pop-up offer.
 
 ```mermaid
 flowchart TD
-  A[Merchant Admin signs in] --> B{Mapping engine:<br/>eligible offers for any store?}
-  B -- No --> Z[Dashboard as usual]
-  B -- Yes --> C{Snoozed or already<br/>shown this session?}
-  C -- Yes --> Z
-  C -- No --> D[Pop-up: offers for your stores]
-  D -- Remind me later --> S[Snooze 7 days] --> Z
+  A[Merchant Admin opens dashboard] --> B{Mapping engine:<br/>eligible offers for any store?}
+  B -- No --> Z[No button shown]
+  B -- Yes --> C[Activate Services button<br/>with a count badge]
+  C -- Merchant clicks --> D[Dialog: offers for your stores]
+  D -- Close --> C
   D -- Pick an offer --> E[Choose plan / fixed limit<br/>BDT 5,000 · 10,000 · 25,000]
   E --> F[Review: fee + VAT, payment method,<br/>terms & Bangladesh Bank disclosures]
   F -- Agree --> G[OTP to registered mobile]
@@ -41,15 +41,15 @@ flowchart TD
 ```
 
 The same flow also starts from **Others → Services & Add-ons** and from a banner on
-any page whose feature is off (e.g. Digital EMI for a store without EMI), so the
-pop-up is a reminder, not the only door.
+any page whose feature is off (e.g. Digital EMI for a store without EMI). In those
+two places the merchant goes straight to the plan step for that store.
 
 ## Steps
 
 | # | Step | What the merchant sees | System / rules |
 | --- | --- | --- | --- |
 | 1 | Digital mapping | — | Per store: Active, BDT currency, KYC complete, no compliance hold. Each service adds its own rules (EMI: not already on). Ineligible stores keep a reason. |
-| 2 | Pop-up offer | Up to 3 offers, each naming the store and why it qualifies | Shown once per session to Merchant Admins; "Remind me later" snoozes 7 days; never covers sign-in or an open form |
+| 2 | Activate Services button | Button in the dashboard quick actions with the number of offers; click opens a dialog with up to 3 offers, each naming the store and why it qualifies | Shown only when at least one store qualifies; nothing opens on its own, so nothing interrupts the merchant |
 | 3 | Choose plan | Fixed-limit cards (5k / 10k / 25k), fee per plan, one marked Recommended | Plans and fees come from the catalog, not typed by the merchant |
 | 4 | Review & consent | Fee, 15% VAT, total, payment method, terms, disclosures | Default payment is deduction from next settlement — no card entry in the portal (keeps PCI scope out) |
 | 5 | OTP confirm | 6-digit code to the masked registered mobile | Step-up auth for a purchase; 3 tries, 5-minute expiry |
@@ -59,7 +59,7 @@ pop-up is a reminder, not the only door.
 ## States
 
 `Eligible → Offered → Plan selected → Consented → Verified → Active`
-with side exits `Snoozed`, `Under review`, `Declined`, `Cancelled`.
+with side exits `Under review`, `Declined`, `Cancelled`.
 
 ## Compliance notes
 
@@ -70,7 +70,7 @@ with side exits `Snoozed`, `Under review`, `Declined`, `Cancelled`.
   go to KAM review instead of auto-approval.
 - **Audit trail:** every consent stores user, timestamp, IP, terms version and OTP
   result. Retain per Bangladesh Bank record-keeping rules.
-- **Privacy:** the pop-up shows store names and plan prices only — no transaction
+- **Privacy:** the offers dialog shows store names and plan prices only — no transaction
   amounts, customer data or bank account numbers. Mobile numbers stay masked.
 - **Role check:** only Merchant Admin can buy; other roles see the offer read-only.
 

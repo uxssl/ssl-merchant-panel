@@ -2,10 +2,8 @@
 // Services & Add-ons — self-service activation (docs/service-activation-flow.md)
 // =====================================================================
 // Digital mapping decides per store which services it may buy, replacing the manual work-order
-// check. Offers reach the merchant as a dashboard pop-up, this page, and banners on locked features.
+// check. Offers open from the dashboard's "Activate Services" button, this page, and banners on locked features.
 const SERVICES_PATH = '/others/services';
-const SVC_SNOOZE_KEY = 'svc-offer-snooze-until';
-const SVC_SNOOZE_DAYS = 7;
 const SVC_MIN_AGE_DAYS = 90;
 const SVC_OTP_MOBILE = '01•••••••47'; // masked registered mobile; the full number never reaches the page
 const svcOf = (id) => SERVICE_CATALOG.find(s => s.id === id);
@@ -29,18 +27,8 @@ function svcMapping(svc, st) {
 const svcPairs = () => SERVICE_CATALOG.flatMap(svc => ACCOUNT_STORES.map(st => ({ svc, st, m: svcMapping(svc, st) })));
 const svcOffers = () => svcPairs().filter(o => o.m.state === 'eligible');
 
-// ----- Dashboard pop-up: once per session, unless snoozed --------------
-let svcOfferShown = false;
+// ----- Offers dialog: opened by the merchant, never on its own ------------
 let svcDraft = null; // { step, svc, store, plan, pay, agree, otp, order }
-function svcSnoozed() {
-  try { return Number(localStorage.getItem(SVC_SNOOZE_KEY)) > Date.now(); } catch { return false; }
-}
-function maybeOfferServices() {
-  if (svcOfferShown || svcSnoozed() || !svcOffers().length) return;
-  svcOfferShown = true;
-  // Let the dashboard paint first; skip if the merchant has already opened something else.
-  setTimeout(() => { if (currentPath() === '/dashboard' && !drawer) openServiceFlow(); }, 700);
-}
 function openServiceFlow(key) {
   svcDraft = { step: 'offers', pay: 'settlement', agree: false, otp: '' };
   if (key) pickServiceOffer(key);
@@ -100,7 +88,7 @@ const svcSummary = (svc, st, p) => `
 function svcOffersStep() {
   const offers = svcOffers();
   return svcModalShell({
-    title: 'New services available for your stores',
+    title: 'Services your stores can activate',
     sub: 'Your stores already qualify — switch these on yourself, no paperwork or work order needed.',
     body: `
       <ul class="space-y-3">
@@ -120,8 +108,8 @@ function svcOffersStep() {
       </ul>
       ${offers.length > 3 ? `<p class="text-xs text-slate-500">${offers.length - 3} more on <a href="#${SERVICES_PATH}" class="font-semibold text-primary-600 hover:underline">Services &amp; Add-ons</a>.</p>` : ''}`,
     footer: `
-      <button data-action="svc-snooze" class="mr-auto text-sm font-medium text-slate-500 hover:text-slate-700 hover:underline">Remind me in ${SVC_SNOOZE_DAYS} days</button>
-      <button data-action="close-drawer" class="${BTN_SECONDARY}">Not now</button>`,
+      <a href="#${SERVICES_PATH}" class="mr-auto text-sm font-medium text-primary-600 hover:underline">See all services</a>
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>`,
   });
 }
 

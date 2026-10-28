@@ -147,7 +147,7 @@ function renderPage() {
   page.insertAdjacentHTML('afterbegin', [SETTLEMENT_PATH, SETTLE_LIST_PATH].includes(path) ? settlementStatusBanner() : settlementBanner());
   lucide.createIcons();
   fitTables(page);
-  if (path === '/dashboard') { mountDashboardCharts(); maybeOfferServices(); }
+  if (path === '/dashboard') mountDashboardCharts();
   if (window.Chart && chartQueue.length) {
     setChartDefaults();
     chartQueue.forEach(({ id, config }) => { const el = document.getElementById(id); if (el) charts.push(new Chart(el, config)); });
@@ -470,7 +470,7 @@ const actions = {
     render();
     toast('Prototype: no request was sent to the team', 'success');
   },
-  // Self-service activation: pop-up offers → plan → review & consent → OTP → active.
+  // Self-service activation: offers (from the dashboard button) → plan → review & consent → OTP → active.
   'svc-open': (el) => openServiceFlow(el.dataset.value),
   'svc-pick': (el) => { pickServiceOffer(el.dataset.value); formErrors = {}; renderDrawer(); },
   'svc-back': (el) => { svcDraft.step = el.dataset.value; formErrors = {}; renderDrawer(); },
@@ -481,11 +481,6 @@ const actions = {
     renderDrawer();
   },
   'svc-confirm': () => { confirmServiceOrder(); renderDrawer(); render(); },
-  'svc-snooze': () => {
-    try { localStorage.setItem(SVC_SNOOZE_KEY, String(Date.now() + SVC_SNOOZE_DAYS * 864e5)); } catch { /* storage blocked: it just shows next session */ }
-    closeDrawer();
-    toast(`We'll remind you in ${SVC_SNOOZE_DAYS} days`);
-  },
   'svc-configure': (el) => {
     const [svc, store] = el.dataset.value.split('|');
     if (svc === 'emi') { emiTab = 'settings'; loadEmiForm(store); }
