@@ -311,7 +311,7 @@ function renderUsers() {
       ${rowAction('edit-user', u.login, 'pencil', 'Update', { title: `Update ${u.login}` })}
       ${isSelfUser(u) ? '' : u.locked
         ? rowAction('user-unlock', u.login, 'lock-open', 'Unlock', { title: `Unlock ${u.login}` })
-        : rowAction('user-reset', u.login, 'key-round', 'Reset Password', { title: `Send ${u.login} a password reset link` })}
+        : rowAction('user-reset', u.login, 'key-round', 'Reset Password', { title: `Reset the password for ${u.login}` })}
     </div>` },
   ];
   return `
@@ -354,7 +354,8 @@ function userDrawer(u) {
         ['Allowed Store Groups', esc(g?.name || '')],
         ['Merchant App Role', appRoleLabel(u.appRole)],
         ['Status', userStatus(u.status)],
-        ['Sign-in', u.locked ? '<span class="text-amber-700">Locked after 5 wrong passwords</span>' : 'Not locked'],
+        ['Sign-in', u.locked ? '<span class="text-amber-700">Locked after 5 wrong passwords</span>' : u.mustChange ? '<span class="text-amber-700">Must set a new password at next sign-in</span>' : 'Not locked'],
+        ...(u.formerLogins?.length ? [['Previous Login IDs', u.formerLogins.map(l => `<span class="font-mono">${esc(l)}</span>`).join(', ')]] : []),
         ['Last Login', `${fmtDate(u.lastLogin)}, ${fmtTime(u.lastLogin)}`],
       ]))}
       ${u.locked && !isSelf ? `<p class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">${ic('lock', 'w-4 h-4 shrink-0')}The user can unlock this themselves with Forgot password on the sign-in page, or you can unlock it now.</p>` : ''}
@@ -375,19 +376,54 @@ function userDrawer(u) {
   });
 }
 
-// An admin never sees or picks the new password: the user gets a one-time link and sets it themselves.
+// Merchant Admins set a user's new password right here — no email link. They type one or press
+// Generate, confirm with their own password, and by default the user must change it at next sign-in.
+const PW_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*?-_=+';
+function generatePassword() {
+  for (;;) {
+    const pw = Array.from(crypto.getRandomValues(new Uint32Array(14)), n => PW_CHARS[n % PW_CHARS.length]).join('');
+    if (PASSWORD_RULES.every(r => r.test(pw))) return pw;
+  }
+}
+const newResetDraft = (u) => ({ reset: u.login, password: '', show: false, admin: '', forceChange: true });
+// One line when the password is fine; only the rules still missing while it isn't.
+function resetRules(p) {
+  if (!p) return `<p class="text-slate-500">At least 12 characters with upper and lower case, a number and a symbol, and no character twice in a row.</p>`;
+  const missing = PASSWORD_RULES.filter(r => !r.test(p));
+  return missing.length
+    ? `<ul class="space-y-0.5 text-amber-700">${missing.map(r => `<li class="flex items-center gap-1.5">${ic('circle', 'w-3 h-3 shrink-0')}${r.text}</li>`).join('')}</ul>`
+    : `<p class="flex items-center gap-1.5 text-emerald-700">${ic('circle-check', 'w-3.5 h-3.5 shrink-0')}Meets the password policy</p>`;
+}
+const pwInput = (id, key, value, { show = false, copy = false, attrs = '' } = {}) => `
+  <div class="relative">
+    <input id="${id}" data-user="${key}" type="${show ? 'text' : 'password'}" value="${esc(value)}" autocomplete="new-password" spellcheck="false" class="${INPUT} ${copy ? 'pr-16' : 'pr-9'} font-mono" ${attrs}>
+    <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex">
+      ${copy ? `<button type="button" data-action="user-reset-copy" class="p-1 text-slate-400 hover:text-slate-600" title="Copy" aria-label="Copy password">${ic('copy', 'w-4 h-4')}</button>` : ''}
+      <button type="button" data-action="pw-toggle" data-value="${id}" class="p-1 text-slate-400 hover:text-slate-600" title="Show / hide" aria-label="Show or hide password">${ic(show ? 'eye-off' : 'eye', 'w-4 h-4')}</button>
+    </div>
+  </div>`;
+
 function userResetDrawer(u) {
+  const d = userDraft, e = formErrors;
   return drawerShell({
-    title: 'Send password reset link?',
+    title: 'Reset password',
     sub: `<span class="font-mono text-xs">${esc(u.login)}</span><span>${esc(u.name)}</span>`,
     body: `
-      <p class="text-sm text-slate-700">We'll send a one-time reset link to the user's registered email <span class="font-medium">${esc(u.email)}</span> and mobile <span class="font-mono">${u.mobile}</span>.</p>
-      <ul class="space-y-2 text-sm text-slate-600">
-        ${['The link works once and expires in 30 minutes.', 'Their current password stops working now, and open sessions are signed out.', 'Setting the new password also unlocks the account.', 'You never see or set their new password.'].map(t => `<li class="flex items-start gap-2">${ic('check', 'w-4 h-4 mt-0.5 shrink-0 text-primary-600')}${t}</li>`).join('')}
-      </ul>`,
+      <div class="space-y-1.5">
+        <span class="block text-xs font-bold text-slate-700">New password <span class="text-rose-500">*</span></span>
+        <div class="flex gap-2">
+          <div class="flex-1 min-w-0">${pwInput('ur-new', 'password', d.password, { show: d.show, copy: true, attrs: `aria-label="New password" aria-invalid="${!!e.password}"` })}</div>
+          <button data-action="user-reset-generate" class="${BTN_SECONDARY} shrink-0">${ic('refresh-cw', 'w-4 h-4')}Generate</button>
+        </div>
+        ${e.password ? `<p class="text-[11px] font-medium text-rose-600">${e.password}</p>` : ''}
+        <div id="ur-rules" class="text-xs">${resetRules(d.password)}</div>
+      </div>
+      <label class="flex items-start gap-2 text-sm text-slate-700"><input type="checkbox" data-user-check="forceChange" ${d.forceChange ? 'checked' : ''} class="mt-0.5 rounded border-slate-300 text-primary-600">User must change it at next sign-in (recommended)</label>
+      <div class="max-w-xs">${field('Your password', pwInput('ur-admin', 'admin', d.admin, { attrs: 'autocomplete="current-password"' }), { required: true, error: e.admin, hint: "Confirms it's you making this change." })}</div>
+      <p class="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-xs text-slate-600">${ic('info', 'w-4 h-4 shrink-0 text-slate-400')}<span>The old password stops working right away${u.locked ? ' and the account is unlocked' : ''}. Nothing is emailed — give the new password to the user in person or by phone.</span></p>`,
     footer: `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
-      <button data-action="user-reset-confirm" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Send reset link</button>`,
+      <button data-action="user-reset-confirm" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('key-round', 'w-4 h-4')}Reset password</button>`,
   });
 }
 
@@ -418,7 +454,7 @@ function userFormDrawer() {
         ${field('Email Address', inp('email', `type="email" placeholder="${edit ? esc(u.email) + ' (unchanged)' : 'name@company.com'}"`), { required: !edit, error: e.email })}
       </div>`)}
       ${section('Login Credentials', `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${field('Login Name', inp('login', `autocomplete="off" ${edit ? 'disabled' : ''}`), { required: true, error: e.login, hint: edit ? "Can't be changed — it's kept for the audit trail." : 'Letters, numbers and . _ @ - (4–50)' })}
+        ${field('Login Name', inp('login', `autocomplete="off" ${edit && isSelfUser(u) ? 'disabled' : ''}`), { required: true, error: e.login, hint: !edit ? 'Letters, numbers and . _ @ - (4–50)' : isSelfUser(u) ? 'Your own login ID — ask another Merchant Admin to change it.' : 'Changing it signs the user out; they sign in with the new ID. The old ID stays in the audit trail.' })}
         ${field('Login Password', inp('password', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.password, hint: edit ? 'Leave empty to keep the current password' : '' })}
         ${field('Confirm Password', inp('confirm', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.confirm })}
         ${field('User Role', sel('role', USER_ROLES, 'Select Role'), { required: true, error: e.role })}
@@ -443,9 +479,11 @@ function validateUser() {
   if (!d.first.trim()) e.first = 'Enter the first name.';
   if ((!edit || d.mobile.trim()) && !/^(88)?01[3-9]\d{8}$/.test(d.mobile.trim())) e.mobile = 'Enter a valid mobile number, like 017XXXXXXXX.';
   if ((!edit || d.email.trim()) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = 'Enter a valid email address.';
-  if (!edit) {
+  if (!edit || d.login.trim() !== d.login0) {
+    const login = d.login.trim().toLowerCase();
     if (!/^[A-Za-z0-9._@-]{4,50}$/.test(d.login.trim())) e.login = 'Use 4–50 letters, numbers or . _ @ -';
-    else if (USERS.some(u => u.login.toLowerCase() === d.login.trim().toLowerCase())) e.login = 'This login name is already taken.';
+    // A retired ID can't be reused, so audit records keep pointing at one person.
+    else if (USERS.some(u => u.login !== d.login0 && [u.login, ...(u.formerLogins || [])].some(l => l.toLowerCase() === login))) e.login = 'This login name is taken or was used before.';
   }
   if (!edit || d.password) {
     const failed = PASSWORD_RULES.filter(r => !r.test(d.password));

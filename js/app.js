@@ -573,10 +573,31 @@ const actions = {
   'open-user': (el) => { drawer = { kind: 'user', item: USERS.find(u => u.login === el.dataset.value) }; renderDrawer(); },
   'new-user': () => { userDraft = newUserDraft(); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
   'edit-user': (el) => { userDraft = newUserDraft(USERS.find(u => u.login === el.dataset.value)); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
-  'user-reset': (el) => { drawer = { kind: 'user-reset', item: USERS.find(u => u.login === el.dataset.value) }; renderDrawer(); },
+  'user-reset': (el) => {
+    const u = USERS.find(x => x.login === el.dataset.value);
+    userDraft = newResetDraft(u); formErrors = {};
+    drawer = { kind: 'user-reset', item: u }; renderDrawer();
+  },
+  // Fills the field with a strong password and shows it, so the admin can copy it for the user.
+  'user-reset-generate': () => { Object.assign(userDraft, { password: generatePassword(), show: true }); formErrors = {}; renderDrawer(); },
+  'user-reset-copy': async () => {
+    try { await navigator.clipboard.writeText(userDraft.password); toast('Password copied', 'success'); }
+    catch { toast('Copy is blocked in this browser — select the password and copy it'); }
+  },
   'user-reset-confirm': (el) => {
-    drawer = null; renderDrawer();
-    toast(`Reset link sent to ${el.dataset.value}'s registered email and mobile (prototype)`, 'success');
+    const d = userDraft, u = USERS.find(x => x.login === el.dataset.value);
+    formErrors = {};
+    if (!d.password) formErrors.password = 'Enter a password or press Generate.';
+    else if (!PASSWORD_RULES.every(r => r.test(d.password))) formErrors.password = "Doesn't meet the password policy yet.";
+    if (!d.admin) formErrors.admin = 'Enter your own password to confirm.';
+    if (Object.keys(formErrors).length) { renderDrawer(); return; }
+    // Prototype: nothing is stored or sent, and the typed passwords are dropped right away.
+    u.locked = false;
+    u.mustChange = d.forceChange;
+    userDraft = null;
+    drawer = { kind: 'user', item: u };
+    renderDrawer(); render();
+    toast(`Password reset for ${u.login} — share it in person or by phone, not by email or chat (prototype)`, 'success');
   },
   'user-unlock': (el) => {
     const u = USERS.find(x => x.login === el.dataset.value);
@@ -600,16 +621,19 @@ const actions = {
     };
     fields.name = `${fields.first} ${fields.last}`.trim();
     let user = d.login0 && USERS.find(u => u.login === d.login0);
+    const renamed = user && d.login.trim() !== d.login0;
+    if (renamed) { user.formerLogins = [...(user.formerLogins || []), d.login0]; fields.login = d.login.trim(); }
     if (user) Object.assign(user, fields);
     else { user = { login: d.login.trim(), ...fields, addedBy: 'demo_merchant', lastLogin: new Date(NOW), created: new Date(NOW) }; USERS.push(user); }
     userDraft = null;
     drawer = { kind: 'user', item: user };
     renderDrawer(); render();
-    toast(d.login0 ? 'User updated (prototype)' : 'User created — prototype, nothing was sent and the password was not stored', 'success');
+    toast(renamed ? `Login ID changed to ${user.login} — the user signs in with the new ID (prototype)` : d.login0 ? 'User updated (prototype)' : 'User created — prototype, nothing was sent and the password was not stored', 'success');
   },
   'pw-toggle': (el) => {
     const input = $(`#${el.dataset.value}`);
     input.type = input.type === 'password' ? 'text' : 'password';
+    if (el.dataset.value === 'ur-new' && userDraft) userDraft.show = input.type === 'text'; // survives a redraw
     el.innerHTML = ic(input.type === 'password' ? 'eye' : 'eye-off', 'w-4 h-4');
     lucide.createIcons();
   },
@@ -934,6 +958,7 @@ document.addEventListener('input', (e) => {
   if (t.dataset.other && otherDraft) otherDraft[t.dataset.other] = t.value;
   if (t.dataset.svc && svcDraft && t.type !== 'radio' && t.type !== 'checkbox') svcDraft[t.dataset.svc] = t.value.replace(/\D/g, '');
   if (t.dataset.user && userDraft && t.tagName !== 'SELECT') userDraft[t.dataset.user] = t.value;
+  if (t.id === 'ur-new' && $('#ur-rules')) { $('#ur-rules').innerHTML = resetRules(t.value); lucide.createIcons(); }
   if (t.dataset.store && storeDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') storeDraft[t.dataset.store] = t.value;
   if (t.id === 'pw-new') syncPasswordRules();
   if (['pw-old', 'pw-new', 'pw-confirm'].includes(t.id)) setPwError(t.id, '');
@@ -990,6 +1015,7 @@ document.addEventListener('change', (e) => {
   }
   if (t.dataset.calToggle) { cal[t.dataset.calToggle] = t.checked; render(); }
   if (t.dataset.user && userDraft && t.tagName === 'SELECT') userDraft[t.dataset.user] = t.value;
+  if (t.dataset.userCheck && userDraft) userDraft[t.dataset.userCheck] = t.checked;
   if (t.dataset.store && storeDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) storeDraft[t.dataset.store] = t.type === 'checkbox' ? t.checked : t.value;
   if (t.dataset.svc && svcDraft && (t.type === 'radio' || t.type === 'checkbox')) { svcDraft[t.dataset.svc] = t.type === 'checkbox' ? t.checked : t.value; formErrors = {}; renderDrawer(); }
   if (t.dataset.otherRadio && otherDraft) { otherDraft[t.dataset.otherRadio] = t.value; renderDrawer(); }
