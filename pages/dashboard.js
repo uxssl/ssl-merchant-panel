@@ -34,16 +34,14 @@ function dashData() {
   }
   const series = buckets.map(b => ({ label: b.label, from: b.from, to: b.to, ...summarize(cur.filter(t => t.date >= b.from && t.date <= b.to)) }));
 
-  const byHour = Array.from({ length: 24 }, (_, h) => cur.filter(t => t.date.getHours() === h).length);
-
   const success = cur.filter(t => t.status === 'success');
   const channelTypes = [...new Set(METHODS.map(m => m.type))];
   const totalSales = success.reduce((s, t) => s + t.amount, 0) || 1;
   const channels = channelTypes.map(type => {
     const list = success.filter(t => t.type === type);
     const amount = list.reduce((s, t) => s + t.amount, 0);
-    return { type, amount, count: list.length, share: amount / totalSales * 100 };
-  }).sort((a, b) => b.amount - a.amount);
+    return { name: type, amount, count: list.length, share: amount / totalSales * 100 };
+  }).filter(c => c.amount).sort((a, b) => b.amount - a.amount);
 
   const stl = SETTLEMENTS.filter(x => inStore(x));
   const pending = stl.filter(x => x.status === 'Pending');
@@ -53,7 +51,7 @@ function dashData() {
   const lastSettledAt = lastPaid?.date || null;
   const lastSettled = stl.filter(x => x.status === 'Paid' && +x.date === +lastSettledAt).reduce((s, x) => s + x.paid, 0);
 
-  return { from, to, cur, now: summarize(cur), prev: summarize(prev), prevLabel: today ? 'vs same time yesterday' : 'vs previous period', series, byHour, channels, pendingSettlement, nextPayout, lastSettled, lastSettledAt };
+  return { from, to, cur, now: summarize(cur), prev: summarize(prev), prevLabel: today ? 'vs same time yesterday' : 'vs previous period', series, channels, pendingSettlement, nextPayout, lastSettled, lastSettledAt };
 }
 
 // All dashboard cards share one surface, so radius, border and shadow stay consistent.
@@ -133,11 +131,7 @@ function contactsDrawer() {
 
 function renderDashboard() {
   const d = dashData();
-  const peak = d.byHour.indexOf(Math.max(...d.byHour));
-  const failedCount = d.cur.filter(t => t.status === 'failed').length;
-  const pendingCount = d.cur.filter(t => t.status === 'pending').length;
   const recent = d.cur.slice(0, 5);
-  const hourLabel = (h) => `${pad(h % 12 || 12)} ${h >= 12 ? 'PM' : 'AM'}`;
   const k = SUPPORT_CONTACTS.kam;
   const activeStores = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
 
@@ -145,8 +139,8 @@ function renderDashboard() {
   const attention = [
     // Escrow money stays held until delivery is confirmed, so it leads the list while any is waiting.
     { icon: 'wallet', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds currently on hold before release or settlement', value: escrowHeld, action: `data-action="go" data-value="${ESCROW_HOLD_PATH}"`, priority: escrowHeld > 0 },
-    { icon: 'circle-x', tone: 'text-rose-600 bg-rose-50', title: 'Failed transactions', sub: 'In the selected period', value: failedCount, action: `data-action="goto-txn" data-status="failed"` },
-    { icon: 'clock', tone: 'text-amber-600 bg-amber-50', title: 'Pending transactions', sub: 'Waiting for provider confirmation', value: pendingCount, action: `data-action="goto-txn" data-status="pending"` },
+    // Failed and pending payments stay off the dashboard: they resolve on their own and only alarm merchants.
+    // Both remain one filter away on the transaction list.
     { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open, in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
     { icon: 'shield-alert', tone: 'text-slate-600 bg-slate-100', title: 'Chargebacks to respond', sub: 'Waiting for your evidence', value: CHARGEBACKS.filter(c => CB_OPEN.has(c.status)).length, action: `data-action="goto-list" data-path="${CB_PATH}" data-status="action"` },
   ];
@@ -219,11 +213,10 @@ function renderDashboard() {
         </div>
       </section>
 
-      <!-- Two independent columns; the hour chart takes any spare height so both end on one line.
+      <!-- Two independent columns; the sales chart takes any spare height so both end on one line.
            On phones the action column comes first: quick actions and open issues before charts. -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2 flex flex-col gap-4 min-w-0">
-          <!-- Both charts share the extra height, so the columns end on the same line without one chart towering. -->
           <div class="${DASH_CARD} flex-1 flex flex-col">
             ${dashHead('Successful Transactions &amp; Amount', `${dash.preset === 'today' ? 'Hourly' : 'Daily'} successful payment value and count · Select a ${dash.preset === 'today' ? 'bar' : 'day'} to see its transactions`)}
             <div class="px-4 py-3 flex-1 min-h-44"><canvas id="chart-sales"></canvas></div>
@@ -248,11 +241,6 @@ function renderDashboard() {
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <div class="${DASH_CARD} flex-1 flex flex-col">
-            ${dashHead('Transactions by Hour', Math.max(...d.byHour) ? `Peak hour: ${hourLabel(peak)} – ${hourLabel((peak + 1) % 24)}` : 'No payments in this period yet')}
-            <div class="px-4 py-3 flex-1 min-h-44"><canvas id="chart-hours"></canvas></div>
           </div>
         </div>
 
@@ -306,12 +294,9 @@ function renderDashboard() {
 
           <div class="${DASH_CARD} flex-1">
             ${dashHead('Payment Channels', 'Share of successful sales', linkMore('#/analytics/market-share', 'Details'))}
-            <div class="px-4 py-3 space-y-2">
-              ${d.channels.map(c => `
-                <div title="${c.count.toLocaleString()} transactions">
-                  <div class="flex items-center justify-between gap-3 text-sm"><span class="font-medium text-slate-700">${c.type} <span class="text-xs font-normal text-slate-400">${c.share.toFixed(1)}%</span></span><span class="font-semibold text-slate-900">${fmtBDTShort(c.amount)}</span></div>
-                  <div class="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:${c.share.toFixed(1)}%"></div></div>
-                </div>`).join('')}
+            <!-- Same donut and channel colours as Market Share, so a channel reads the same everywhere. -->
+            <div class="px-4 py-3">
+              ${d.channels.length ? donut('chart-channels', d.channels, CHANNELS, { value: c => c.amount, sub: c => `${fmtBDTShort(c.amount)} · ${c.count.toLocaleString()} txns` }) : '<p class="text-sm text-slate-500">No successful payments in this period yet.</p>'}
             </div>
           </div>
         </div>
@@ -355,19 +340,6 @@ function mountDashboardCharts() {
         y: { grid, beginAtZero: true, title: { display: true, text: 'Amount (BDT)' }, ticks: { callback: (v) => v >= 1e5 ? `${v / 1e5}L` : v >= 1e3 ? `${v / 1e3}k` : v } },
         y1: { position: 'right', beginAtZero: true, grid: { display: false }, title: { display: true, text: 'Transactions' }, ticks: { precision: 0 } },
       },
-    },
-  }));
-  const peak = Math.max(...d.byHour);
-  charts.push(new Chart($('#chart-hours'), {
-    type: 'bar',
-    data: {
-      labels: d.byHour.map((_, h) => pad(h)),
-      datasets: [{ label: 'Transactions', data: d.byHour, backgroundColor: d.byHour.map(v => v === peak ? '#295cab' : '#c1d2eb'), borderRadius: 3 }],
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: (c) => `${c[0].label}:00 – ${c[0].label}:59` } } },
-      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } }, y: { grid, ticks: { precision: 0 } } },
     },
   }));
 }
