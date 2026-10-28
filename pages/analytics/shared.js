@@ -152,7 +152,7 @@ function anTable(name, header, rows, { right = [] } = {}) {
   anExport = { name, header, rows: rows.map(r => r.map(c => String(c).replace(/<[^>]+>/g, ''))) };
   return miniTable(header, rows, { right });
 }
-const exportBtn = `<button data-action="an-export" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 shadow-sm">${ic('download', 'w-3.5 h-3.5')}Export CSV</button>`;
+const exportBtn = `<button data-action="an-export" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 border border-primary-600 rounded-md hover:bg-primary-700 shadow-sm">${ic('download', 'w-3.5 h-3.5')}Export CSV</button>`;
 const insight = (text) => `<div class="flex items-start gap-2 rounded-lg border border-primary-100 bg-primary-50 px-3 py-2.5 text-sm text-primary-800">${ic('lightbulb', 'w-4 h-4 mt-0.5 shrink-0')}<span>${text}</span></div>`;
 const mockNote = (text) => `<p class="flex items-start gap-1.5 text-[11px] text-slate-500">${ic('info', 'w-3.5 h-3.5 mt-px shrink-0')}${text}</p>`;
 
@@ -167,10 +167,10 @@ function analyticsShell(title, sub, body) {
           <p class="text-slate-500 text-sm">${sub}</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
-          ${storePill('an', 'All Stores')}
           <div class="inline-flex p-1 bg-white border border-slate-200 rounded-full shadow-sm">
             ${AN_PRESETS.map(p => `<button data-action="an-preset" data-value="${p.value}" class="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${an.preset === p.value ? 'bg-primary-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}">${p.label}</button>`).join('')}
           </div>
+          ${storePill('an', 'All Stores')}
         </div>
       </div>
       <p class="text-xs text-slate-500 -mt-3">${fmtDate(from)} – ${fmtDate(to)} · ${list.length.toLocaleString()} transactions${storeFilter.length ? ` · ${esc(storeLabel(''))}` : ''}</p>

@@ -24,9 +24,9 @@ const TEXT_FILTER_KEYS = ['last4', 'holder', 'refId', 'mref', 'card'];
 function listFilterBar(s, placeholder, pills, { noDate = false, noStore = false, fields = [] } = {}) {
   return `
     <div class="filter-bar-container flex items-center gap-3 flex-wrap">
+      ${noDate ? '' : dtPill(s.range, s.defaultPreset)}
       ${filterSearch('list-search', placeholder, s.search)}
       ${fields.map(([key, label]) => filterText(key, label, s[key])).join('')}
-      ${noDate ? '' : dtPill(s.range, s.defaultPreset)}
       ${pills}
       ${noStore ? '' : storePill('list', 'Store')}
       ${filterActions(s)}
@@ -37,7 +37,7 @@ function listToolbar(count, noun, s) {
   return `
     <div class="data-table-toolbar flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${count.toLocaleString()}</span> ${noun} · ${ic(s.range.daily ? 'repeat' : 'calendar-clock', 'w-3.5 h-3.5 inline -mt-0.5')} ${rangeDetail(s.range)}</p>
-      <button data-action="export" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-sm shrink-0">${ic('download', 'w-4 h-4')}Export CSV</button>
+      <button data-action="export" class="${BTN_EXPORT} shrink-0">${ic('download', 'w-4 h-4')}Export CSV</button>
     </div>`;
 }
 

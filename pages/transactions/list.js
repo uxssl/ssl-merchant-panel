@@ -171,10 +171,10 @@ function renderTransactions(view) {
 
       <div class="flex flex-col">
         <div class="filter-bar-container flex items-center gap-3 flex-wrap">
+          ${dtPill(s.range, '7d')}
           ${filterSearch('txn-search', 'Transaction ID', s.search)}
           ${filterText('last4', 'Last 4 Digit of Card No.', s.last4)}
           ${filterText('holder', 'Card Holder Given Name', s.holder)}
-          ${dtPill(s.range)}
           ${selectPill('txn', 'status', 'Status', TXN_STATUS_OPTS, s.status)}
           ${selectPill('txn', 'method', 'Gateway', METHOD_OPTS, s.method)}
           ${selectPill('txn', 'issuer', 'Issuer Location', ISSUER_OPTS, s.issuer)}
@@ -200,7 +200,7 @@ function renderTransactions(view) {
             <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length.toLocaleString()}</span> transactions · ${ic(s.range.daily ? 'repeat' : 'calendar-clock', 'w-3.5 h-3.5 inline -mt-0.5')} ${rangeDetail(s.range)}</p>
             <div class="flex items-center gap-2">
               <button data-action="txn-symbols" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-primary-600">${ic('info', 'w-4 h-4')}Symbol Meaning</button>
-              <button data-action="export" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-sm">${ic('download', 'w-4 h-4')}Export CSV</button>
+              <button data-action="export" class="${BTN_EXPORT}">${ic('download', 'w-4 h-4')}Export CSV</button>
               <div class="relative" data-dd-root>
                 <button data-action="dd-toggle" data-key="txn:cols" class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-colors shadow-sm">${ic('settings-2', 'w-4 h-4')}View Column</button>
                 ${openDD === 'txn:cols' ? `

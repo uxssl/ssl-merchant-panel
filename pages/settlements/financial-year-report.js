@@ -148,7 +148,7 @@ function fyDrawer({ y, storeId }) {
       ${y === CURRENT_FY ? `<p class="text-xs text-slate-500">Months after ${fmtMonth(NOW)} will appear as the year progresses. This statement is provisional until 30 Jun ${y + 1}.</p>` : ''}`,
     footer: status === 'Processing'
       ? `<span class="inline-flex items-center gap-2 text-sm text-amber-600 font-medium">${ic('loader', 'w-4 h-4')}Statement is being generated</span>`
-      : `<button data-action="toast" data-msg="Prototype: Excel statement is not wired up." class="${BTN_SECONDARY}">${ic('sheet', 'w-4 h-4')}Download Excel</button>
+      : `<button data-action="toast" data-msg="Prototype: Excel statement is not wired up." class="${BTN_EXPORT}">${ic('sheet', 'w-4 h-4')}Download Excel</button>
          <button data-action="toast" data-msg="Prototype: PDF statement is not wired up." class="${BTN_PRIMARY}">${ic('file-down', 'w-4 h-4')}Download ${status === 'In Progress' ? 'Provisional ' : ''}PDF</button>`,
   });
 }

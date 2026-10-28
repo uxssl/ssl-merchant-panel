@@ -49,7 +49,7 @@ function renderEscrowHolds() {
           <p class="text-slate-500 text-sm">Escrow payments held from settlement until you confirm delivery.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button data-action="get-deliverables" class="${BTN_SECONDARY}">${ic('download', 'w-4 h-4')}Get Deliverables</button>
+          <button data-action="get-deliverables" class="${BTN_EXPORT}">${ic('download', 'w-4 h-4')}Get Deliverables</button>
           <a href="#${SUP.service}" class="${BTN_PRIMARY}">${ic('upload', 'w-4 h-4')}Confirm Delivery</a>
         </div>
       </div>

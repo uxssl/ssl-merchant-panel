@@ -194,13 +194,15 @@ function filterActions(s) {
 // ---------------------------------------------------------------------
 // Date & time range picker — KAM date-range pill, extended with time
 // ---------------------------------------------------------------------
+// The date pill always opens the filter bar, so it carries a calendar icon and a blue outline even at its default.
 function dtPill(range, defaultPreset = '7d') {
   const active = range.preset !== defaultPreset || !!range.daily;
   const open = openDD === 'txn:range';
+  const idle = 'bg-white border-primary-300 text-slate-800 hover:border-primary-500 font-semibold shadow-sm';
   return `
     <div class="relative shrink-0" data-dd-root>
-      <button data-action="dd-toggle" data-key="txn:range" class="flex items-center justify-between gap-2 pl-3 pr-3 py-1.5 border rounded-full text-sm transition-all min-w-[120px] ${active ? PILL_ACTIVE : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 font-medium'}">
-        <span class="truncate">${rangeLabel(range)}</span>${ic('chevron-down', `w-4 h-4 transition-transform duration-200 ${active ? 'text-primary-600' : 'text-slate-400'} ${open ? 'rotate-180' : ''}`)}
+      <button data-action="dd-toggle" data-key="txn:range" aria-label="Date range: ${rangeLabel(range)}" class="flex items-center justify-between gap-2 pl-3 pr-3 py-1.5 border rounded-full text-sm transition-all min-w-[120px] ${active ? PILL_ACTIVE : idle}">
+        ${ic('calendar-days', 'w-4 h-4 text-primary-600')}<span class="truncate">${rangeLabel(range)}</span>${ic('chevron-down', `w-4 h-4 transition-transform duration-200 ${active ? 'text-primary-600' : 'text-slate-400'} ${open ? 'rotate-180' : ''}`)}
       </button>
       ${openDD === 'txn:range' ? dtPopover() : ''}
     </div>`;
