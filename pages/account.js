@@ -126,21 +126,17 @@ function renderStoreList() {
     (f.stype === 'all' || storeGroupOf(st.id)?.id === f.stype) && (f.status === 'all' || st.status === f.status));
   const groupOpts = [{ label: 'All Store Groups', value: 'all' }, ...STORE_GROUPS.filter(g => !g.system).map(g => ({ label: g.name, value: g.id }))];
   const statusOpts = [{ label: 'All Status', value: 'all' }, { label: 'Active', value: 'Active' }, { label: 'Inactive', value: 'Inactive' }];
-  const cols = [
-    { label: 'Store ID', cell: st => `<span class="font-mono text-xs text-slate-800">${st.id}</span>` },
-    { label: 'Store Name', cell: st => `<span class="font-medium text-slate-800">${esc(st.name)}</span>` },
-    { label: 'Base URL', cls: 'hidden lg:table-cell', cell: st => st.baseUrl ? `<span class="font-mono text-xs">${esc(st.baseUrl.replace(/^https?:\/\//, ''))}</span>` : '<span class="text-slate-400">—</span>' },
-    { label: 'Group', cell: st => storeGroupOf(st.id) ? `<span class="text-xs text-slate-700">${esc(storeGroupOf(st.id).name)}</span>` : '<span class="text-slate-400">—</span>' },
-    { label: 'Status', cell: st => activeBadge(st.status === 'Active') },
-    { label: 'Action', cell: st => `<div class="flex items-center gap-1">
-      ${STORE_ACTIONS.map(([action, icon, label, title]) => rowAction(action, st.id, icon, label, { title: `${title} of ${st.id}` })).join('')}
-    </div>` },
-  ];
+  const active = ACCOUNT_STORES.filter(st => st.status === 'Active').length;
   return `
     <div class="space-y-6">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">Store List</h1>
         <p class="text-slate-500 text-sm">All stores under your merchant account, including inactive ones.</p>
+      </div>
+      <div class="grid grid-cols-3 gap-3 sm:gap-4 max-w-2xl">
+        ${metricCard({ title: 'Total Stores', value: ACCOUNT_STORES.length, status: 'all', selected: f.status === 'all' })}
+        ${metricCard({ title: 'Active', value: active, status: 'Active', selected: f.status === 'Active' })}
+        ${metricCard({ title: 'Inactive', value: ACCOUNT_STORES.length - active, status: 'Inactive', selected: f.status === 'Inactive' })}
       </div>
       <div class="flex flex-col">
         ${listFilterBar(s, 'Store ID, Store Name or Base URL',
@@ -149,10 +145,53 @@ function renderStoreList() {
           { noDate: true, noStore: true })}
         <div class="space-y-4 pt-6">
           <p class="text-sm text-slate-500"><span class="font-semibold text-slate-900">${rows.length}</span> of ${ACCOUNT_STORES.length} stores</p>
-          ${dataTable({ cols, rows, rowAttrs: () => '', emptyTitle: 'No stores match these filters', emptyHint: 'Try clearing some filters.' })}
+          ${rows.length ? `<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">${rows.map(storeCard).join('')}</div>` : `
+            <div class="bg-white rounded-lg border border-slate-200 px-4 py-12 text-center">
+              <p class="text-sm font-medium text-slate-700">No stores match these filters</p>
+              <p class="text-xs text-slate-500 mt-1">Try clearing some filters.</p>
+            </div>`}
         </div>
       </div>
     </div>`;
+}
+
+// One store as a card: key facts, setup status chips and the same actions the table had.
+// Store status is set by SSLCOMMERZ, so the card shows it but has no on/off switch.
+function storeCard(st) {
+  const bank = STORE_BANK[st.id];
+  const ipnOn = storeCfg(st.id).ipn.listenerOn;
+  const channels = TXN_PROFILES[st.id].channels.length;
+  const settleOn = !!bank && !SETTLEMENT_DISABLED.has(st.id);
+  const fact = (label, value) => `<div class="min-w-0 rounded-lg border border-slate-200 px-3 py-2"><p class="text-[11px] font-medium text-slate-500">${label}</p><p class="mt-0.5 text-sm font-medium text-slate-800 truncate">${value || '<span class="text-slate-400">Not set</span>'}</p></div>`;
+  const chip = (on, yes, no) => `<span class="${STATUS_BADGE} ${on ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">${on ? yes : no}</span>`;
+  return `
+    <article class="bg-white rounded-lg border border-slate-200 shadow-sm">
+      <div class="flex items-start justify-between gap-3 px-4 pt-4">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="w-9 h-9 shrink-0 flex items-center justify-center">${ic(storeTypeIcon(st.type), 'w-5 h-5 portal-icon-muted')}</span>
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold text-slate-900 truncate">${esc(st.name)}</h2>
+            <p class="text-xs text-slate-500">Store ID: <span class="font-mono">${st.id}</span></p>
+          </div>
+        </div>
+        ${activeBadge(st.status === 'Active')}
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 px-4 pt-4">
+        ${fact('Base URL', st.baseUrl ? `<span class="font-mono text-xs">${esc(st.baseUrl.replace(/^https?:\/\//, ''))}</span>` : '')}
+        ${fact('Store Group', esc(storeGroupOf(st.id)?.name || ''))}
+        ${fact('Store Type', `${esc(st.type)} · ${st.currency}`)}
+        ${fact('Settlement Bank', bank ? `${esc(bank.bank)} <span class="font-mono text-xs text-slate-500">•••• ${bank.account.slice(-4)}</span>` : '')}
+      </div>
+      <div class="flex flex-wrap gap-1.5 px-4 pt-3">
+        ${chip(ipnOn, 'IPN Configured', 'IPN Not Configured')}
+        <span class="${STATUS_BADGE} bg-primary-50 text-primary-600">${channels} Payment Channel${channels === 1 ? '' : 's'}</span>
+        ${bank ? chip(settleOn, 'Settlement Enabled', 'Settlement Disabled') : chip(false, '', 'No Settlement Bank')}
+      </div>
+      <div class="flex flex-wrap items-center gap-1 px-2 py-2 mt-3 border-t border-slate-100">
+        ${STORE_ACTIONS.map(([action, icon, label, title]) => rowAction(action, st.id, icon, label, { title: `${title} of ${st.id}` })).join('')}
+        ${rowAction('store-profile', st.id, 'file-text', 'Profile', { title: `Transaction Profile of ${st.id}` })}
+      </div>
+    </article>`;
 }
 
 // ----- Store Groups (old panel: a list with name, created on and status) -----

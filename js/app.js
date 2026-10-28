@@ -486,6 +486,10 @@ const actions = {
     renderDrawer(); render();
     toast(`${{ group: 'Store group', ipn: 'IPN settings', gw: 'Gateway settings' }[kind]} saved for ${id} (prototype)`, 'success');
   },
+  'store-profile': (el) => {
+    (listStates[ACC.profile] ||= defaultListState('30d')).store = el.dataset.value;
+    location.hash = '#' + ACC.profile;
+  },
   'store-txns': (el) => {
     Object.assign(txnState('all'), { search: '', status: 'all', method: 'all', store: el.dataset.value, range: makeRange('30d'), page: 1 });
     drawer = null; renderDrawer();
