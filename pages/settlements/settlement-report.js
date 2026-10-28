@@ -124,7 +124,7 @@ function unsettledSummaryCard() {
 function settlementStatusBanner() {
   const held = settlementRows(applied(pageState()), false).filter(x => x.status === 'On Hold');
   const amount = held.reduce((t, x) => t + x.fwd, 0);
-  const hold = held.length ? `
+  const hold = held.length && !alertSnoozed('settle-hold') ? `
     <div role="alert" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
       ${ic('circle-pause', 'w-4 h-4 shrink-0 text-rose-600')}
       <p class="flex-1 min-w-[220px] text-xs text-rose-800">
@@ -132,6 +132,7 @@ function settlementStatusBanner() {
         Held amounts are forwarded to the store's next settlement once the issue is resolved. Check the bank account details or contact your KAM.
       </p>
       <button data-action="overview-status" data-value="On Hold" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('list-filter', 'w-3.5 h-3.5')}Show them</button>
+      <span class="flex text-rose-700">${alertClose('settle-hold')}</span>
     </div>` : '';
   const off = settlementBanner(true);
   return off || hold ? `<div class="mb-3 space-y-2">${off}${hold}</div>` : '';
