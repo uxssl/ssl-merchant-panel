@@ -71,21 +71,22 @@ function cardList(cols, rows, rowAttrs, cellOf) {
 function dataTable({ cols, rows, rowAttrs, emptyTitle, emptyHint, menus = false, serial }) {
   if (serial !== undefined) cols = [{ label: '#', cls: 'hidden md:table-cell w-10 text-slate-400', num: true }, ...cols];
   if (!cols.some(c => c.label === 'Action') && rows.some(r => rowAttrs(r))) cols = [...cols, { label: 'Action', cell: r => rowAttrs(r) ? `<button type="button" ${rowAttrs(r)} title="Details" aria-label="Details" class="row-action">${ic('eye', 'row-action-icon')}<span class="row-action-label">Details</span></button>` : '' }];
-  const cellCls = (c) => `${c.right ? 'text-right' : ''} ${c.cls || ''}`;
+  // Columns that already hide on small screens are also the first to go when the table is too wide.
+  const cellCls = (c) => `${c.right ? 'text-right' : ''} ${c.cls || ''} ${/table-cell/.test(c.cls || '') ? 'fit-drop' : ''}`;
   if (!rows.length) return `<div class="rounded-md border border-slate-200 bg-white shadow-sm">${emptyBlock(emptyTitle, emptyHint)}</div>`;
   return `
-    <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-x-auto'}">
+    <div class="rounded-md border border-slate-200 bg-white shadow-sm ${menus ? '' : 'overflow-hidden'}">
       ${cardList(cols.filter(c => !c.num), rows, rowAttrs, (c, r) => c.cell(r))}
-      <table class="hidden md:table w-full text-left text-sm">
+      <table data-fit class="hidden md:table w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
-            ${cols.map(c => `<th class="h-10 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${cellCls(c)}">${c.label}</th>`).join('')}
+            ${cols.map(c => `<th class="h-10 px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider leading-tight ${cellCls(c)}">${c.label}</th>`).join('')}
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           ${rows.map(r => `
             <tr ${rowAttrs(r)} class="${rowAttrs(r) ? 'hover:bg-slate-50 cursor-pointer' : ''} transition-colors">
-              ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${cellCls(c)}">${c.num ? serial + rows.indexOf(r) : c.cell(r)}</td>`).join('')}
+              ${cols.map(c => `<td data-label="${esc(c.label)}" class="px-3 py-2 align-middle text-slate-700 ${cellCls(c)}">${c.num ? serial + rows.indexOf(r) : c.cell(r)}</td>`).join('')}
             </tr>`).join('')}
         </tbody>
       </table>

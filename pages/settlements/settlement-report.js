@@ -12,12 +12,13 @@ const fmtBDT0 = (n) => `৳${Math.round(n).toLocaleString('en-US')}`;
 
 function miniTable(headers, rows, { right = [], total } = {}) {
   const al = (i) => right.includes(i) ? 'text-right' : '';
+  const label = (i) => esc(String(headers[i]).replace(/<[^>]*>/g, ''));
   return `
-    <div class="rounded-md border border-slate-200 overflow-x-auto md:overflow-hidden">
-      <table class="w-full text-left text-xs">
+    <div class="rounded-md border border-slate-200 overflow-hidden">
+      <table data-fit class="w-full text-left text-xs">
         <thead class="bg-slate-50 border-b border-slate-200"><tr>${headers.map((h, i) => `<th class="px-2.5 py-2 font-semibold text-slate-500 uppercase tracking-wider leading-tight ${al(i)}">${h}</th>`).join('')}</tr></thead>
-        <tbody class="divide-y divide-slate-100">${rows.map(r => `<tr>${r.map((c, i) => `<td class="px-2.5 py-2 text-slate-700 tabular-nums ${right.includes(i) ? 'whitespace-nowrap' : ''} ${al(i)}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
-        ${total ? `<tfoot class="bg-slate-50 border-t border-slate-200"><tr>${total.map((c, i) => `<td class="px-2.5 py-2 font-semibold text-slate-900 tabular-nums whitespace-nowrap ${al(i)}">${c}</td>`).join('')}</tr></tfoot>` : ''}
+        <tbody class="divide-y divide-slate-100">${rows.map(r => `<tr>${r.map((c, i) => `<td data-label="${label(i)}" class="px-2.5 py-2 text-slate-700 tabular-nums ${right.includes(i) ? 'whitespace-nowrap' : ''} ${al(i)}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+        ${total ? `<tfoot class="bg-slate-50 border-t border-slate-200"><tr>${total.map((c, i) => `<td data-label="${i ? label(i) : ''}" class="px-2.5 py-2 font-semibold text-slate-900 tabular-nums whitespace-nowrap ${al(i)}">${c}</td>`).join('')}</tr></tfoot>` : ''}
       </table>
     </div>`;
 }
@@ -85,16 +86,16 @@ function unsettledTable() {
     return { name: `Total (${cur})`, currency: cur, ...Object.fromEntries(UNSETTLED_COLS.filter(c => !c.text).map(c => [c.key, list.reduce((n, r) => n + r[c.key], 0)])) };
   });
   const th = (c) => `<th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right leading-tight ${c.tint || ''} ${c.text ? '!text-left' : ''}">${c.label}</th>`;
-  const td = (c, r, foot) => `<td class="px-3 py-2 tabular-nums whitespace-nowrap ${c.text ? 'text-left' : 'text-right'} ${c.tint || ''} ${c.strong || foot ? 'font-semibold text-slate-900' : 'text-slate-700'}">${foot && c.text ? '' : cell(c, r[c.key])}</td>`;
+  const td = (c, r, foot) => `<td data-label="${esc(c.label)}" class="px-3 py-2 tabular-nums whitespace-nowrap ${c.text ? 'text-left' : 'text-right'} ${c.tint || ''} ${c.strong || foot ? 'font-semibold text-slate-900' : 'text-slate-700'}">${foot && c.text ? '' : cell(c, r[c.key])}</td>`;
   return `
-    <div class="overflow-x-auto rounded-md border border-slate-200">
-      <table class="min-w-[1080px] w-full text-left text-sm">
+    <div class="rounded-md border border-slate-200 overflow-hidden">
+      <table data-fit class="w-full text-left text-sm">
         <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Store ID</th>${UNSETTLED_COLS.map(th).join('')}</tr></thead>
         <tbody class="divide-y divide-slate-100">
-          ${rows.map(r => `<tr><td class="px-3 py-2"><div class="font-mono text-xs font-medium text-slate-800">${r.id}</div><div class="text-[11px] text-slate-500">${esc(r.name)}</div></td>${UNSETTLED_COLS.map(c => td(c, r)).join('')}</tr>`).join('')}
+          ${rows.map(r => `<tr><td data-label="" class="px-3 py-2"><div class="font-mono text-xs font-medium text-slate-800">${r.id}</div><div class="text-[11px] text-slate-500">${esc(r.name)}</div></td>${UNSETTLED_COLS.map(c => td(c, r)).join('')}</tr>`).join('')}
         </tbody>
         <tfoot class="bg-slate-50 border-t border-slate-200">
-          ${totals.map(t => `<tr><td class="px-3 py-2 font-semibold text-slate-900">${t.name}</td>${UNSETTLED_COLS.map(c => td(c, t, true)).join('')}</tr>`).join('')}
+          ${totals.map(t => `<tr><td data-label="" class="px-3 py-2 font-semibold text-slate-900">${t.name}</td>${UNSETTLED_COLS.map(c => td(c, t, true)).join('')}</tr>`).join('')}
         </tfoot>
       </table>
     </div>`;
@@ -150,9 +151,9 @@ function renderSettlements() {
         <h1 class="text-2xl font-bold text-slate-900">Settlement Report</h1>
         <p class="text-slate-500 text-sm">Payouts to your bank account — one settlement per store per business day.</p>
       </div>
-      <p class="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-800">${ic('info', 'w-4 h-4 shrink-0')}Merchant Settlement minimum amount will be ${fmtBDT0(2500)}. Search ranges are limited to 30 days.</p>
+      ${alertSnoozed('settle-min') ? '' : `<div class="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-800">${ic('info', 'w-4 h-4 shrink-0')}<p class="flex-1">Merchant Settlement minimum amount will be ${fmtBDT0(2500)}. Search ranges are limited to 30 days.</p>${alertClose('settle-min')}</div>`}
 
-      ${bounced.length ? `
+      ${bounced.length && !alertSnoozed('settle-bounced') ? `
         <div class="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
           <span class="w-8 h-8 rounded-full bg-white text-orange-700 flex items-center justify-center shrink-0 ring-1 ring-orange-200">${ic('undo-2', 'w-4 h-4')}</span>
           <div class="flex-1 min-w-0">
@@ -160,9 +161,10 @@ function renderSettlements() {
             <p class="text-xs text-orange-800 mt-0.5">The bank returned these payouts. Check the bounce reason and the settlement bank account details, or contact your KAM before the next settlement cycle.</p>
           </div>
           <button data-action="overview-status" data-value="Bounced" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-orange-900 bg-white border border-orange-200 rounded-full hover:bg-orange-100">View bounced settlements</button>
+          <span class="text-orange-800">${alertClose('settle-bounced')}</span>
         </div>` : ''}
 
-      ${held.length ? `
+      ${held.length && !alertSnoozed('settle-hold') ? `
         <div class="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
           <span class="w-8 h-8 rounded-full bg-white text-rose-600 flex items-center justify-center shrink-0 ring-1 ring-rose-200">${ic('circle-pause', 'w-4 h-4')}</span>
           <div class="flex-1 min-w-0">
@@ -170,6 +172,7 @@ function renderSettlements() {
             <p class="text-xs text-rose-800 mt-0.5">Held amounts are forwarded to the store's next settlement once the issue is resolved. Check the bank account details or contact your KAM.</p>
           </div>
           <button data-action="overview-status" data-value="On Hold" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-rose-900 bg-white border border-rose-200 rounded-full hover:bg-rose-100">Show them</button>
+          <span class="text-rose-800">${alertClose('settle-hold')}</span>
         </div>` : ''}
 
       <div class="flex flex-col">

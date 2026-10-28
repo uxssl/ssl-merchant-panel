@@ -82,3 +82,20 @@ input[type="time"]::-webkit-calendar-picker-indicator { opacity: .5; cursor: poi
 @media (max-width: 1200px) {
   table th, table td, table td *, table th * { font-size: 11px !important; }
 }
+
+/* Tables never scroll sideways. fitTables() (js/ui.js) measures each table[data-fit]: if it is wider
+   than its box it first drops .fit-drop columns (is-tight), then turns each row into a small card
+   of "label: value" lines (is-stacked). Cells carry their column name in data-label. */
+table.is-tight .fit-drop { display: none; }
+table.is-stacked { display: block; width: 100%; } /* only ever set on a visible table, see fitTable() */
+table.is-stacked thead { display: none; }
+table.is-stacked tbody, table.is-stacked tfoot, table.is-stacked tr { display: block; width: 100%; }
+table.is-stacked tr { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+table.is-stacked tbody tr:last-child { border-bottom: 0; }
+table.is-stacked tfoot tr { border-top: 1px solid #e2e8f0; }
+table.is-stacked td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0 !important; text-align: right !important; white-space: normal !important; background: none !important; border: 0 !important; }
+table.is-stacked td.hidden, table.is-stacked td.fit-drop { display: none; }
+table.is-stacked td::before { content: attr(data-label); flex: 0 0 auto; max-width: 50%; text-align: left; font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+table.is-stacked td[data-label=""]::before, table.is-stacked td:not([data-label])::before { display: none; }
+table.is-stacked td[data-label=""] { justify-content: flex-start; text-align: left !important; font-weight: 600; }
+table.is-stacked td > input:not([type="checkbox"]), table.is-stacked td > select { flex: 1 1 auto; min-width: 0; max-width: 60%; }

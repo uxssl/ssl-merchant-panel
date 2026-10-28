@@ -29,8 +29,8 @@ const actionBtn = (action, id, icon, label) => rowAction(action, id, icon, label
 // cols: [{ key, label, type: 'number' | 'text' | 'yesno', width }]
 function storeDiscountTable(draft, cols, scope) {
   return `
-    <div class="overflow-x-auto rounded-lg border border-slate-200">
-      <table class="min-w-[900px] w-full text-left text-xs">
+    <div class="rounded-lg border border-slate-200 overflow-hidden">
+      <table data-fit class="w-full text-left text-xs">
         <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
           <tr><th class="px-3 py-2">Store</th>${cols.map(c => `<th class="px-2 py-2 ${c.width || ''}">${c.label}</th>`).join('')}</tr>
         </thead>
@@ -39,8 +39,8 @@ function storeDiscountTable(draft, cols, scope) {
             const row = draft.rows[st.id];
             const err = formErrors[`row:${st.id}`];
             return `<tr class="${row.on ? 'bg-primary-50/40' : ''}">
-              <td class="px-3 py-2 align-top"><label class="flex items-center gap-2 font-medium text-slate-800 whitespace-nowrap"><input type="checkbox" data-${scope}-on="${st.id}" ${row.on ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">${esc(st.name)}</label>${err ? `<p class="text-[11px] font-medium text-rose-600 mt-1 max-w-[180px]">${err}</p>` : ''}</td>
-              ${cols.map(c => `<td class="px-2 py-2 align-top">${c.type === 'yesno'
+              <td data-label="" class="px-3 py-2 align-top"><label class="flex items-center gap-2 font-medium text-slate-800 whitespace-nowrap"><input type="checkbox" data-${scope}-on="${st.id}" ${row.on ? 'checked' : ''} class="rounded border-slate-300 text-primary-600">${esc(st.name)}</label>${err ? `<p class="text-[11px] font-medium text-rose-600 mt-1 max-w-[180px]">${err}</p>` : ''}</td>
+              ${cols.map(c => `<td data-label="${esc(c.label)}" class="px-2 py-2 align-top">${c.type === 'yesno'
                 ? `<select data-${scope}-row="${st.id}|${c.key}" ${row.on ? '' : 'disabled'} aria-label="${esc(st.name)} ${c.label}" class="${CELL}">${c.placeholder ? `<option value="">${c.placeholder}</option>` : ''}${options(['Yes', 'No'], row[c.key])}</select>`
                 : `<input data-${scope}-row="${st.id}|${c.key}" value="${esc(row[c.key])}" ${c.type === 'number' ? 'type="number" min="0" step="any"' : ''} placeholder="${c.hint || ''}" ${row.on ? '' : 'disabled'} aria-label="${esc(st.name)} ${c.label}" class="${CELL}">`}</td>`).join('')}
             </tr>`;

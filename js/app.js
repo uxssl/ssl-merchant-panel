@@ -142,6 +142,7 @@ function renderPage() {
   }
   page.insertAdjacentHTML('afterbegin', settlementBanner());
   lucide.createIcons();
+  fitTables(page);
   if (path === '/dashboard') mountDashboardCharts();
   if (window.Chart && chartQueue.length) {
     setChartDefaults();
@@ -209,6 +210,11 @@ const actions = {
   },
   'notif-read-all': () => { NOTIFICATIONS.forEach(n => { n.read = true; }); openHeaderMenu('notifications'); },
   'toast': (el) => toast(el.dataset.msg),
+  'alert-close': (el) => {
+    snoozedAlerts[el.dataset.value] = Date.now();
+    render();
+    setTimeout(render, ALERT_SNOOZE_MS + 100);
+  },
   'go': (el) => { location.hash = '#' + el.dataset.value; },
   'dd-toggle': (el) => {
     const key = el.dataset.key;
@@ -865,7 +871,7 @@ document.addEventListener('input', (e) => {
   }
   if (t.dataset.track) tracking[t.dataset.track] = t.value;
   if (t.id === 'fx-search') { fxQuery = t.value; $('#fx-table').innerHTML = fxTable(); }
-  if (t.id === 'unsettled-search') { unsettledQ = t.value; $('#unsettled-table').innerHTML = unsettledTable(); }
+  if (t.id === 'unsettled-search') { unsettledQ = t.value; $('#unsettled-table').innerHTML = unsettledTable(); fitTables($('#unsettled-table')); }
   if (t.id === 'qr-amount') qrGen.amount = t.value;
   if (t.dataset.link && linkDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') {
     linkDraft[t.dataset.link] = t.value;

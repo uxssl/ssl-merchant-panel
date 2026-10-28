@@ -274,6 +274,7 @@ function renderDrawer() {
   const render = { txn: txnDrawer, contacts: contactsDrawer, refund: refundDrawer, cb: cbDrawer, settlement: settlementDrawer, fy: fyDrawer, link: linkDrawer, 'link-new': linkFormDrawer, invoice: invoiceDrawer, 'invoice-new': invoiceFormDrawer, 'refund-new': refundFormDrawer, emi: emiDrawer, partner: partnerDrawer, 'partner-edit': partnerFormDrawer, mc: mcDrawer, 'mc-new': mcFormDrawer, tt: ttDrawer, 'tt-new': ttFormDrawer, gt: gtDrawer, 'gt-new': gtFormDrawer, 'delivery-upload': deliveryUploadDrawer, store: storeDrawer, 'store-charge': storeChargeDrawer, 'store-bank': storeBankDrawer, 'store-settings': storeSettingsDrawer, group: groupDrawer, 'group-new': groupFormDrawer, user: userDrawer, 'user-new': userFormDrawer, 'referral-new': referralFormDrawer, 'sms-buy': smsBuyDrawer, video: videoDrawer }[drawer.kind];
   root.innerHTML = render(drawer.item);
   lucide.createIcons();
+  fitTables(root);
   makeKeyboardReachable(root);
   const panel = $('#drawer-panel');
   const firstError = Object.keys(formErrors).length && panel.querySelector('.text-rose-600')?.closest('label, section, div')?.querySelector('input, select, textarea');

@@ -73,7 +73,7 @@ function partnerDrawer(c) {
     sub: `<span class="font-mono text-xs">${c.tracking}</span>${campaignBadge(c.status)}`,
     body: `
       ${section('Campaign Information', partnerInfo(c))}
-      ${section('Campaign - Merchant Discount List', `<div class="overflow-x-auto">${miniTable(
+      ${section('Campaign - Merchant Discount List', `<div>${miniTable(
         ['Store Name', 'Offer Modality Percent', 'Fully Burned By Merchant', 'Minimum Order Amount', 'Max Discount Amount (per transaction)', 'Recurrent Discount Limit', 'Remarks'],
         STORES.map(st => { const d = c.discounts[st.id] || {}; return [esc(st.name), d.pct !== undefined ? `${d.pct}%` : cell(), cell(d.burned), d.minOrder !== undefined ? fmtBDT0(d.minOrder) : cell(), d.maxPerTxn !== undefined ? fmtBDT0(d.maxPerTxn) : cell(), cell(d.perUser), cell(d.remarks)]; }))}</div>
         <p class="text-[11px] text-slate-500 mt-2">${joinedStores(c).length ? `${joinedStores(c).length} of ${STORES.length} stores take part.` : 'No store has joined this campaign.'}</p>`)}`,

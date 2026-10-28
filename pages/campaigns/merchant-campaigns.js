@@ -78,7 +78,7 @@ function mcDrawer(c) {
         kv('End Date', fmtDate(c.end)),
         `<div class="col-span-2">${kv(c.communicator === 'SSL' ? 'Banks, MFS & Internet Banking' : 'Card BIN', communicatorText(c))}</div>`,
       ]))}
-      ${section('Campaign - Merchant Discount List', `<div class="overflow-x-auto">${miniTable(
+      ${section('Campaign - Merchant Discount List', `<div>${miniTable(
         ['Store', 'Offer Modality Percent', 'Shared With Partners Percent', 'Minimum Order Amount', 'Max Discount Amount (Per Transaction)', 'Maximum Discount Amount (Per Card)', 'Recurrent Discount Limit', 'Remarks'],
         stores.map(id => { const d = c.discounts[id]; return [esc(storeName(id)), `${d.pct}%`, d.observed === 'Yes' ? '0%' : 'Shared', fmtBDT0(d.minOrder), fmtBDT0(d.maxPerTxn), fmtBDT0(d.maxPerCard), d.perUser, d.remarks ? esc(d.remarks) : '—']; }))}</div>`)}`,
     footer: mcEditable(c) ? `

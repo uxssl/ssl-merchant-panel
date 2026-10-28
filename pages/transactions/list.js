@@ -62,8 +62,8 @@ const shownStatus = (t) => t.status === 'refunded' ? 'success' : t.status;
 const TXN_COLS = [
   { key: 'date', label: 'Date', sortable: true },
   { key: 'info', label: 'Transaction ID / Other Info' },
-  { key: 'card', label: 'Card / Ref No' },
-  { key: 'store', label: 'Store', cls: 'hidden lg:table-cell' },
+  { key: 'card', label: 'Card / Ref No', drop: true },
+  { key: 'store', label: 'Store', cls: 'hidden lg:table-cell', drop: true },
   { key: 'amount', label: 'Amount', sortable: true, right: true },
   { key: 'status', label: 'Status' },
   { key: 'action', label: 'Action' },
@@ -219,12 +219,12 @@ function renderTransactions(view) {
           ${!pageRows.length ? `<div class="rounded-md border border-slate-200 bg-white shadow-sm">${emptyBlock('No transactions found')}</div>` : `
           <div class="rounded-md border border-slate-200 bg-white shadow-sm overflow-hidden">
             ${cardList(TXN_COLS.filter(c => !s.hidden.has(c.key)), pageRows, t => `data-action="open-txn" data-value="${t.id}"`, (c, t) => txnCell(c.key, t))}
-            <table class="hidden md:table w-full text-left text-sm">
+            <table data-fit class="hidden md:table w-full text-left text-sm">
               <thead class="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th class="h-10 px-3 w-10 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
+                  <th class="fit-drop h-10 px-3 w-10 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
                   ${cols.map(c => `
-                    <th class="h-10 px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${c.right ? 'text-right' : ''} ${c.cls || ''}">
+                    <th class="h-10 px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider leading-tight ${c.right ? 'text-right' : ''} ${c.cls || ''} ${c.drop ? 'fit-drop' : ''}">
                       ${c.sortable ? `<button data-action="sort" data-value="${c.key}" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-slate-800 ${s.sort.key === c.key ? 'text-slate-800' : ''}">${c.label}${ic(s.sort.key === c.key ? (s.sort.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'arrow-up-down', 'w-3 h-3')}</button>` : c.label}
                     </th>`).join('')}
                 </tr>
@@ -232,8 +232,8 @@ function renderTransactions(view) {
               <tbody class="divide-y divide-slate-100">
                 ${pageRows.map((t, i) => `
                   <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
-                    <td class="px-3 py-2 align-top text-slate-400">${start + i + 1}</td>
-                    ${cols.map(c => `<td class="px-3 py-2 align-middle text-slate-700 ${c.right ? 'text-right' : ''} ${c.cls || ''}">${txnCell(c.key, t)}</td>`).join('')}
+                    <td data-label="#" class="fit-drop px-3 py-2 align-top text-slate-400">${start + i + 1}</td>
+                    ${cols.map(c => `<td data-label="${esc(c.label)}" class="px-3 py-2 align-middle text-slate-700 ${c.right ? 'text-right' : ''} ${c.cls || ''} ${c.drop ? 'fit-drop' : ''}">${txnCell(c.key, t)}</td>`).join('')}
                   </tr>`).join('')}
               </tbody>
             </table>

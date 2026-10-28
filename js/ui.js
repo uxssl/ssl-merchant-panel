@@ -9,6 +9,33 @@ function rowAction(action, value, icon, label, { title = label, disabled = false
   </button>`;
 }
 
+// Alert banners can be closed, but only for a while: each one comes back two minutes later.
+// Kept in page memory, so a reload also brings them back.
+const ALERT_SNOOZE_MS = 2 * 60 * 1000;
+const snoozedAlerts = {}; // alert key -> time it was closed
+const alertSnoozed = (key) => Date.now() - (snoozedAlerts[key] || 0) < ALERT_SNOOZE_MS;
+const alertClose = (key) => `<button type="button" data-action="alert-close" data-value="${key}" title="Hide for 2 minutes" aria-label="Hide this alert for 2 minutes" class="shrink-0 -my-0.5 p-1 rounded opacity-60 hover:opacity-100 hover:bg-white/70 transition">${ic('x', 'w-4 h-4')}</button>`;
+
+// Tables never scroll sideways. Each table[data-fit] that is wider than its box first hides its
+// .fit-drop columns, then (if still too wide) shows each row as a label / value card. See styles.css.
+// A ResizeObserver re-checks whenever a table's size changes (window resize, sidebar toggle, or
+// Tailwind generating a new page's styles a moment after it renders).
+function fitTable(t) {
+  t.classList.remove('is-tight', 'is-stacked');
+  if (!t.offsetParent) return;
+  const tooWide = () => t.getBoundingClientRect().width > t.parentElement.clientWidth + 1;
+  if (tooWide() && t.querySelector('.fit-drop')) t.classList.add('is-tight');
+  if (tooWide()) t.classList.add('is-stacked');
+}
+// Watches both the table and its box: a table already at its minimum width does not shrink with its box.
+const tableFit = new ResizeObserver(entries => entries.forEach(e => {
+  const t = e.target.matches('table') ? e.target : e.target.querySelector(':scope > table[data-fit]');
+  if (t) fitTable(t);
+}));
+function fitTables(root = document) {
+  root.querySelectorAll('table[data-fit]').forEach(t => { fitTable(t); tableFit.observe(t); tableFit.observe(t.parentElement); });
+}
+
 const PILL_ACTIVE = 'bg-[#295cab21] text-primary-600 border-primary-600 font-semibold';
 const PILL_IDLE = 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300 font-medium';
 const STATUS_BADGE = 'px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap inline-block';

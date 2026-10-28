@@ -184,21 +184,21 @@ function customFieldsTable(d) {
   const cell = (f, key, attrs = '') => `<input data-link-cf="${f}|${key}" value="${esc(d.custom[f]?.[key] || '')}" aria-label="${f} ${key}" class="${CELL_INPUT}" ${attrs}>`;
   const check = (f, key, label) => `<input type="checkbox" data-link-cf="${f}|${key}" ${d.custom[f]?.[key] ? 'checked' : ''} aria-label="${f}: ${label}" class="rounded border-slate-300 text-primary-600">`;
   return `
-    <div class="overflow-x-auto rounded-lg border border-slate-200">
-      <table class="min-w-[860px] w-full text-left text-xs">
+    <div class="rounded-lg border border-slate-200 overflow-hidden">
+      <table data-fit class="w-full text-left text-xs">
         <thead class="bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
           <tr><th class="px-3 py-2">Field</th><th class="px-2 py-2">Field Type</th><th class="px-2 py-2">Display Name</th><th class="px-2 py-2">Placeholder</th><th class="px-2 py-2">Default Value</th><th class="px-2 py-2">Other Value</th><th class="px-2 py-2 text-center">Mandatory</th><th class="px-2 py-2 text-center">Display</th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           ${LINK_CUSTOM_FIELDS.map(f => `<tr>
-            <td class="px-3 py-1.5 font-medium text-slate-700 whitespace-nowrap">${f}</td>
-            <td class="px-2 py-1.5 w-32"><select data-link-cf="${f}|type" aria-label="${f} field type" class="${CELL_INPUT}">${options(LINK_FIELD_TYPES, d.custom[f]?.type || LINK_FIELD_TYPES[0])}</select></td>
-            <td class="px-2 py-1.5">${cell(f, 'label')}</td>
-            <td class="px-2 py-1.5">${cell(f, 'placeholder')}</td>
-            <td class="px-2 py-1.5">${cell(f, 'def')}</td>
-            <td class="px-2 py-1.5">${cell(f, 'other')}</td>
-            <td class="px-2 py-1.5 text-center">${check(f, 'mandatory', 'mandatory')}</td>
-            <td class="px-2 py-1.5 text-center">${check(f, 'display', 'display')}</td>
+            <td data-label="" class="px-3 py-1.5 font-medium text-slate-700 whitespace-nowrap">${f}</td>
+            <td data-label="Field Type" class="px-2 py-1.5 w-32"><select data-link-cf="${f}|type" aria-label="${f} field type" class="${CELL_INPUT}">${options(LINK_FIELD_TYPES, d.custom[f]?.type || LINK_FIELD_TYPES[0])}</select></td>
+            <td data-label="Display Name" class="px-2 py-1.5">${cell(f, 'label')}</td>
+            <td data-label="Placeholder" class="px-2 py-1.5">${cell(f, 'placeholder')}</td>
+            <td data-label="Default Value" class="px-2 py-1.5">${cell(f, 'def')}</td>
+            <td data-label="Other Value" class="px-2 py-1.5">${cell(f, 'other')}</td>
+            <td data-label="Mandatory" class="px-2 py-1.5 text-center">${check(f, 'mandatory', 'mandatory')}</td>
+            <td data-label="Display" class="px-2 py-1.5 text-center">${check(f, 'display', 'display')}</td>
           </tr>`).join('')}
         </tbody>
       </table>

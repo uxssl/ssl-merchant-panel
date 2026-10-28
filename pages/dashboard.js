@@ -88,8 +88,8 @@ const cardHead = (title, sub, right = '') => `
 
 // Dashboard cards use a tighter header than the shared cardHead (also used by the analytics pages).
 const dashHead = (title, sub, right = '') => `
-  <div class="px-4 py-3 border-b border-slate-100 flex items-start justify-between gap-3">
-    <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500 mt-0.5">${sub}</p>` : ''}</div>${right}
+  <div class="px-4 py-2.5 border-b border-slate-100 flex items-start justify-between gap-3">
+    <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-900">${title}</h3>${sub ? `<p class="text-xs text-slate-500">${sub}</p>` : ''}</div>${right}
   </div>`;
 
 // Merchant app download QR — a real, scannable code with the SSLCOMMERZ logo in the middle.
@@ -223,26 +223,27 @@ function renderDashboard() {
            On phones the action column comes first: quick actions and open issues before charts. -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="lg:col-span-2 flex flex-col gap-4 min-w-0">
-          <div class="${DASH_CARD}">
+          <!-- Both charts share the extra height, so the columns end on the same line without one chart towering. -->
+          <div class="${DASH_CARD} flex-1 flex flex-col">
             ${dashHead('Successful Transactions &amp; Amount', `${dash.preset === 'today' ? 'Hourly' : 'Daily'} successful payment value and count · Select a ${dash.preset === 'today' ? 'bar' : 'day'} to see its transactions`)}
-            <div class="px-4 py-3 h-56"><canvas id="chart-sales"></canvas></div>
+            <div class="px-4 py-3 flex-1 min-h-44"><canvas id="chart-sales"></canvas></div>
           </div>
 
           <div class="${DASH_CARD} overflow-hidden">
             ${dashHead('Recent Transactions', 'Latest payments in the selected period', linkMore('#/transactions/all', 'View all'))}
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm">
+            <div>
+              <table data-fit class="w-full text-left text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200"><tr>
-                  ${['Date & Time', 'Transaction ID', 'Payment Method', 'Amount', 'Status'].map((h, i) => `<th class="h-9 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 1 ? 'hidden lg:table-cell' : i === 2 ? 'hidden sm:table-cell' : ''}">${h}</th>`).join('')}
+                  ${['Date & Time', 'Transaction ID', 'Payment Method', 'Amount', 'Status'].map((h, i) => `<th class="h-9 px-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap ${i === 3 ? 'text-right' : ''} ${i === 1 ? 'fit-drop' : ''}">${h}</th>`).join('')}
                 </tr></thead>
                 <tbody class="divide-y divide-slate-100">
                   ${recent.length ? recent.map(t => `
                     <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
-                      <td class="px-4 py-2">${txnCell('date', t)}</td>
-                      <td class="px-4 py-2 hidden lg:table-cell"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
-                      <td class="px-4 py-2 hidden sm:table-cell text-sm text-slate-700">${esc(t.method)}</td>
-                      <td class="px-4 py-2 text-right">${txnCell('amount', t)}</td>
-                      <td class="px-4 py-2">${badge(t.status)}</td>
+                      <td data-label="Date &amp; Time" class="px-4 py-2">${txnCell('date', t)}</td>
+                      <td data-label="Transaction ID" class="px-4 py-2 fit-drop"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
+                      <td data-label="Payment Method" class="px-4 py-2 text-sm text-slate-700">${esc(t.method)}</td>
+                      <td data-label="Amount" class="px-4 py-2 text-right">${txnCell('amount', t)}</td>
+                      <td data-label="Status" class="px-4 py-2">${badge(t.status)}</td>
                     </tr>`).join('') : `<tr><td colspan="5" class="h-24 text-center text-slate-500">No transactions in this period yet.</td></tr>`}
                 </tbody>
               </table>
@@ -251,7 +252,7 @@ function renderDashboard() {
 
           <div class="${DASH_CARD} flex-1 flex flex-col">
             ${dashHead('Transactions by Hour', Math.max(...d.byHour) ? `Peak hour: ${hourLabel(peak)} – ${hourLabel((peak + 1) % 24)}` : 'No payments in this period yet')}
-            <div class="px-4 py-3 flex-1 min-h-72"><canvas id="chart-hours"></canvas></div>
+            <div class="px-4 py-3 flex-1 min-h-44"><canvas id="chart-hours"></canvas></div>
           </div>
         </div>
 
@@ -260,9 +261,9 @@ function renderDashboard() {
             ${dashHead('Needs Attention', 'Issues that may affect payments and payouts', `<span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${toReview ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}">${toReview ? `${toReview} to review` : 'All clear'}</span>`)}
             <div class="divide-y divide-slate-100">
               ${attention.map(a => `
-                <button ${a.action} class="w-full flex items-center gap-3 px-4 py-3 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
-                  <span class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-4 h-4')}</span>
-                  <span class="flex-1 min-w-0"><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="text-sm font-semibold text-slate-900">${a.title}</span>${a.priority ? '<span class="rounded-full px-2 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-xs text-slate-500 mt-0.5">${a.sub}</span></span>
+                <button ${a.action} class="w-full flex items-center gap-2.5 px-4 py-2 text-left last:rounded-b-xl transition-colors ${a.priority ? 'bg-amber-50/70 hover:bg-amber-50' : 'hover:bg-slate-50'}">
+                  <span class="w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${a.tone}">${ic(a.icon, 'w-3.5 h-3.5')}</span>
+                  <span class="flex-1 min-w-0"><span class="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span class="text-sm font-semibold text-slate-900">${a.title}</span>${a.priority ? '<span class="rounded-full px-2 py-px text-[10px] font-semibold bg-amber-100 text-amber-800">Priority</span>' : ''}</span><span class="block text-xs text-slate-500">${a.sub}</span></span>
                   <span class="min-w-[2rem] text-right text-sm font-bold ${a.value ? 'text-slate-900' : 'text-slate-300'}">${a.value}</span>${ic('chevron-right', 'w-4 h-4 text-slate-300 shrink-0')}
                 </button>`).join('')}
             </div>
@@ -270,10 +271,10 @@ function renderDashboard() {
 
           <div class="${DASH_CARD}">
             ${dashHead('Quick Actions', 'Start a payment in a few clicks')}
-            <div class="p-2 flex flex-col">
+            <div class="p-1.5 flex flex-col">
               ${quick.map(q => `
-                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors ${q.featured ? 'bg-primary-50/70 hover:bg-primary-50 mb-1' : 'hover:bg-primary-50/60'}">
-                  <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic(q.icon, `w-5 h-5 ${q.featured ? 'text-primary-600' : 'portal-icon-muted'}`)}</span>
+                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors ${q.featured ? 'bg-primary-50/70 hover:bg-primary-50 mb-0.5' : 'hover:bg-primary-50/60'}">
+                  <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic(q.icon, `w-5 h-5 ${q.featured ? 'text-primary-600' : 'portal-icon-muted'}`)}</span>
                   <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-slate-800 truncate">${q.label}</span><span class="block text-xs text-slate-500 truncate">${q.hint}</span></span>
                   ${ic('chevron-right', 'w-4 h-4 text-slate-300 group-hover:text-primary-600 shrink-0 transition-colors')}
                 </button>`).join('')}
@@ -282,19 +283,19 @@ function renderDashboard() {
 
           <div class="${DASH_CARD}">
             ${dashHead('Settlement', 'Estimated, mock values', linkMore('#/analytics/settlement-report', 'Report'))}
-            <div class="p-4 space-y-3">
-              <div class="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2.5">
+            <div class="p-3 space-y-2">
+              <div class="rounded-lg bg-primary-50/60 border border-primary-100 px-3 py-2">
                 <p class="text-xs font-semibold text-primary-700">Pending Settlement</p>
-                <p class="text-xl font-bold tracking-tight text-slate-900 mt-0.5">${fmtBDT(d.pendingSettlement)}</p>
-                <p class="text-xs text-slate-500 mt-0.5 inline-flex items-center gap-1.5">${ic('calendar-clock', 'w-3.5 h-3.5')}Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
+                <p class="text-lg font-bold tracking-tight text-slate-900">${fmtBDT(d.pendingSettlement)}</p>
+                <p class="text-xs text-slate-500 inline-flex items-center gap-1.5">${ic('calendar-clock', 'w-3.5 h-3.5')}Next payout: ${d.nextPayout ? `${fmtDate(d.nextPayout)}, ${fmtTime(d.nextPayout)}` : '—'} (est.)</p>
               </div>
               <div class="grid grid-cols-2 gap-2">
-                <div class="px-3 py-2 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Last Settled</p><p class="text-sm font-bold text-slate-900 mt-1">${fmtBDTShort(d.lastSettled)}</p><p class="text-[11px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
-                <div class="px-3 py-2 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Settlement Account</p><p class="text-sm font-bold text-slate-900 mt-1 font-mono whitespace-nowrap">A/C •••• ••••</p><p class="text-[11px] text-slate-400 mt-0.5">Primary bank (masked)</p></div>
+                <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Last Settled</p><p class="text-sm font-bold text-slate-900">${fmtBDTShort(d.lastSettled)}</p><p class="text-[11px] text-slate-400 mt-0.5">${d.lastSettledAt ? `${fmtShort(d.lastSettledAt)}, ${fmtTime(d.lastSettledAt)}` : '—'}</p></div>
+                <div class="px-3 py-1.5 rounded-lg border border-slate-200"><p class="text-[11px] font-medium text-slate-500">Settlement Account</p><p class="text-sm font-bold text-slate-900 font-mono whitespace-nowrap">A/C •••• ••••</p><p class="text-[11px] text-slate-400 mt-0.5">Primary bank (masked)</p></div>
               </div>
             </div>
-            <a href="#/account/store-list" class="flex items-center gap-3 px-4 py-2.5 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
-              <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic('store', 'w-5 h-5 portal-icon-muted')}</span>
+            <a href="#/account/store-list" class="flex items-center gap-2.5 px-4 py-2 border-t border-slate-100 hover:bg-slate-50 rounded-b-xl transition-colors">
+              <span class="w-7 h-7 flex items-center justify-center shrink-0">${ic('store', 'w-5 h-5 portal-icon-muted')}</span>
               <span class="flex-1 min-w-0">
                 <span class="block text-sm font-semibold text-slate-900">Stores</span>
                 <span class="block text-xs text-slate-500">${ACCOUNT_STORES.length} total · <span class="text-emerald-600 font-medium">${activeStores} active</span> · ${ACCOUNT_STORES.length - activeStores} inactive</span>
@@ -303,13 +304,13 @@ function renderDashboard() {
             </a>
           </div>
 
-          <div class="${DASH_CARD}">
+          <div class="${DASH_CARD} flex-1">
             ${dashHead('Payment Channels', 'Share of successful sales', linkMore('#/analytics/market-share', 'Details'))}
-            <div class="p-4 space-y-3">
+            <div class="px-4 py-3 space-y-2">
               ${d.channels.map(c => `
                 <div title="${c.count.toLocaleString()} transactions">
                   <div class="flex items-center justify-between gap-3 text-sm"><span class="font-medium text-slate-700">${c.type} <span class="text-xs font-normal text-slate-400">${c.share.toFixed(1)}%</span></span><span class="font-semibold text-slate-900">${fmtBDTShort(c.amount)}</span></div>
-                  <div class="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:${c.share.toFixed(1)}%"></div></div>
+                  <div class="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full bg-primary-600" style="width:${c.share.toFixed(1)}%"></div></div>
                 </div>`).join('')}
             </div>
           </div>

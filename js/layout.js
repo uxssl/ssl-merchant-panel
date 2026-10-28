@@ -191,7 +191,7 @@ function renderHeader() {
 // Portal-wide alert: a store still takes payments but SSL has switched its settlement off.
 function settlementBanner() {
   const stores = ACCOUNT_STORES.filter(st => st.status === 'Active' && SETTLEMENT_DISABLED.has(st.id));
-  if (!stores.length) return '';
+  if (!stores.length || alertSnoozed('settlement-disabled')) return '';
   return `
     <div role="alert" class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
       ${ic('circle-alert', 'w-4 h-4 shrink-0 text-rose-600')}
@@ -200,5 +200,6 @@ function settlementBanner() {
         Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but won't be paid out until settlement is enabled again.
       </p>
       <button data-action="open-contacts" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('headset', 'w-3.5 h-3.5')}Contact KAM</button>
+      <span class="text-rose-700">${alertClose('settlement-disabled')}</span>
     </div>`;
 }

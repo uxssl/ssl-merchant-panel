@@ -55,7 +55,7 @@ function rptPage({ key, title, sub, method, cols, row, chart }) {
         <div class="p-4">
           ${!days.length ? emptyBlock('No data available for this period')
             : view === 'chart' ? `<div class="h-80"><canvas id="rpt-${key}" aria-label="${title} chart" role="img"></canvas></div>`
-            : `<div class="overflow-x-auto">${miniTable(['Date', ...cols], days.map(d => [`<span class="whitespace-nowrap">${fmtDate(d.day)}</span>`, ...row(d)]), { right: cols.map((_, i) => i + 1), total: ['Total', ...row(Object.fromEntries(['n', 'amount', 'otpN', 'otpAmt', 'directN', 'directAmt'].map(k => [k, sum(k)])))] })}</div>`}
+            : `<div>${miniTable(['Date', ...cols], days.map(d => [`<span class="whitespace-nowrap">${fmtDate(d.day)}</span>`, ...row(d)]), { right: cols.map((_, i) => i + 1), total: ['Total', ...row(Object.fromEntries(['n', 'amount', 'otpN', 'otpAmt', 'directN', 'directAmt'].map(k => [k, sum(k)])))] })}</div>`}
         </div>
       </section>
     </div>`;
