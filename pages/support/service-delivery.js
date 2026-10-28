@@ -39,7 +39,7 @@ function renderServiceDelivery() {
           <p class="text-slate-500 text-sm">Confirm delivery for escrow payments so they can be settled.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button data-action="get-deliverables" class="${BTN_EXPORT}">${ic('circle-plus', 'w-4 h-4')}Get Deliverables</button>
+          <button data-action="get-deliverables" class="${BTN_SECONDARY}">${ic('download', 'w-4 h-4')}Get Deliverables</button>
           <button data-action="upload-delivery" class="${BTN_PRIMARY}">${ic('circle-plus', 'w-4 h-4')}Upload Delivery File</button>
         </div>
       </div>
