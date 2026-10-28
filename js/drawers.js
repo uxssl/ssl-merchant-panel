@@ -63,10 +63,12 @@ const BTN_EXPORT = 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-w
 const PCI_NOTE = `<p class="flex items-center gap-1.5 text-[11px] text-slate-400">${ic('shield-check', 'w-3.5 h-3.5')}Card and account numbers are masked (PCI-DSS). Full card numbers are never shown in the merchant portal.</p>`;
 
 function drawerShell({ title, sub, body, footer, wide = false }) {
+  // Slide in only when opening; redraws (validation, Generate…) update in place.
+  const opening = !$('#drawer-root').firstElementChild;
   return `
     <div class="fixed inset-0 z-[150] flex justify-end">
-      <div data-action="close-drawer" data-backdrop aria-hidden="true" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm anim-fade"></div>
-      <div id="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title" class="relative h-full w-full ${wide === 'xl' ? 'max-w-4xl' : wide ? 'max-w-2xl' : 'max-w-xl'} bg-white shadow-2xl flex flex-col anim-drawer">
+      <div data-action="close-drawer" data-backdrop aria-hidden="true" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm ${opening ? 'anim-fade' : ''}"></div>
+      <div id="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title" class="relative h-full w-full ${wide === 'xl' ? 'max-w-4xl' : wide ? 'max-w-2xl' : 'max-w-xl'} bg-white shadow-2xl flex flex-col ${opening ? 'anim-drawer' : ''}">
         <div class="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
           <div class="min-w-0">
             <h2 id="drawer-title" class="text-lg font-semibold text-slate-900">${title}</h2>
