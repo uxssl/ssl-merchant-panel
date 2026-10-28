@@ -57,8 +57,6 @@ const timeline = (steps) => `
   </ol>`;
 const BTN_SECONDARY = 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50';
 const BTN_PRIMARY = 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded shadow-sm hover:bg-primary-700';
-// File exports (Export CSV, Get Deliverables, Download Excel) are solid blue so they stand out from plain controls.
-const BTN_EXPORT = 'flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-primary-600 rounded-md shadow-sm hover:bg-primary-700 transition-colors';
 const PCI_NOTE = `<p class="flex items-center gap-1.5 text-[11px] text-slate-400">${ic('shield-check', 'w-3.5 h-3.5')}Card and account numbers are masked (PCI-DSS). Full card numbers are never shown in the merchant portal.</p>`;
 
 function drawerShell({ title, sub, body, footer, wide = false }) {
