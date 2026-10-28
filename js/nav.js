@@ -74,6 +74,7 @@ const NAV = [
   // Pinned to the bottom of the sidebar: extras, help and integration rather than daily work.
   {
     key: 'others', label: 'Others', icon: 'ellipsis', bottom: true, children: [
+      { label: 'Services & Add-ons', to: '/others/services' },
       { label: 'Refer & Earn', to: '/others/refer-earn' },
       { label: 'Currency Rate Conversion', to: '/others/currency-conversion-rates' },
       { label: 'Value Added Services (VAS)', to: '/others/vas' },

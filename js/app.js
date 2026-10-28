@@ -129,6 +129,8 @@ function renderPage() {
     page.innerHTML = renderVas();
   } else if (path === OTH.sms) {
     page.innerHTML = renderSmsPurchase();
+  } else if (path === SERVICES_PATH) {
+    page.innerHTML = renderServices();
   } else if (path === OTH.dev) {
     page.innerHTML = renderDeveloper();
   } else if (path === OTH.faq) {
@@ -145,7 +147,7 @@ function renderPage() {
   page.insertAdjacentHTML('afterbegin', [SETTLEMENT_PATH, SETTLE_LIST_PATH].includes(path) ? settlementStatusBanner() : settlementBanner());
   lucide.createIcons();
   fitTables(page);
-  if (path === '/dashboard') mountDashboardCharts();
+  if (path === '/dashboard') { mountDashboardCharts(); maybeOfferServices(); }
   if (window.Chart && chartQueue.length) {
     setChartDefaults();
     chartQueue.forEach(({ id, config }) => { const el = document.getElementById(id); if (el) charts.push(new Chart(el, config)); });
@@ -467,6 +469,28 @@ const actions = {
     VAS_SERVICES.find(v => v.id === el.dataset.value).applied = true;
     render();
     toast('Prototype: no request was sent to the team', 'success');
+  },
+  // Self-service activation: pop-up offers → plan → review & consent → OTP → active.
+  'svc-open': (el) => openServiceFlow(el.dataset.value),
+  'svc-pick': (el) => { pickServiceOffer(el.dataset.value); formErrors = {}; renderDrawer(); },
+  'svc-back': (el) => { svcDraft.step = el.dataset.value; formErrors = {}; renderDrawer(); },
+  'svc-next': () => {
+    formErrors = {};
+    if (svcDraft.step === 'review' && !svcDraft.agree) formErrors.agree = 'Agree to the terms and conditions first.';
+    else svcDraft.step = svcDraft.step === 'plan' ? 'review' : 'otp';
+    renderDrawer();
+  },
+  'svc-confirm': () => { confirmServiceOrder(); renderDrawer(); render(); },
+  'svc-snooze': () => {
+    try { localStorage.setItem(SVC_SNOOZE_KEY, String(Date.now() + SVC_SNOOZE_DAYS * 864e5)); } catch { /* storage blocked: it just shows next session */ }
+    closeDrawer();
+    toast(`We'll remind you in ${SVC_SNOOZE_DAYS} days`);
+  },
+  'svc-configure': (el) => {
+    const [svc, store] = el.dataset.value.split('|');
+    if (svc === 'emi') { emiTab = 'settings'; loadEmiForm(store); }
+    closeDrawer();
+    location.hash = '#' + svcOf(svc).path;
   },
   'sms-select': (el) => { otherDraft = { pkg: el.dataset.value, agree: false, letter: '' }; formErrors = {}; drawer = { kind: 'sms-buy', item: null }; renderDrawer(); },
   'sms-submit': () => {
@@ -913,6 +937,7 @@ document.addEventListener('input', (e) => {
   }
   if (t.dataset.group && groupDraft && t.tagName !== 'SELECT') groupDraft[t.dataset.group] = t.value;
   if (t.dataset.other && otherDraft) otherDraft[t.dataset.other] = t.value;
+  if (t.dataset.svc && svcDraft && t.type !== 'radio' && t.type !== 'checkbox') svcDraft[t.dataset.svc] = t.value.replace(/\D/g, '');
   if (t.dataset.user && userDraft && t.tagName !== 'SELECT') userDraft[t.dataset.user] = t.value;
   if (t.dataset.store && storeDraft && t.type !== 'checkbox' && t.tagName !== 'SELECT') storeDraft[t.dataset.store] = t.value;
   if (t.id === 'pw-new') syncPasswordRules();
@@ -971,6 +996,7 @@ document.addEventListener('change', (e) => {
   if (t.dataset.calToggle) { cal[t.dataset.calToggle] = t.checked; render(); }
   if (t.dataset.user && userDraft && t.tagName === 'SELECT') userDraft[t.dataset.user] = t.value;
   if (t.dataset.store && storeDraft && (t.type === 'checkbox' || t.tagName === 'SELECT')) storeDraft[t.dataset.store] = t.type === 'checkbox' ? t.checked : t.value;
+  if (t.dataset.svc && svcDraft && (t.type === 'radio' || t.type === 'checkbox')) { svcDraft[t.dataset.svc] = t.type === 'checkbox' ? t.checked : t.value; formErrors = {}; renderDrawer(); }
   if (t.dataset.otherRadio && otherDraft) { otherDraft[t.dataset.otherRadio] = t.value; renderDrawer(); }
   if (t.dataset.otherCheck && otherDraft) { otherDraft[t.dataset.otherCheck] = t.checked; formErrors = {}; renderDrawer(); }
   if (t.hasAttribute('data-other-file') && otherDraft) {
@@ -1006,6 +1032,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && t.tagName === 'INPUT' && t.closest('#auth-root')) { e.preventDefault(); $('#auth-root button.w-full[data-action^="auth-"]')?.click(); return; }
   if (e.key === 'Enter' && t.dataset.track) { runTracking(); render(); return; }
   if (e.key === 'Enter' && t.id === 'refund-txn' && refundDraft) { e.preventDefault(); lookupRefundTxn(); renderDrawer(); return; }
+  if (e.key === 'Enter' && t.id === 'svc-otp' && svcDraft) { e.preventDefault(); actions['svc-confirm'](); return; }
   if (e.key === 'Enter' && t.id === 'mc-bin' && mcDraft) { e.preventDefault(); addMcBin(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute?.('role') === 'button' && t.dataset.action) { e.preventDefault(); t.click(); return; }
   if (e.key === 'Tab' && drawer) {

@@ -110,6 +110,7 @@ function emiSettingsTab() {
   return `
     <div class="space-y-4">
       <div class="max-w-sm">${field('My Store', `<select id="emi-store" class="${INPUT}">${options(stores.map(st => [st.id, `${st.name} (${st.id})`]), f.store)}</select>`)}</div>
+      ${svcBanner('emi', f.store)}
       <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
           <div>

@@ -741,6 +741,45 @@ const SMS_PACKAGES = [
 ];
 const SMS_REQUESTS = [{ ref: `SMS${ymd(addDays(TODAY, -40))}${digits(4)}`, pkg: 'gold', date: addDays(TODAY, -40), letter: 'declaration-letter-signed.pdf', status: 'Approved' }];
 
+// Self-service activation (docs/service-activation-flow.md): services an existing merchant buys
+// from the portal instead of a work order. Each plan is a fixed limit with a one-time fee (VAT extra);
+// `review` plans go to KAM review before they switch on (maker-checker on larger limits).
+const SERVICE_VAT = 0.15;
+const SERVICE_CATALOG = [
+  {
+    id: 'emi', name: 'Digital EMI', icon: 'calendar-range', path: '/products/digital-emi', limitLabel: 'EMI limit per transaction',
+    pitch: 'Let credit card customers pay in 3–36 monthly instalments through partner banks.',
+    plans: [
+      { id: 'emi-5k', name: 'Starter', limit: 5000, fee: 500 },
+      { id: 'emi-10k', name: 'Standard', limit: 10000, fee: 900, recommended: true },
+      { id: 'emi-25k', name: 'Plus', limit: 25000, fee: 2000, review: true },
+    ],
+    terms: [
+      'EMI is available on credit cards of participating issuer banks only (Bangladesh Bank guideline).',
+      'The EMI charge for each tenure is shown to the customer before they pay.',
+      'If the bank declines the conversion, the customer is charged the full amount as a regular payment.',
+    ],
+  },
+  {
+    id: 'instant', name: 'Instant Settlement', icon: 'zap', path: '/settlements', limitLabel: 'Daily instant payout limit',
+    pitch: 'Get successful payments paid to your bank account the same day instead of T+1.',
+    plans: [
+      { id: 'ins-50k', name: 'Starter', limit: 50000, fee: 1000 },
+      { id: 'ins-100k', name: 'Standard', limit: 100000, fee: 1800, recommended: true },
+      { id: 'ins-250k', name: 'Plus', limit: 250000, fee: 4000, review: true },
+    ],
+    terms: [
+      'Payouts above the daily limit settle on the regular cycle.',
+      'Instant payouts go to the store\'s verified settlement bank account only.',
+      'Refunds and chargebacks may be adjusted against the next payout.',
+    ],
+  },
+];
+// Activations bought from the portal. EMI switched on earlier by work order shows as active from the store record.
+const SERVICE_ORDERS = [
+  { ref: `SVC${ymd(addDays(TODAY, -58))}${digits(4)}`, svc: 'instant', store: 'demo_dhanmondi', plan: 'ins-100k', date: addDays(TODAY, -58), status: 'Active', by: 'demo_merchant' },
+];
+
 // Old panel Merchant FAQ: lettered categories, one question per row (answers are short mock text).
 const FAQ_GROUPS = [
   ['Transaction Query', [
