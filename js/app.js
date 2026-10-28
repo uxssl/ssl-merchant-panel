@@ -65,6 +65,8 @@ function renderPage() {
     page.innerHTML = renderChargebacks();
   } else if (path === SETTLEMENT_PATH) {
     page.innerHTML = renderSettlements();
+  } else if (path === SETTLE_LIST_PATH) {
+    page.innerHTML = renderSettlementList();
   } else if (path === FY_PATH) {
     page.innerHTML = renderFinancialYear();
   } else if (path === LINKS_PATH) {
@@ -140,7 +142,7 @@ function renderPage() {
   if (NAV.find(n => n.key === 'analytics').pages.some(p => p.to === path)) {
     page.insertAdjacentHTML('afterbegin', `<a href="#${AN.home}" class="inline-flex items-center gap-1.5 mb-3 text-sm font-medium text-slate-500 hover:text-primary-600">${ic('arrow-left', 'w-4 h-4')}Analytics &amp; Reports</a>`);
   }
-  page.insertAdjacentHTML('afterbegin', path === SETTLEMENT_PATH ? settlementStatusBanner() : settlementBanner());
+  page.insertAdjacentHTML('afterbegin', [SETTLEMENT_PATH, SETTLE_LIST_PATH].includes(path) ? settlementStatusBanner() : settlementBanner());
   lucide.createIcons();
   fitTables(page);
   if (path === '/dashboard') mountDashboardCharts();
@@ -348,7 +350,7 @@ const actions = {
       return downloadCsv('escrow-hold-transactions', ['Transaction ID', 'Invoice ID', 'Store', 'Customer', 'Payment Date', 'Amount (BDT)', 'On Hold (days)', 'Hold Reason', 'Status'],
         escrowHoldRows(applied(pageState())).map(t => [t.id, t.invoiceId, t.storeName, t.customer, `${fmtDate(t.date)} ${fmtTime(t.date, true)}`, t.amount.toFixed(2), heldDays(t), holdStage(t).reason, 'ESCROW Hold']));
     }
-    if (path === SETTLEMENT_PATH) {
+    if (path === SETTLEMENT_PATH || path === SETTLE_LIST_PATH) {
       return downloadCsv('settlement-report',
         ['Settlement Date', 'Reference No', 'Batch No', 'Store', 'Settlement Type', 'Opening Amt', 'Payable Amt', 'Settle Amt', 'Paid Amt', 'Fwd Amt', 'Status', 'Bank', 'Account (masked)'],
         settlementRows(applied(pageState())).map(x => [`${fmtDate(x.date)} ${fmtTime(x.date)}`, x.ref, x.batch, x.storeName, x.type, x.opening.toFixed(2), x.payable.toFixed(2), x.settle.toFixed(2), x.paid.toFixed(2), x.fwd.toFixed(2), x.status, `${x.bank.bank} - ${x.bank.branch}`, x.bank.account]));

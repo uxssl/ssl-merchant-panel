@@ -189,7 +189,7 @@ function renderHeader() {
 }
 
 // Portal-wide alert: a store still takes payments but SSL has switched its settlement off.
-// `persistent` (Settlement Report) drops the close button, so the alert can't be hidden there.
+// `persistent` (Settlement Report and Settlements) drops the close button, so the alert can't be hidden there.
 function settlementBanner(persistent = false) {
   const stores = ACCOUNT_STORES.filter(st => st.status === 'Active' && SETTLEMENT_DISABLED.has(st.id));
   if (!stores.length || (!persistent && alertSnoozed('settlement-disabled'))) return '';

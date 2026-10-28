@@ -119,7 +119,7 @@ function unsettledSummaryCard() {
     </section>`;
 }
 
-// Settlement off or on hold blocks payouts, so on this page the alert sits above everything
+// Settlement off or on hold blocks payouts, so on the settlement pages the alert sits above everything
 // (back link included) and has no close button.
 function settlementStatusBanner() {
   const held = settlementRows(applied(pageState()), false).filter(x => x.status === 'On Hold');

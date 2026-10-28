@@ -9,6 +9,8 @@ const NAV = [
       { label: 'Transaction ID Tracking', to: '/transactions/tracking' },
     ]
   },
+  // Payouts as a day-by-day list; the detailed Settlement Report stays under Analytics & Reports.
+  { key: 'settlements', label: 'Settlements', icon: 'banknote', to: '/settlements' },
   {
     key: 'dispute', label: 'Dispute Management', icon: 'scale', children: [
       { label: 'Refund Requests', to: '/dispute/refund-requests' },
