@@ -16,7 +16,8 @@ const TXN_STATUS_OPTS = [
 ];
 const ISSUER_OPTS = [{ label: 'All Transactions', value: 'all' }, { label: 'Local Transaction', value: 'Local' }, { label: 'Foreign Transaction', value: 'Foreign' }];
 const EMI_OPTS = [{ label: 'All Transactions', value: 'all' }, { label: 'EMI Transactions', value: 'emi' }, { label: 'Without EMI Transactions', value: 'none' }];
-const txnPanels = { summary: true, symbols: false };
+// The gateway summary starts collapsed so the transaction list is the first thing on the page.
+const txnPanels = { summary: false, symbols: false };
 
 function baseTxns(s, view) {
   const q = s.search.trim().toLowerCase();
