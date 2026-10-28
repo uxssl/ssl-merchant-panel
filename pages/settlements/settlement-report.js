@@ -119,6 +119,24 @@ function unsettledSummaryCard() {
     </section>`;
 }
 
+// Settlement off or on hold blocks payouts, so on this page the alert sits above everything
+// (back link included) and has no close button.
+function settlementStatusBanner() {
+  const held = settlementRows(applied(pageState()), false).filter(x => x.status === 'On Hold');
+  const amount = held.reduce((t, x) => t + x.fwd, 0);
+  const hold = held.length ? `
+    <div role="alert" class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+      ${ic('circle-pause', 'w-4 h-4 shrink-0 text-rose-600')}
+      <p class="flex-1 min-w-[220px] text-xs text-rose-800">
+        <span class="text-sm font-semibold text-rose-900">${fmtBDT(amount)} is on hold across ${held.length} settlement${held.length > 1 ? 's' : ''}.</span>
+        Held amounts are forwarded to the store's next settlement once the issue is resolved. Check the bank account details or contact your KAM.
+      </p>
+      <button data-action="overview-status" data-value="On Hold" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('list-filter', 'w-3.5 h-3.5')}Show them</button>
+    </div>` : '';
+  const off = settlementBanner(true);
+  return off || hold ? `<div class="mb-3 space-y-2">${off}${hold}</div>` : '';
+}
+
 function renderSettlements() {
   const s = pageState();
   const base = settlementRows(applied(s), false);
@@ -162,17 +180,6 @@ function renderSettlements() {
           </div>
           <button data-action="overview-status" data-value="Bounced" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-orange-900 bg-white border border-orange-200 rounded-full hover:bg-orange-100">View bounced settlements</button>
           <span class="flex text-orange-800">${alertClose('settle-bounced')}</span>
-        </div>` : ''}
-
-      ${held.length && !alertSnoozed('settle-hold') ? `
-        <div class="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
-          <span class="w-8 h-8 rounded-full bg-white text-rose-600 flex items-center justify-center shrink-0 ring-1 ring-rose-200">${ic('circle-pause', 'w-4 h-4')}</span>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-rose-900">${fmtBDT(sum(held, 'fwd'))} is on hold across ${held.length} settlement${held.length > 1 ? 's' : ''}</p>
-            <p class="text-xs text-rose-800 mt-0.5">Held amounts are forwarded to the store's next settlement once the issue is resolved. Check the bank account details or contact your KAM.</p>
-          </div>
-          <button data-action="overview-status" data-value="On Hold" class="shrink-0 px-3 py-1.5 text-xs font-semibold text-rose-900 bg-white border border-rose-200 rounded-full hover:bg-rose-100">Show them</button>
-          <span class="flex text-rose-800">${alertClose('settle-hold')}</span>
         </div>` : ''}
 
       <div class="flex flex-col">

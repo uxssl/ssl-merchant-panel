@@ -189,17 +189,18 @@ function renderHeader() {
 }
 
 // Portal-wide alert: a store still takes payments but SSL has switched its settlement off.
-function settlementBanner() {
+// `persistent` (Settlement Report) drops the close button, so the alert can't be hidden there.
+function settlementBanner(persistent = false) {
   const stores = ACCOUNT_STORES.filter(st => st.status === 'Active' && SETTLEMENT_DISABLED.has(st.id));
-  if (!stores.length || alertSnoozed('settlement-disabled')) return '';
+  if (!stores.length || (!persistent && alertSnoozed('settlement-disabled'))) return '';
   return `
-    <div role="alert" class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+    <div role="alert" class="${persistent ? '' : 'mb-3 '}flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
       ${ic('circle-alert', 'w-4 h-4 shrink-0 text-rose-600')}
       <p class="flex-1 min-w-[220px] text-xs text-rose-800">
         <span class="text-sm font-semibold text-rose-900">Your settlement is currently disabled. Please contact your KAM.</span>
         Payments are still being accepted for ${stores.map(st => `<span class="font-medium">${esc(st.name)}</span>`).join(', ')}, but won't be paid out until settlement is enabled again.
       </p>
       <button data-action="open-contacts" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50">${ic('headset', 'w-3.5 h-3.5')}Contact KAM</button>
-      <span class="flex text-rose-700">${alertClose('settlement-disabled')}</span>
+      ${persistent ? '' : `<span class="flex text-rose-700">${alertClose('settlement-disabled')}</span>`}
     </div>`;
 }

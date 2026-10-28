@@ -140,7 +140,7 @@ function renderPage() {
   if (NAV.find(n => n.key === 'analytics').pages.some(p => p.to === path)) {
     page.insertAdjacentHTML('afterbegin', `<a href="#${AN.home}" class="inline-flex items-center gap-1.5 mb-3 text-sm font-medium text-slate-500 hover:text-primary-600">${ic('arrow-left', 'w-4 h-4')}Analytics &amp; Reports</a>`);
   }
-  page.insertAdjacentHTML('afterbegin', settlementBanner());
+  page.insertAdjacentHTML('afterbegin', path === SETTLEMENT_PATH ? settlementStatusBanner() : settlementBanner());
   lucide.createIcons();
   fitTables(page);
   if (path === '/dashboard') mountDashboardCharts();
