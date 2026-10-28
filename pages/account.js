@@ -286,6 +286,9 @@ function groupFormDrawer() {
 // ----- User Management (old panel "My Users") ------------------------
 const appRoleLabel = (v) => APP_ROLES.find(([k]) => k === v)?.[1] || '—';
 const userStatus = (s) => `<span class="${STATUS_BADGE} ${s === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}">${s === 'Active' ? 'Active' : 'De-active'}</span>`;
+// Locked = too many wrong passwords. The user can unlock it by resetting their password, or an admin can unlock it here.
+const lockedBadge = `<span class="${STATUS_BADGE} inline-flex items-center gap-1 bg-amber-50 text-amber-700">${ic('lock', 'w-3 h-3')}Locked</span>`;
+const isSelfUser = (u) => u.login === 'demo_merchant';
 
 function renderUsers() {
   const s = pageState();
@@ -302,10 +305,13 @@ function renderUsers() {
     { label: 'Email Address', cls: 'hidden lg:table-cell', cell: u => `<span class="text-xs">${esc(u.email)}</span>` },
     { label: 'Role', cell: u => `<span class="text-xs text-slate-700">${u.role}</span>` },
     { label: 'Allowed Store', cls: 'hidden xl:table-cell', cell: u => `<span class="text-xs text-slate-600">${esc(groupOf(u.group)?.name || '—')}</span>` },
-    { label: 'Status', cell: u => userStatus(u.status) },
+    { label: 'Status', cell: u => `<div class="flex flex-wrap gap-1">${userStatus(u.status)}${u.locked ? lockedBadge : ''}</div>` },
     { label: 'Action', cell: u => `<div class="flex items-center gap-1">
       ${rowAction('open-user', u.login, 'eye', 'Details', { title: `Details of ${u.login}` })}
       ${rowAction('edit-user', u.login, 'pencil', 'Update', { title: `Update ${u.login}` })}
+      ${isSelfUser(u) ? '' : u.locked
+        ? rowAction('user-unlock', u.login, 'lock-open', 'Unlock', { title: `Unlock ${u.login}` })
+        : rowAction('user-reset', u.login, 'key-round', 'Reset Password', { title: `Send ${u.login} a password reset link` })}
     </div>` },
   ];
   return `
@@ -336,10 +342,10 @@ function renderUsers() {
 
 function userDrawer(u) {
   const g = groupOf(u.group);
-  const isSelf = u.login === 'demo_merchant';
+  const isSelf = isSelfUser(u);
   return drawerShell({
     title: 'User Details',
-    sub: `<span class="font-mono text-xs">${esc(u.login)}</span>${userStatus(u.status)}`,
+    sub: `<span class="font-mono text-xs">${esc(u.login)}</span>${userStatus(u.status)}${u.locked ? lockedBadge : ''}`,
     body: `
       ${section('Login Information', detailList([
         ['User Login ID', `<span class="font-mono">${esc(u.login)}</span>`],
@@ -348,7 +354,10 @@ function userDrawer(u) {
         ['Allowed Store Groups', esc(g?.name || '')],
         ['Merchant App Role', appRoleLabel(u.appRole)],
         ['Status', userStatus(u.status)],
+        ['Sign-in', u.locked ? '<span class="text-amber-700">Locked after 5 wrong passwords</span>' : 'Not locked'],
+        ['Last Login', `${fmtDate(u.lastLogin)}, ${fmtTime(u.lastLogin)}`],
       ]))}
+      ${u.locked && !isSelf ? `<p class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">${ic('lock', 'w-4 h-4 shrink-0')}The user can unlock this themselves with Forgot password on the sign-in page, or you can unlock it now.</p>` : ''}
       ${section('Contact Information', detailList([
         ['Name', esc([u.first, u.middle, u.last].filter(Boolean).join(' '))],
         ['Email', esc(u.email)],
@@ -358,9 +367,27 @@ function userDrawer(u) {
         ['Added On', `${fmtDate(u.created)}, ${fmtTime(u.created)}`],
       ]))}
       ${g ? section('Stores this user can see', `<div class="flex flex-wrap gap-1.5">${g.stores.map(id => `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">${esc(accStore(id).name)}</span>`).join('')}</div>`) : ''}`,
-    footer: isSelf ? '<span class="text-xs text-slate-500">This is your own account — change your password from Change Password.</span>' : `
+    footer: isSelf ? `<span class="text-xs text-slate-500">This is your own account — use <a href="#${ACC.password}" class="text-primary-600 hover:underline">Change Password</a>, or Forgot password on the sign-in page.</span>` : `
       <button data-action="close-drawer" class="${BTN_SECONDARY}">Close</button>
+      ${u.locked ? `<button data-action="user-unlock" data-value="${u.login}" class="${BTN_SECONDARY}">${ic('lock-open', 'w-4 h-4')}Unlock</button>` : ''}
+      <button data-action="user-reset" data-value="${u.login}" class="${BTN_SECONDARY}">${ic('key-round', 'w-4 h-4')}Reset Password</button>
       <button data-action="edit-user" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('pencil', 'w-4 h-4')}Update</button>`,
+  });
+}
+
+// An admin never sees or picks the new password: the user gets a one-time link and sets it themselves.
+function userResetDrawer(u) {
+  return drawerShell({
+    title: 'Send password reset link?',
+    sub: `<span class="font-mono text-xs">${esc(u.login)}</span><span>${esc(u.name)}</span>`,
+    body: `
+      <p class="text-sm text-slate-700">We'll send a one-time reset link to the user's registered email <span class="font-medium">${esc(u.email)}</span> and mobile <span class="font-mono">${u.mobile}</span>.</p>
+      <ul class="space-y-2 text-sm text-slate-600">
+        ${['The link works once and expires in 30 minutes.', 'Their current password stops working now, and open sessions are signed out.', 'Setting the new password also unlocks the account.', 'You never see or set their new password.'].map(t => `<li class="flex items-start gap-2">${ic('check', 'w-4 h-4 mt-0.5 shrink-0 text-primary-600')}${t}</li>`).join('')}
+      </ul>`,
+    footer: `
+      <button data-action="close-drawer" class="${BTN_SECONDARY}">Cancel</button>
+      <button data-action="user-reset-confirm" data-value="${u.login}" class="${BTN_PRIMARY}">${ic('send', 'w-4 h-4')}Send reset link</button>`,
   });
 }
 
@@ -391,7 +418,7 @@ function userFormDrawer() {
         ${field('Email Address', inp('email', `type="email" placeholder="${edit ? esc(u.email) + ' (unchanged)' : 'name@company.com'}"`), { required: !edit, error: e.email })}
       </div>`)}
       ${section('Login Credentials', `<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        ${field('Login Name', inp('login', `autocomplete="off" ${edit ? 'disabled' : ''}`), { required: true, error: e.login, hint: edit ? '' : 'Letters, numbers and . _ @ - (4–50)' })}
+        ${field('Login Name', inp('login', `autocomplete="off" ${edit ? 'disabled' : ''}`), { required: true, error: e.login, hint: edit ? "Can't be changed — it's kept for the audit trail." : 'Letters, numbers and . _ @ - (4–50)' })}
         ${field('Login Password', inp('password', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.password, hint: edit ? 'Leave empty to keep the current password' : '' })}
         ${field('Confirm Password', inp('confirm', 'type="password" autocomplete="new-password"'), { required: !edit, error: e.confirm })}
         ${field('User Role', sel('role', USER_ROLES, 'Select Role'), { required: true, error: e.role })}
@@ -475,7 +502,8 @@ function renderChangePassword() {
             <p id="pw-meter-label" class="text-[11px] text-slate-500 mt-1">Strength: —</p>
           </div>
           ${pwField('pw-confirm', 'Confirm New Password', 'Confirm your new password')}
-          <div class="flex justify-end gap-2 pt-2">
+          <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
+            <a href="#${AUTH.forgotPw}" class="mr-auto text-xs font-medium text-primary-600 hover:underline">Forgot your current password?</a>
             <button data-action="pw-clear" class="${BTN_SECONDARY}">Clear</button>
             <button data-action="pw-save" class="${BTN_PRIMARY}">${ic('key-round', 'w-4 h-4')}Update Password</button>
           </div>

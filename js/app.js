@@ -154,6 +154,7 @@ function renderPage() {
 }
 
 function render() {
+  if (renderAuth()) return; // sign-in and recovery screens cover the portal
   const active = document.activeElement;
   const focusId = active?.id;
   const caret = active?.selectionStart;
@@ -553,6 +554,18 @@ const actions = {
   'open-user': (el) => { drawer = { kind: 'user', item: USERS.find(u => u.login === el.dataset.value) }; renderDrawer(); },
   'new-user': () => { userDraft = newUserDraft(); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
   'edit-user': (el) => { userDraft = newUserDraft(USERS.find(u => u.login === el.dataset.value)); formErrors = {}; drawer = { kind: 'user-new', item: null }; renderDrawer(); },
+  'user-reset': (el) => { drawer = { kind: 'user-reset', item: USERS.find(u => u.login === el.dataset.value) }; renderDrawer(); },
+  'user-reset-confirm': (el) => {
+    drawer = null; renderDrawer();
+    toast(`Reset link sent to ${el.dataset.value}'s registered email and mobile (prototype)`, 'success');
+  },
+  'user-unlock': (el) => {
+    const u = USERS.find(x => x.login === el.dataset.value);
+    u.locked = false;
+    if (drawer?.kind === 'user') renderDrawer();
+    render();
+    toast(`${u.login} is unlocked — they can sign in with their current password (prototype)`, 'success');
+  },
   'user-policy': () => { userDraft.showPolicy = !userDraft.showPolicy; renderDrawer(); },
   'save-user': () => {
     formErrors = validateUser();
@@ -838,6 +851,7 @@ const actions = {
     commitFilters(s);
     location.hash = '#/transactions/all';
   },
+  ...authActions,
 };
 
 document.addEventListener('click', (e) => {
@@ -981,12 +995,14 @@ document.addEventListener('change', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const t = e.target;
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!drawer) openHeaderMenu('search'); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); if (!drawer && !AUTH_SCREENS[currentPath()]) openHeaderMenu('search'); return; }
   if (t.id === 'global-search' && headerMenu === 'search') {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); moveSearchActive(e.key === 'ArrowDown' ? 1 : -1); return; }
     if (e.key === 'Enter') { e.preventDefault(); document.querySelector(`[data-search-item="${search.active}"]`)?.click(); return; }
   }
   if (e.key === 'Enter' && (t.id === 'txn-search' || t.id === 'list-search' || t.dataset?.filter)) { commitFilters(pageState()); render(); return; }
+  // Enter in a sign-in or recovery field presses that screen's main button.
+  if (e.key === 'Enter' && t.tagName === 'INPUT' && t.closest('#auth-root')) { e.preventDefault(); $('#auth-root button.w-full[data-action^="auth-"]')?.click(); return; }
   if (e.key === 'Enter' && t.dataset.track) { runTracking(); render(); return; }
   if (e.key === 'Enter' && t.id === 'refund-txn' && refundDraft) { e.preventDefault(); lookupRefundTxn(); renderDrawer(); return; }
   if (e.key === 'Enter' && t.id === 'mc-bin' && mcDraft) { e.preventDefault(); addMcBin(); return; }
@@ -1010,6 +1026,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('hashchange', () => {
+  if (AUTH_SCREENS[currentPath()]) resetAuthFlow();
   openDD = null; dtDraft = null; userMenuOpen = false; headerMenu = null; mobileNav = false;
   if (drawer) { drawerReturnFocus = null; closeDrawer(); }
   expanded = activeParent(currentPath());

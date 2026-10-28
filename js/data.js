@@ -661,7 +661,7 @@ const APP_ROLES = [['account_opening', 'Account Opening'], ['counter_user', 'Cou
 const USERS = [
   { login: 'demo_merchant', first: 'Demo', last: 'Admin', role: 'Merchant Admin', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -1), appRole: '' },
   { login: 'manager_dhanmondi', first: 'Store Manager', last: 'Dhanmondi', role: 'Merchant View and Settlement', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -2), appRole: 'counter_user' },
-  { login: 'manager_gulshan', first: 'Store Manager', last: 'Gulshan', role: 'QR Merchant Admin', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -5), appRole: 'counter_user' },
+  { login: 'manager_gulshan', first: 'Store Manager', last: 'Gulshan', role: 'QR Merchant Admin', group: 'G2', status: 'Active', lastLogin: addDays(NOW, -5), appRole: 'counter_user', locked: true },
   { login: 'accounts_team', first: 'Accounts', last: 'Team', role: 'Admin and Finance', group: 'G1', status: 'Active', lastLogin: addDays(NOW, -3), appRole: '' },
   { login: 'care_agent', first: 'Customer Care', last: 'Agent', role: 'Supports', group: 'G3', status: 'Active', lastLogin: addDays(NOW, -0.3), appRole: '' },
   { login: 'invoice_user', first: 'Invoice', last: 'User', role: 'Manage Invoice and View Reports', group: 'G3', status: 'Inactive', lastLogin: addDays(NOW, -40), appRole: '' },

@@ -180,7 +180,7 @@ function renderHeader() {
               <div class="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-4 px-1">
                 <span>Previous Login</span><span class="text-slate-700">${fmtDate(addDays(NOW, -1))} | 09:42 AM</span>
               </div>
-              <button data-action="toast" data-msg="Logout is disabled in the prototype." class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-all shadow-sm">${ic('log-out', 'w-4 h-4')}Logout</button>
+              <a href="#${AUTH.signIn}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-all shadow-sm">${ic('log-out', 'w-4 h-4')}Logout</a>
               <a href="#/account/change-password" class="block text-center text-[11px] text-slate-500 font-medium hover:text-primary-600 transition-colors w-full mt-4">Change Password</a>
             </div>
           </div>` : ''}
