@@ -63,42 +63,58 @@ function unsettledRows() {
   }).filter(r => r.txns || r.refunds || r.cbs);
 }
 
+// Each count rides under its amount, so the table reads left to right as a sum:
+// payable (after fees) − refunds − chargebacks = total payable.
+const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
 const UNSETTLED_COLS = [
-  { label: 'No. of Unsettled Trans', key: 'txns' },
-  { label: 'Unsettled Trans Amt', key: 'txnAmt', amt: true },
-  { label: 'Unsettled Payable', key: 'payable', amt: true, tint: 'bg-slate-100' },
-  { label: 'Currency Type', key: 'currency', text: true },
-  { label: 'No. of Unsettled Refund', key: 'refunds' },
-  { label: 'Unsettled Refund Amt', key: 'refundAmt', amt: true, tint: 'bg-amber-50' },
-  { label: 'No. of Unsettled Chargeback', key: 'cbs' },
-  { label: 'Unsettled Chargeback Amount', key: 'cbAmt', amt: true, tint: 'bg-amber-50' },
-  { label: 'Total Payable', key: 'total', amt: true, tint: 'bg-emerald-50', strong: true },
+  { label: 'Payments', title: 'Successful payments not settled yet', cell: r => [fmtAmt(r.txnAmt), plural(r.txns, 'transaction')] },
+  { label: 'Payable', title: 'Payments after gateway fees', cell: r => [fmtAmt(r.payable), r.txnAmt ? `fees −${fmtAmt(r.txnAmt - r.payable)}` : ''] },
+  { label: 'Refunds', title: 'Refunds deducted from this settlement', minus: true, cell: r => [r.refundAmt, plural(r.refunds, 'refund')] },
+  { label: 'Chargebacks', title: 'Chargebacks deducted from this settlement', minus: true, cell: r => [r.cbAmt, plural(r.cbs, 'chargeback')] },
 ];
 
 function unsettledTable() {
   const q = unsettledQ.trim().toLowerCase();
   const rows = unsettledRows().filter(r => !q || r.id.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
   if (!rows.length) return `<p class="text-sm text-slate-500 px-1 py-6 text-center">${q ? 'No store matches your search.' : 'Everything is settled — no unsettled amount right now.'}</p>`;
-  const cell = (c, v) => c.text ? v : c.amt ? fmtAmt(v) : v.toLocaleString();
+  const keys = ['txns', 'txnAmt', 'payable', 'refunds', 'refundAmt', 'cbs', 'cbAmt', 'total'];
   // Amounts in different currencies are never added together: one total row per currency.
   const totals = [...new Set(rows.map(r => r.currency))].map(cur => {
     const list = rows.filter(r => r.currency === cur);
-    return { name: `Total (${cur})`, currency: cur, ...Object.fromEntries(UNSETTLED_COLS.filter(c => !c.text).map(c => [c.key, list.reduce((n, r) => n + r[c.key], 0)])) };
+    return { currency: cur, ...Object.fromEntries(keys.map(k => [k, list.reduce((n, r) => n + r[k], 0)])) };
   });
-  const th = (c) => `<th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right leading-tight ${c.tint || ''} ${c.text ? '!text-left' : ''}">${c.label}</th>`;
-  const td = (c, r, foot) => `<td data-label="${esc(c.label)}" class="px-3 py-2 tabular-nums whitespace-nowrap ${c.text ? 'text-left' : 'text-right'} ${c.tint || ''} ${c.strong || foot ? 'font-semibold text-slate-900' : 'text-slate-700'}">${foot && c.text ? '' : cell(c, r[c.key])}</td>`;
+  const oneCurrency = totals.length === 1;
+  const amount = (c, r, foot) => {
+    const [v, sub] = c.cell(r);
+    const main = !c.minus ? v : v ? `<span class="text-rose-600">−${fmtAmt(v)}</span>` : '<span class="text-slate-300">—</span>';
+    return `<td data-label="${c.label}" class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+      <div class="${foot ? 'font-semibold text-slate-900' : 'text-slate-800'}">${main}</div>
+      ${sub && (!c.minus || v) ? `<div class="text-[11px] text-slate-500">${sub}</div>` : ''}
+    </td>`;
+  };
+  const total = (r, foot) => `<td data-label="Total payable" class="px-4 py-3 text-right tabular-nums whitespace-nowrap bg-emerald-50/60 ${foot ? 'text-base' : ''} font-semibold text-emerald-800">${fmtAmt(r.total)}${oneCurrency ? '' : `<span class="ml-1 text-[11px] font-medium text-emerald-700">${r.currency}</span>`}</td>`;
+  const th = (label, title, cls = 'text-right') => `<th scope="col" title="${title}" class="px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap ${cls}">${label}</th>`;
   return `
-    <div class="rounded-md border border-slate-200 overflow-hidden">
-      <table data-fit class="w-full text-left text-sm">
-        <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="h-10 px-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Store ID</th>${UNSETTLED_COLS.map(th).join('')}</tr></thead>
+    <div class="rounded-lg border border-slate-200 overflow-hidden">
+      <table data-fit class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200"><tr>
+          ${th('Store', 'Store name and ID', 'text-left')}${UNSETTLED_COLS.map(c => th(c.label, c.title)).join('')}${th('Total payable', 'Payable − refunds − chargebacks', 'text-right bg-emerald-50/60 !text-emerald-800')}
+        </tr></thead>
         <tbody class="divide-y divide-slate-100">
-          ${rows.map(r => `<tr><td data-label="" class="px-3 py-2"><div class="font-mono text-xs font-medium text-slate-800">${r.id}</div><div class="text-[11px] text-slate-500">${esc(r.name)}</div></td>${UNSETTLED_COLS.map(c => td(c, r)).join('')}</tr>`).join('')}
+          ${rows.map(r => `<tr class="hover:bg-slate-50/60">
+            <td data-label="" class="px-4 py-3">
+              <div class="font-medium text-slate-900 whitespace-nowrap">${esc(r.name)}</div>
+              <div class="font-mono text-[11px] text-slate-500">${r.id}${oneCurrency ? '' : ` · ${r.currency}`}</div>
+            </td>
+            ${UNSETTLED_COLS.map(c => amount(c, r)).join('')}${total(r)}
+          </tr>`).join('')}
         </tbody>
         <tfoot class="bg-slate-50 border-t border-slate-200">
-          ${totals.map(t => `<tr><td data-label="" class="px-3 py-2 font-semibold text-slate-900">${t.name}</td>${UNSETTLED_COLS.map(c => td(c, t, true)).join('')}</tr>`).join('')}
+          ${totals.map(t => `<tr><td data-label="" class="px-4 py-3 font-semibold text-slate-900">Total <span class="text-xs font-normal text-slate-500">${plural(rows.filter(r => r.currency === t.currency).length, 'store')} · ${t.currency}</span></td>${UNSETTLED_COLS.map(c => amount(c, t, true)).join('')}${total(t, true)}</tr>`).join('')}
         </tfoot>
       </table>
-    </div>`;
+    </div>
+    <p class="mt-2 text-[11px] text-slate-500">Total payable = Payable − Refunds − Chargebacks. ${oneCurrency ? `Amounts in ${totals[0].currency}.` : 'Each currency is totalled separately.'} If deductions are larger than the payable, the rest carries to the next settlement.</p>`;
 }
 
 function unsettledSummaryCard() {
