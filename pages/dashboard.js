@@ -144,7 +144,7 @@ function renderDashboard() {
   const escrowHeld = pendingDeliverables().length;
   const attention = [
     // Escrow money stays held until delivery is confirmed, so it leads the list while any is waiting.
-    { icon: 'wallet', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds currently on hold before release or settlement', value: escrowHeld, action: `data-action="go" data-value="${SUP.service}"`, priority: escrowHeld > 0 },
+    { icon: 'wallet', tone: 'text-amber-700 bg-amber-100', title: 'Escrow hold transactions', sub: 'Funds currently on hold before release or settlement', value: escrowHeld, action: `data-action="go" data-value="${ESCROW_HOLD_PATH}"`, priority: escrowHeld > 0 },
     { icon: 'circle-x', tone: 'text-rose-600 bg-rose-50', title: 'Failed transactions', sub: 'In the selected period', value: failedCount, action: `data-action="goto-txn" data-status="failed"` },
     { icon: 'clock', tone: 'text-amber-600 bg-amber-50', title: 'Pending transactions', sub: 'Waiting for provider confirmation', value: pendingCount, action: `data-action="goto-txn" data-status="pending"` },
     { icon: 'undo-2', tone: 'text-indigo-600 bg-indigo-50', title: 'Refund requests', sub: 'Open, in review or with the bank', value: REFUNDS.filter(r => REFUND_OPEN.has(r.status)).length, action: `data-action="goto-list" data-path="${REFUND_PATH}" data-status="pending"` },
@@ -156,6 +156,8 @@ function renderDashboard() {
   const toReview = attention.reduce((s, a) => s + a.value, 0);
   // Each action opens its create form straight away rather than the product's list.
   const quick = [
+    // Pinned first and lightly highlighted: merchants check payouts more often than they create products.
+    { icon: 'landmark', label: 'Settlement Report', hint: 'See payouts to your bank account', action: `data-action="go" data-value="${SETTLEMENT_PATH}"`, featured: true },
     { icon: 'link', label: 'Create Payment Link', hint: 'Share a link and get paid', action: 'data-action="new-link"' },
     { icon: 'qr-code', label: 'Generate Payment QR', hint: 'Bangla QR for a store and amount', action: 'data-action="quick-qr"' },
     { icon: 'file-text', label: 'Create Digital Invoice', hint: 'Bill a customer online', action: 'data-action="new-invoice"' },
@@ -238,7 +240,7 @@ function renderDashboard() {
                     <tr data-action="open-txn" data-value="${t.id}" class="hover:bg-slate-50 transition-colors cursor-pointer">
                       <td class="px-4 py-2">${txnCell('date', t)}</td>
                       <td class="px-4 py-2 hidden lg:table-cell"><span class="font-mono text-xs text-slate-800">${t.id}</span></td>
-                      <td class="px-4 py-2 hidden sm:table-cell">${txnCell('method', t)}</td>
+                      <td class="px-4 py-2 hidden sm:table-cell text-sm text-slate-700">${esc(t.method)}</td>
                       <td class="px-4 py-2 text-right">${txnCell('amount', t)}</td>
                       <td class="px-4 py-2">${badge(t.status)}</td>
                     </tr>`).join('') : `<tr><td colspan="5" class="h-24 text-center text-slate-500">No transactions in this period yet.</td></tr>`}
@@ -270,8 +272,8 @@ function renderDashboard() {
             ${dashHead('Quick Actions', 'Start a payment in a few clicks')}
             <div class="p-2 flex flex-col">
               ${quick.map(q => `
-                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-primary-50/60 transition-colors">
-                  <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic(q.icon, 'w-5 h-5 portal-icon-muted')}</span>
+                <button ${q.action} class="group w-full flex items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors ${q.featured ? 'bg-primary-50/70 hover:bg-primary-50 mb-1' : 'hover:bg-primary-50/60'}">
+                  <span class="w-8 h-8 flex items-center justify-center shrink-0">${ic(q.icon, `w-5 h-5 ${q.featured ? 'text-primary-600' : 'portal-icon-muted'}`)}</span>
                   <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-slate-800 truncate">${q.label}</span><span class="block text-xs text-slate-500 truncate">${q.hint}</span></span>
                   ${ic('chevron-right', 'w-4 h-4 text-slate-300 group-hover:text-primary-600 shrink-0 transition-colors')}
                 </button>`).join('')}

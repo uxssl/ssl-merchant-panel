@@ -107,6 +107,8 @@ function renderPage() {
     page.innerHTML = renderGeneralTickets();
   } else if (path === SUP.service) {
     page.innerHTML = renderServiceDelivery();
+  } else if (path === ESCROW_HOLD_PATH) {
+    page.innerHTML = renderEscrowHolds();
   } else if (path === ACC.storeList) {
     page.innerHTML = renderStoreList();
   } else if (path === ACC.groups) {
@@ -335,6 +337,10 @@ const actions = {
     if (path === EMI_PATH) {
       return downloadCsv('emi-requests', ['EMI Ref. Id', 'Requested On', 'Store', 'Transaction ID', 'TXN Amount', 'EMI Amount', 'Tenure', 'EMI Issuer Bank', 'Status', 'Bank Status'],
         emiRows(applied(pageState())).map(e => [e.ref, `${fmtDate(e.date)} ${fmtTime(e.date, true)}`, e.storeName, e.txn.id, e.txn.amount.toFixed(2), e.charge.toFixed(2), `${e.tenure} Months`, e.bank, e.status, e.bankStatus]));
+    }
+    if (path === ESCROW_HOLD_PATH) {
+      return downloadCsv('escrow-hold-transactions', ['Transaction ID', 'Invoice ID', 'Store', 'Customer', 'Payment Date', 'Amount (BDT)', 'On Hold (days)', 'Hold Reason', 'Status'],
+        escrowHoldRows(applied(pageState())).map(t => [t.id, t.invoiceId, t.storeName, t.customer, `${fmtDate(t.date)} ${fmtTime(t.date, true)}`, t.amount.toFixed(2), heldDays(t), holdStage(t).reason, 'ESCROW Hold']));
     }
     if (path === SETTLEMENT_PATH) {
       return downloadCsv('settlement-report',

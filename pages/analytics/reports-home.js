@@ -5,6 +5,13 @@ AN.home = '/analytics';
 
 // Each group has its own icon tint, so the categories read apart at a glance.
 const REPORT_GROUPS = [
+  // Settlement first: payouts are what merchants check most.
+  {
+    title: 'Settlement Reports', tone: 'bg-emerald-50 text-emerald-600', items: [
+      { icon: 'banknote', to: SETTLEMENT_PATH, title: 'Settlement Report', text: 'Payouts to your bank account, one per store per business day.' },
+      { icon: 'calendar-range', to: FY_PATH, title: 'Financial Year Report', text: 'Sales, fees and settlements for the Bangladesh financial year (Jul – Jun).' },
+    ],
+  },
   {
     title: 'Business Reports', tone: 'bg-primary-50 text-primary-600', items: [
       { icon: 'trending-up', to: AN.business, title: 'Business Analytics', text: 'Sales, transactions, success rate and repeat customers over time.' },
@@ -24,12 +31,6 @@ const REPORT_GROUPS = [
     title: 'Transaction Reports', tone: 'bg-amber-50 text-amber-600', items: [
       { icon: 'wallet', to: TXN_RPT.gpay, title: 'Google Pay Transaction Report', text: 'Google Pay payments per day — OTP based and direct.' },
       { icon: 'qr-code', to: TXN_RPT.bqr, title: 'Bangla QR Transaction Report', text: 'Bangla QR payments and amount per day.' },
-    ],
-  },
-  {
-    title: 'Settlement Reports', tone: 'bg-emerald-50 text-emerald-600', items: [
-      { icon: 'banknote', to: SETTLEMENT_PATH, title: 'Settlement Report', text: 'Payouts to your bank account, one per store per business day.' },
-      { icon: 'calendar-range', to: FY_PATH, title: 'Financial Year Report', text: 'Sales, fees and settlements for the Bangladesh financial year (Jul – Jun).' },
     ],
   },
 ];

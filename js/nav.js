@@ -19,6 +19,7 @@ const NAV = [
     // Escrow payments are held until delivery is confirmed; more escrow screens will sit here.
     key: 'escrow', label: 'Escrow Management', icon: 'package-check', children: [
       { label: 'Service Delivery', to: '/escrow/service-delivery' },
+      { label: 'Escrow Hold Transactions', to: '/escrow/hold-transactions' },
     ]
   },
   {
